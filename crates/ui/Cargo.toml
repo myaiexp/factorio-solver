@@ -3,6 +3,13 @@ name = "factorio-ui"
 version.workspace = true
 edition.workspace = true
 
+[[bin]]
+name = "factorio-ui"
+path = "src/main.rs"
+
 [dependencies]
 factorio-solver = { path = "../solver" }
+factorio-grid = { path = "../grid" }
+factorio-blueprint = { path = "../blueprint" }
+eframe = "0.33"
 egui = "0.33"
