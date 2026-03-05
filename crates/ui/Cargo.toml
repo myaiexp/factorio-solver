@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 factorio-solver = { path = "../solver" }
+egui = "0.33"
