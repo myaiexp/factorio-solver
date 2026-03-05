@@ -1,7 +1,8 @@
-use egui::Color32;
+use egui::{Color32, FontId, Pos2, Rect, Stroke, StrokeKind, Vec2};
 use factorio_blueprint::decode;
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
+use crate::colors::EntityCategory;
 use crate::viewport::ViewportTransform;
 
 // ── App state ──────────────────────────────────────────────────────────
@@ -91,13 +92,119 @@ impl FactorioApp {
         };
     }
 
-    /// Placeholder viewport renderer — paints a dark gray background.
-    /// Tasks 3 and 4 will fill this in with entity rendering and interaction.
+    /// Render the grid viewport with pan, zoom, grid lines, and entity drawing.
     fn render_viewport(&mut self, ui: &mut egui::Ui) {
-        let (rect, _response) =
-            ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
-        ui.painter()
-            .rect_filled(rect, 0.0, Color32::from_gray(40));
+        let (response, painter) =
+            ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
+        let rect = response.rect;
+        let screen_size = (rect.width(), rect.height());
+
+        // ── Pan: drag with primary or middle button ────────────────────
+        if response.dragged() {
+            let delta = response.drag_delta();
+            self.viewport.pan((delta.x, delta.y));
+        }
+
+        // ── Zoom: scroll wheel, anchored at mouse position ────────────
+        let scroll_delta = ui.input(|i| i.smooth_scroll_delta.y);
+        if scroll_delta != 0.0 {
+            // Convert mouse position to be relative to the viewport rect origin.
+            if let Some(mouse_abs) = ui.input(|i| i.pointer.hover_pos()) {
+                let mouse_rel = (mouse_abs.x - rect.left(), mouse_abs.y - rect.top());
+                let ticks = scroll_delta / 50.0;
+                let factor = 1.1_f32.powf(ticks);
+                self.viewport.zoom_at(mouse_rel, screen_size, factor);
+                self.viewport.zoom = self.viewport.zoom.clamp(2.0, 200.0);
+            }
+        }
+
+        // ── Background ────────────────────────────────────────────────
+        painter.rect_filled(rect, 0.0, Color32::from_gray(40));
+
+        // ── Grid lines (visible range only) ───────────────────────────
+        if self.show_grid_lines {
+            let (vw_min_x, vw_min_y, vw_max_x, vw_max_y) =
+                self.viewport.visible_world_rect(screen_size);
+            let grid_color = Color32::from_gray(60);
+            let grid_stroke = Stroke::new(0.5, grid_color);
+
+            let min_col = vw_min_x.floor() as i32;
+            let max_col = vw_max_x.ceil() as i32;
+            let min_row = vw_min_y.floor() as i32;
+            let max_row = vw_max_y.ceil() as i32;
+
+            // Vertical lines
+            for col in min_col..=max_col {
+                let screen_pos = self.viewport.world_to_screen((col as f32, 0.0), screen_size);
+                let x = rect.left() + screen_pos.0;
+                if x >= rect.left() && x <= rect.right() {
+                    painter.line_segment(
+                        [Pos2::new(x, rect.top()), Pos2::new(x, rect.bottom())],
+                        grid_stroke,
+                    );
+                }
+            }
+
+            // Horizontal lines
+            for row in min_row..=max_row {
+                let screen_pos = self.viewport.world_to_screen((0.0, row as f32), screen_size);
+                let y = rect.top() + screen_pos.1;
+                if y >= rect.top() && y <= rect.bottom() {
+                    painter.line_segment(
+                        [Pos2::new(rect.left(), y), Pos2::new(rect.right(), y)],
+                        grid_stroke,
+                    );
+                }
+            }
+        }
+
+        // ── Entity rendering ──────────────────────────────────────────
+        if let AppState::Loaded { ref grid, .. } = self.state {
+            let zoom = self.viewport.zoom;
+            let border_stroke = Stroke::new(1.0, Color32::from_gray(20));
+
+            for entity in grid.entities() {
+                let top_left_world = (entity.position.x as f32, entity.position.y as f32);
+                let top_left_screen =
+                    self.viewport.world_to_screen(top_left_world, screen_size);
+                let entity_w = entity.size.0 as f32 * zoom;
+                let entity_h = entity.size.1 as f32 * zoom;
+
+                let entity_rect = Rect::from_min_size(
+                    Pos2::new(
+                        rect.left() + top_left_screen.0,
+                        rect.top() + top_left_screen.1,
+                    ),
+                    Vec2::new(entity_w, entity_h),
+                );
+
+                // Cull: skip if entity rect doesn't intersect the painter rect.
+                if !rect.intersects(entity_rect) {
+                    continue;
+                }
+
+                let category = EntityCategory::from_prototype_name(entity.prototype_name);
+
+                // Filled rect with category color.
+                painter.rect_filled(entity_rect, 0.0, category.color());
+
+                // Dark border.
+                painter.rect_stroke(entity_rect, 0.0, border_stroke, StrokeKind::Outside);
+
+                // Label character when zoomed in enough.
+                if zoom > 20.0 {
+                    let font_size = (zoom * 0.5).clamp(8.0, 40.0);
+                    let label = category.label_char().to_string();
+                    painter.text(
+                        entity_rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        label,
+                        FontId::monospace(font_size),
+                        Color32::WHITE,
+                    );
+                }
+            }
+        }
     }
 }
 
