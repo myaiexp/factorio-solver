@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 factorio-blueprint = { path = "../blueprint" }
+thiserror = "2"
