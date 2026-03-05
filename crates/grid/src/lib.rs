@@ -1,4 +1,5 @@
 pub mod error;
+pub mod grid;
 pub mod prototype;
 pub mod types;
 
