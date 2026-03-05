@@ -1,0 +1,7 @@
+[package]
+name = "factorio-solver"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+factorio-templates = { path = "../templates" }

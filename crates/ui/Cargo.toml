@@ -1,0 +1,7 @@
+[package]
+name = "factorio-ui"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+factorio-solver = { path = "../solver" }

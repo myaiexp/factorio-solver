@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/blueprint",
+    "crates/grid",
+    "crates/templates",
+    "crates/solver",
+    "crates/ui",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"

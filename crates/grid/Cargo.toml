@@ -1,0 +1,7 @@
+[package]
+name = "factorio-grid"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+factorio-blueprint = { path = "../blueprint" }

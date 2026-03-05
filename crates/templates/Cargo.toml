@@ -1,0 +1,7 @@
+[package]
+name = "factorio-templates"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+factorio-grid = { path = "../grid" }
