@@ -70,6 +70,7 @@ static PROTOTYPES: &[EntityPrototype] = &[
     EntityPrototype { name: "substation", tile_width: 2, tile_height: 2 },
     // Misc
     EntityPrototype { name: "beacon", tile_width: 3, tile_height: 3 },
+    EntityPrototype { name: "small-lamp", tile_width: 1, tile_height: 1 },
     // Combinators
     EntityPrototype { name: "arithmetic-combinator", tile_width: 1, tile_height: 2 },
     EntityPrototype { name: "decider-combinator", tile_width: 1, tile_height: 2 },
