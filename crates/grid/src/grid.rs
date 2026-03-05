@@ -8,10 +8,12 @@ use crate::types::{CellState, EntityId, GridPos, PlacedEntity};
 
 // ── Grid ────────────────────────────────────────────────────────────────
 
+#[derive(Debug)]
 pub struct Grid {
     cells: HashMap<(i32, i32), CellState>,
     entities: Vec<Option<PlacedEntity>>,
     bounds: Option<(i32, i32, i32, i32)>, // (min_x, min_y, max_x, max_y)
+    live_count: usize,
 }
 
 impl Grid {
@@ -20,6 +22,7 @@ impl Grid {
             cells: HashMap::new(),
             entities: Vec::new(),
             bounds: None,
+            live_count: 0,
         }
     }
 
@@ -28,23 +31,21 @@ impl Grid {
             cells: HashMap::new(),
             entities: Vec::new(),
             bounds: Some((min_x, min_y, max_x, max_y)),
+            live_count: 0,
         }
     }
 
     // ── Core placement ──────────────────────────────────────────────
 
-    /// Check whether an entity can be placed at the given center position.
-    /// Returns `Ok(true)` if placement is valid, `Ok(false)` if a collision
-    /// would occur, or `Err` for unknown prototypes or out-of-bounds.
-    pub fn can_place(
+    /// Shared validation: resolve prototype, compute footprint, check bounds.
+    fn validate_placement(
         &self,
         prototype_name: &str,
         center: &Position,
         direction: Direction,
-    ) -> Result<bool, GridError> {
-        let proto = lookup(prototype_name).ok_or_else(|| {
-            GridError::UnknownPrototype(prototype_name.to_string())
-        })?;
+    ) -> Result<(&'static crate::prototype::EntityPrototype, i32, i32, u32, u32), GridError> {
+        let proto = lookup(prototype_name)
+            .ok_or_else(|| GridError::UnknownPrototype(prototype_name.to_string()))?;
 
         let (w, h) = effective_size(proto, direction);
         let (top_left_x, top_left_y) = center_to_topleft(center, w, h);
@@ -67,12 +68,24 @@ impl Grid {
             }
         }
 
-        // Collision check
+        Ok((proto, top_left_x, top_left_y, w, h))
+    }
+
+    /// Check whether an entity can be placed at the given center position.
+    /// Returns `Ok(true)` if placement is valid, `Ok(false)` if a collision
+    /// would occur, or `Err` for unknown prototypes or out-of-bounds.
+    pub fn can_place(
+        &self,
+        prototype_name: &str,
+        center: &Position,
+        direction: Direction,
+    ) -> Result<bool, GridError> {
+        let (_proto, top_left_x, top_left_y, w, h) =
+            self.validate_placement(prototype_name, center, direction)?;
+
         for dy in 0..h as i32 {
             for dx in 0..w as i32 {
-                let cx = top_left_x + dx;
-                let cy = top_left_y + dy;
-                if self.cells.contains_key(&(cx, cy)) {
+                if self.cells.contains_key(&(top_left_x + dx, top_left_y + dy)) {
                     return Ok(false);
                 }
             }
@@ -90,30 +103,8 @@ impl Grid {
         recipe: Option<String>,
         entity_type: Option<String>,
     ) -> Result<EntityId, GridError> {
-        let proto = lookup(prototype_name).ok_or_else(|| {
-            GridError::UnknownPrototype(prototype_name.to_string())
-        })?;
-
-        let (w, h) = effective_size(proto, direction);
-        let (top_left_x, top_left_y) = center_to_topleft(center, w, h);
-
-        // Bounds check
-        if let Some((min_x, min_y, max_x, max_y)) = self.bounds {
-            for dy in 0..h as i32 {
-                for dx in 0..w as i32 {
-                    let cx = top_left_x + dx;
-                    let cy = top_left_y + dy;
-                    if cx < min_x || cx > max_x || cy < min_y || cy > max_y {
-                        return Err(GridError::OutOfBounds {
-                            x: cx,
-                            y: cy,
-                            max_x,
-                            max_y,
-                        });
-                    }
-                }
-            }
-        }
+        let (proto, top_left_x, top_left_y, w, h) =
+            self.validate_placement(prototype_name, center, direction)?;
 
         // Collision check
         for dy in 0..h as i32 {
@@ -149,6 +140,7 @@ impl Grid {
             entity_type,
         };
         self.entities.push(Some(entity));
+        self.live_count += 1;
 
         // Occupy cells
         for dy in 0..h as i32 {
@@ -184,6 +176,7 @@ impl Grid {
 
         // Tombstone the slot
         self.entities[id.0] = None;
+        self.live_count -= 1;
 
         Ok(entity)
     }
@@ -212,7 +205,7 @@ impl Grid {
 
     /// Number of live entities on the grid.
     pub fn entity_count(&self) -> usize {
-        self.entities.iter().filter(|slot| slot.is_some()).count()
+        self.live_count
     }
 
     /// Number of occupied cells.

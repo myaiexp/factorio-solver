@@ -1,11 +1,12 @@
 use factorio_blueprint::Blueprint;
 
+use crate::error::GridError;
 use crate::grid::Grid;
-use crate::prototype::lookup;
 
 // ── Import result types ─────────────────────────────────────────────
 
 /// Result of importing a blueprint into a grid.
+#[derive(Debug)]
 pub struct ImportResult {
     /// The populated grid with all recognized entities placed.
     pub grid: Grid,
@@ -14,6 +15,7 @@ pub struct ImportResult {
 }
 
 /// An entity from the blueprint that was skipped during import.
+#[derive(Debug)]
 pub struct SkippedEntity {
     /// The entity_number from the blueprint.
     pub entity_number: u32,
@@ -38,17 +40,6 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
     let mut skipped = Vec::new();
 
     for entity in &blueprint.entities {
-        // Check if we know this prototype
-        if lookup(&entity.name).is_none() {
-            skipped.push(SkippedEntity {
-                entity_number: entity.entity_number,
-                name: entity.name.clone(),
-                reason: format!("unknown prototype: {}", entity.name),
-            });
-            continue;
-        }
-
-        // Attempt placement
         match grid.place(
             &entity.name,
             &entity.position,
@@ -57,11 +48,18 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
             entity.entity_type.clone(),
         ) {
             Ok(_) => {}
+            Err(GridError::UnknownPrototype(name)) => {
+                skipped.push(SkippedEntity {
+                    entity_number: entity.entity_number,
+                    name: entity.name.clone(),
+                    reason: format!("unknown prototype: {name}"),
+                });
+            }
             Err(e) => {
                 skipped.push(SkippedEntity {
                     entity_number: entity.entity_number,
                     name: entity.name.clone(),
-                    reason: format!("{}", e),
+                    reason: format!("{e}"),
                 });
             }
         }
