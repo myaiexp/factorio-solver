@@ -8,13 +8,21 @@ use crate::viewport::ViewportTransform;
 fn direction_name(dir: Direction) -> &'static str {
     match dir {
         Direction::North => "North",
-        Direction::NorthEast => "NorthEast",
+        Direction::NorthNorthEast => "NNE",
+        Direction::NorthEast => "NE",
+        Direction::EastNorthEast => "ENE",
         Direction::East => "East",
-        Direction::SouthEast => "SouthEast",
+        Direction::EastSouthEast => "ESE",
+        Direction::SouthEast => "SE",
+        Direction::SouthSouthEast => "SSE",
         Direction::South => "South",
-        Direction::SouthWest => "SouthWest",
+        Direction::SouthSouthWest => "SSW",
+        Direction::SouthWest => "SW",
+        Direction::WestSouthWest => "WSW",
         Direction::West => "West",
-        Direction::NorthWest => "NorthWest",
+        Direction::WestNorthWest => "WNW",
+        Direction::NorthWest => "NW",
+        Direction::NorthNorthWest => "NNW",
     }
 }
 
@@ -364,14 +372,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_direction_names() {
+    fn test_direction_names_cardinal() {
         assert_eq!(direction_name(Direction::North), "North");
-        assert_eq!(direction_name(Direction::NorthEast), "NorthEast");
         assert_eq!(direction_name(Direction::East), "East");
-        assert_eq!(direction_name(Direction::SouthEast), "SouthEast");
         assert_eq!(direction_name(Direction::South), "South");
-        assert_eq!(direction_name(Direction::SouthWest), "SouthWest");
         assert_eq!(direction_name(Direction::West), "West");
-        assert_eq!(direction_name(Direction::NorthWest), "NorthWest");
+    }
+
+    #[test]
+    fn test_direction_names_intercardinal() {
+        assert_eq!(direction_name(Direction::NorthEast), "NE");
+        assert_eq!(direction_name(Direction::SouthEast), "SE");
+        assert_eq!(direction_name(Direction::SouthWest), "SW");
+        assert_eq!(direction_name(Direction::NorthWest), "NW");
+        assert_eq!(direction_name(Direction::NorthNorthEast), "NNE");
+        assert_eq!(direction_name(Direction::EastSouthEast), "ESE");
     }
 }

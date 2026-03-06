@@ -153,7 +153,10 @@ fn test_assembler_setup() {
         .find(|e| e.name == "assembling-machine-2")
         .expect("should have an assembler");
     assert_eq!(assembler.recipe.as_deref(), Some("iron-gear-wheel"));
-    assert_eq!(assembler.direction, factorio_blueprint::Direction::East);
+    // This test blueprint was created with Factorio 1.x direction encoding
+    // (2 = East). In Factorio 2.0's 16-direction scheme, value 2 = NorthEast.
+    // The round-trip is faithful — the raw value is preserved.
+    assert_eq!(assembler.direction, factorio_blueprint::Direction::NorthEast);
 
     // Verify inserters are present with correct directions
     let inserters: Vec<_> = bp

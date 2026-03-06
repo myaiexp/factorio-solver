@@ -39,16 +39,26 @@ pub struct Icon {
 
 // ── Direction ─────────────────────────────────────────────────────────
 
+/// Factorio 2.0 uses 16 directions (0–15). Cardinal directions are at
+/// multiples of 4: North=0, East=4, South=8, West=12.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Direction {
     North = 0,
-    NorthEast = 1,
-    East = 2,
-    SouthEast = 3,
-    South = 4,
-    SouthWest = 5,
-    West = 6,
-    NorthWest = 7,
+    NorthNorthEast = 1,
+    NorthEast = 2,
+    EastNorthEast = 3,
+    East = 4,
+    EastSouthEast = 5,
+    SouthEast = 6,
+    SouthSouthEast = 7,
+    South = 8,
+    SouthSouthWest = 9,
+    SouthWest = 10,
+    WestSouthWest = 11,
+    West = 12,
+    WestNorthWest = 13,
+    NorthWest = 14,
+    NorthNorthWest = 15,
 }
 
 impl Default for Direction {
@@ -61,13 +71,21 @@ impl Direction {
     fn from_u8(v: u8) -> Option<Direction> {
         match v {
             0 => Some(Direction::North),
-            1 => Some(Direction::NorthEast),
-            2 => Some(Direction::East),
-            3 => Some(Direction::SouthEast),
-            4 => Some(Direction::South),
-            5 => Some(Direction::SouthWest),
-            6 => Some(Direction::West),
-            7 => Some(Direction::NorthWest),
+            1 => Some(Direction::NorthNorthEast),
+            2 => Some(Direction::NorthEast),
+            3 => Some(Direction::EastNorthEast),
+            4 => Some(Direction::East),
+            5 => Some(Direction::EastSouthEast),
+            6 => Some(Direction::SouthEast),
+            7 => Some(Direction::SouthSouthEast),
+            8 => Some(Direction::South),
+            9 => Some(Direction::SouthSouthWest),
+            10 => Some(Direction::SouthWest),
+            11 => Some(Direction::WestSouthWest),
+            12 => Some(Direction::West),
+            13 => Some(Direction::WestNorthWest),
+            14 => Some(Direction::NorthWest),
+            15 => Some(Direction::NorthNorthWest),
             _ => None,
         }
     }
@@ -240,12 +258,12 @@ mod tests {
     #[test]
     fn test_direction_serializes_as_u8() {
         let val = serde_json::to_value(Direction::East).unwrap();
-        assert_eq!(val, json!(2));
+        assert_eq!(val, json!(4));
     }
 
     #[test]
     fn test_direction_deserializes_from_u8() {
-        let dir: Direction = serde_json::from_value(json!(4)).unwrap();
+        let dir: Direction = serde_json::from_value(json!(8)).unwrap();
         assert_eq!(dir, Direction::South);
     }
 
@@ -262,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_direction_invalid_value_errors() {
-        let result = serde_json::from_value::<Direction>(json!(8));
+        let result = serde_json::from_value::<Direction>(json!(16));
         assert!(result.is_err());
 
         let result = serde_json::from_value::<Direction>(json!(255));
