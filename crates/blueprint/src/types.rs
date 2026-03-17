@@ -1,5 +1,6 @@
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
+use std::fmt;
 
 // ── Position ──────────────────────────────────────────────────────────
 
@@ -103,6 +104,30 @@ impl<'de> Deserialize<'de> for Direction {
         Direction::from_u8(v).ok_or_else(|| {
             serde::de::Error::custom(format!("invalid direction value: {v}"))
         })
+    }
+}
+
+impl fmt::Display for Direction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            Direction::North => "North",
+            Direction::NorthNorthEast => "NorthNorthEast",
+            Direction::NorthEast => "NorthEast",
+            Direction::EastNorthEast => "EastNorthEast",
+            Direction::East => "East",
+            Direction::EastSouthEast => "EastSouthEast",
+            Direction::SouthEast => "SouthEast",
+            Direction::SouthSouthEast => "SouthSouthEast",
+            Direction::South => "South",
+            Direction::SouthSouthWest => "SouthSouthWest",
+            Direction::SouthWest => "SouthWest",
+            Direction::WestSouthWest => "WestSouthWest",
+            Direction::West => "West",
+            Direction::WestNorthWest => "WestNorthWest",
+            Direction::NorthWest => "NorthWest",
+            Direction::NorthNorthWest => "NorthNorthWest",
+        };
+        write!(f, "{}", s)
     }
 }
 
