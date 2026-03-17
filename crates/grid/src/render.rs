@@ -1,4 +1,5 @@
 use crate::grid::Grid;
+use crate::EntityCategory;
 
 /// Map a prototype name to its single-character ASCII representation.
 ///
@@ -40,8 +41,8 @@ fn char_for_prototype(name: &str) -> char {
 
 /// Render the grid as ASCII art.
 ///
-/// Entity type is mapped to a single character per the mapping in
-/// [`char_for_prototype`]. Empty cells are rendered as '.'.
+/// Entity type is mapped to a single character using [`EntityCategory`].
+/// Empty cells are rendered as '.'.
 ///
 /// Returns an empty string if the grid contains no entities.
 pub fn render_ascii(grid: &Grid) -> String {
@@ -55,7 +56,9 @@ pub fn render_ascii(grid: &Grid) -> String {
     for y in min.y..=max.y {
         for x in min.x..=max.x {
             let ch = match grid.get_at(x, y) {
-                Some(entity) => char_for_prototype(entity.prototype_name),
+                Some(entity) => {
+                    EntityCategory::from_prototype_name(entity.prototype_name).label_char()
+                }
                 None => '.',
             };
             output.push(ch);
