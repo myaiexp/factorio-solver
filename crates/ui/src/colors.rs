@@ -19,6 +19,9 @@ pub enum EntityCategory {
     Beacon,
     Combinator,
     Lamp,
+    Chest,
+    Wall,
+    Turret,
     Unknown,
 }
 
@@ -55,6 +58,12 @@ impl EntityCategory {
             Self::Combinator
         } else if name.contains("lamp") {
             Self::Lamp
+        } else if name.contains("chest") {
+            Self::Chest
+        } else if name.contains("wall") || name.contains("gate") {
+            Self::Wall
+        } else if name.contains("turret") {
+            Self::Turret
         } else {
             Self::Unknown
         }
@@ -76,6 +85,9 @@ impl EntityCategory {
             Self::Beacon => Color32::from_rgb(0x93, 0x70, 0xDB),
             Self::Combinator => Color32::from_rgb(0xFA, 0x80, 0x72),
             Self::Lamp => Color32::from_rgb(0xFF, 0xFA, 0xCD),
+            Self::Chest => Color32::from_rgb(0x8B, 0x45, 0x13),
+            Self::Wall => Color32::from_rgb(0xA9, 0xA9, 0xA9),
+            Self::Turret => Color32::from_rgb(0x80, 0x00, 0x00),
             Self::Unknown => Color32::from_rgb(0x69, 0x69, 0x69),
         }
     }
@@ -96,6 +108,9 @@ impl EntityCategory {
             Self::Beacon => 'K',
             Self::Combinator => 'X',
             Self::Lamp => 'L',
+            Self::Chest => 'H',
+            Self::Wall => 'W',
+            Self::Turret => 'T',
             Self::Unknown => '?',
         }
     }
@@ -162,6 +177,30 @@ mod tests {
             EntityCategory::Lamp
         );
         assert_eq!(
+            EntityCategory::from_prototype_name("iron-chest"),
+            EntityCategory::Chest
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("steel-chest"),
+            EntityCategory::Chest
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("stone-wall"),
+            EntityCategory::Wall
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("gate"),
+            EntityCategory::Wall
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("gun-turret"),
+            EntityCategory::Turret
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("laser-turret"),
+            EntityCategory::Turret
+        );
+        assert_eq!(
             EntityCategory::from_prototype_name("something-modded"),
             EntityCategory::Unknown
         );
@@ -183,6 +222,9 @@ mod tests {
             EntityCategory::Beacon,
             EntityCategory::Combinator,
             EntityCategory::Lamp,
+            EntityCategory::Chest,
+            EntityCategory::Wall,
+            EntityCategory::Turret,
             EntityCategory::Unknown,
         ];
         let colors: Vec<_> = categories.iter().map(|c| c.color()).collect();
