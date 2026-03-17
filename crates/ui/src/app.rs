@@ -207,9 +207,10 @@ impl FactorioApp {
         }
 
         // ── Hover tooltip ──────────────────────────────────────────────
-        if let AppState::Loaded { ref grid, .. } = self.state {
-            if let Some(mouse_abs) = ui.input(|i| i.pointer.hover_pos()) {
-                if rect.contains(mouse_abs) {
+        if let AppState::Loaded { ref grid, .. } = self.state
+            && let Some(mouse_abs) = ui.input(|i| i.pointer.hover_pos())
+            && rect.contains(mouse_abs)
+        {
                     let mouse_rel = (mouse_abs.x - rect.left(), mouse_abs.y - rect.top());
                     let world = self.viewport.screen_to_world(mouse_rel, screen_size);
                     let cell_x = world.0.floor() as i32;
@@ -248,13 +249,12 @@ impl FactorioApp {
                             });
                     }
                 }
-            }
-        }
 
         // ── Home key: re-fit viewport to grid bounds ───────────────────
-        if ui.input(|i| i.key_pressed(egui::Key::Home)) {
-            if let AppState::Loaded { ref grid, .. } = self.state {
-                if let Some((min, max)) = grid.bounding_box() {
+        if ui.input(|i| i.key_pressed(egui::Key::Home))
+            && let AppState::Loaded { ref grid, .. } = self.state
+            && let Some((min, max)) = grid.bounding_box()
+        {
                     self.viewport.fit_to_bounds(
                         (min.x as f32, min.y as f32),
                         (max.x as f32, max.y as f32),
@@ -262,8 +262,6 @@ impl FactorioApp {
                         2.0,
                     );
                 }
-            }
-        }
     }
 }
 

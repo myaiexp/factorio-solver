@@ -248,12 +248,11 @@ impl Grid {
             for dx in -radius..=radius {
                 let cx = center.x + dx;
                 let cy = center.y + dy;
-                if let Some(CellState::Occupied { entity_id }) = self.cells.get(&(cx, cy)) {
-                    if seen.insert(*entity_id) {
-                        if let Some(entity) = self.entities[entity_id.0].as_ref() {
-                            result.push(entity);
-                        }
-                    }
+                if let Some(CellState::Occupied { entity_id }) = self.cells.get(&(cx, cy))
+                    && seen.insert(*entity_id)
+                    && let Some(entity) = self.entities[entity_id.0].as_ref()
+                {
+                    result.push(entity);
                 }
             }
         }
