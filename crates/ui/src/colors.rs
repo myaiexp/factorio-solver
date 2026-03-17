@@ -22,6 +22,10 @@ pub enum EntityCategory {
     Chest,
     Wall,
     Turret,
+    Mining,
+    Power,
+    Logistics,
+    StorageTank,
     Unknown,
 }
 
@@ -64,6 +68,25 @@ impl EntityCategory {
             Self::Wall
         } else if name.contains("turret") {
             Self::Turret
+        } else if name.contains("drill") || name.contains("pumpjack") {
+            Self::Mining
+        } else if name.contains("solar")
+            || name.contains("accumulator")
+            || name.contains("boiler")
+            || name.contains("steam-engine")
+            || name.contains("reactor")
+            || name.contains("heat")
+        {
+            Self::Power
+        } else if name.contains("roboport")
+            || name.contains("lab")
+            || name.contains("radar")
+            || name.contains("rocket-silo")
+            || name.contains("train-stop")
+        {
+            Self::Logistics
+        } else if name.contains("storage-tank") {
+            Self::StorageTank
         } else {
             Self::Unknown
         }
@@ -88,6 +111,10 @@ impl EntityCategory {
             Self::Chest => Color32::from_rgb(0x8B, 0x45, 0x13),
             Self::Wall => Color32::from_rgb(0xA9, 0xA9, 0xA9),
             Self::Turret => Color32::from_rgb(0x80, 0x00, 0x00),
+            Self::Mining => Color32::from_rgb(0xFF, 0xC0, 0xCB),
+            Self::Power => Color32::from_rgb(0xFF, 0xD7, 0x00),
+            Self::Logistics => Color32::from_rgb(0xFF, 0x69, 0xB4),
+            Self::StorageTank => Color32::from_rgb(0x48, 0x3D, 0x8B),
             Self::Unknown => Color32::from_rgb(0x69, 0x69, 0x69),
         }
     }
@@ -111,6 +138,10 @@ impl EntityCategory {
             Self::Chest => 'H',
             Self::Wall => 'W',
             Self::Turret => 'T',
+            Self::Mining => 'M',
+            Self::Power => 'G',
+            Self::Logistics => 'O',
+            Self::StorageTank => 'N',
             Self::Unknown => '?',
         }
     }
@@ -201,6 +232,66 @@ mod tests {
             EntityCategory::Turret
         );
         assert_eq!(
+            EntityCategory::from_prototype_name("burner-mining-drill"),
+            EntityCategory::Mining
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("electric-mining-drill"),
+            EntityCategory::Mining
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("pumpjack"),
+            EntityCategory::Mining
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("solar-panel"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("accumulator"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("boiler"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("steam-engine"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("nuclear-reactor"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("heat-exchanger"),
+            EntityCategory::Power
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("roboport"),
+            EntityCategory::Logistics
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("lab"),
+            EntityCategory::Logistics
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("radar"),
+            EntityCategory::Logistics
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("rocket-silo"),
+            EntityCategory::Logistics
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("train-stop"),
+            EntityCategory::Logistics
+        );
+        assert_eq!(
+            EntityCategory::from_prototype_name("storage-tank"),
+            EntityCategory::StorageTank
+        );
+        assert_eq!(
             EntityCategory::from_prototype_name("something-modded"),
             EntityCategory::Unknown
         );
@@ -225,6 +316,10 @@ mod tests {
             EntityCategory::Chest,
             EntityCategory::Wall,
             EntityCategory::Turret,
+            EntityCategory::Mining,
+            EntityCategory::Power,
+            EntityCategory::Logistics,
+            EntityCategory::StorageTank,
             EntityCategory::Unknown,
         ];
         let colors: Vec<_> = categories.iter().map(|c| c.color()).collect();
