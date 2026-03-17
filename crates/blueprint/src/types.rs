@@ -90,6 +90,30 @@ impl Direction {
             _ => None,
         }
     }
+
+    /// Returns the opposite direction (180 degree rotation).
+    /// North ↔ South, East ↔ West, etc.
+    pub fn opposite(&self) -> Self {
+        let v = (*self as u8) ^ 8;
+        Direction::from_u8(v).unwrap()
+    }
+
+    /// Rotates the direction clockwise by one step (22.5 degrees).
+    pub fn rotate_cw(&self) -> Self {
+        let v = (*self as u8 + 1) % 16;
+        Direction::from_u8(v).unwrap()
+    }
+
+    /// Rotates the direction counter-clockwise by one step (22.5 degrees).
+    pub fn rotate_ccw(&self) -> Self {
+        let v = (*self as u8 + 15) % 16;
+        Direction::from_u8(v).unwrap()
+    }
+
+    /// Returns true if this is a cardinal direction (North, East, South, or West).
+    pub fn is_cardinal(&self) -> bool {
+        (*self as u8) % 4 == 0
+    }
 }
 
 impl Serialize for Direction {
@@ -310,6 +334,62 @@ mod tests {
 
         let result = serde_json::from_value::<Direction>(json!(255));
         assert!(result.is_err());
+    }
+
+    // Direction utility method tests
+
+    #[test]
+    fn test_direction_opposite() {
+        assert_eq!(Direction::North.opposite(), Direction::South);
+        assert_eq!(Direction::East.opposite(), Direction::West);
+        assert_eq!(Direction::South.opposite(), Direction::North);
+        assert_eq!(Direction::West.opposite(), Direction::East);
+        assert_eq!(Direction::NorthEast.opposite(), Direction::SouthWest);
+        assert_eq!(Direction::SouthWest.opposite(), Direction::NorthEast);
+    }
+
+    #[test]
+    fn test_direction_rotate_cw() {
+        assert_eq!(Direction::North.rotate_cw(), Direction::NorthNorthEast);
+        assert_eq!(Direction::NorthNorthEast.rotate_cw(), Direction::NorthEast);
+        assert_eq!(Direction::East.rotate_cw(), Direction::EastSouthEast);
+        assert_eq!(Direction::NorthNorthWest.rotate_cw(), Direction::North);
+    }
+
+    #[test]
+    fn test_direction_rotate_ccw() {
+        assert_eq!(Direction::North.rotate_ccw(), Direction::NorthNorthWest);
+        assert_eq!(Direction::NorthNorthEast.rotate_ccw(), Direction::North);
+        assert_eq!(Direction::East.rotate_ccw(), Direction::EastNorthEast);
+        assert_eq!(Direction::South.rotate_ccw(), Direction::SouthSouthEast);
+    }
+
+    #[test]
+    fn test_direction_rotate_full_circle() {
+        let mut dir = Direction::North;
+        for _ in 0..16 {
+            dir = dir.rotate_cw();
+        }
+        assert_eq!(dir, Direction::North);
+
+        let mut dir = Direction::East;
+        for _ in 0..16 {
+            dir = dir.rotate_ccw();
+        }
+        assert_eq!(dir, Direction::East);
+    }
+
+    #[test]
+    fn test_direction_is_cardinal() {
+        assert!(Direction::North.is_cardinal());
+        assert!(Direction::East.is_cardinal());
+        assert!(Direction::South.is_cardinal());
+        assert!(Direction::West.is_cardinal());
+
+        assert!(!Direction::NorthNorthEast.is_cardinal());
+        assert!(!Direction::NorthEast.is_cardinal());
+        assert!(!Direction::EastNorthEast.is_cardinal());
+        assert!(!Direction::SouthWest.is_cardinal());
     }
 
     // Entity tests
