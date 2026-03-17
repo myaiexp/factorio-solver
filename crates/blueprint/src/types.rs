@@ -135,21 +135,21 @@ impl fmt::Display for Direction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
             Direction::North => "North",
-            Direction::NorthNorthEast => "NorthNorthEast",
-            Direction::NorthEast => "NorthEast",
-            Direction::EastNorthEast => "EastNorthEast",
+            Direction::NorthNorthEast => "NNE",
+            Direction::NorthEast => "NE",
+            Direction::EastNorthEast => "ENE",
             Direction::East => "East",
-            Direction::EastSouthEast => "EastSouthEast",
-            Direction::SouthEast => "SouthEast",
-            Direction::SouthSouthEast => "SouthSouthEast",
+            Direction::EastSouthEast => "ESE",
+            Direction::SouthEast => "SE",
+            Direction::SouthSouthEast => "SSE",
             Direction::South => "South",
-            Direction::SouthSouthWest => "SouthSouthWest",
-            Direction::SouthWest => "SouthWest",
-            Direction::WestSouthWest => "WestSouthWest",
+            Direction::SouthSouthWest => "SSW",
+            Direction::SouthWest => "SW",
+            Direction::WestSouthWest => "WSW",
             Direction::West => "West",
-            Direction::WestNorthWest => "WestNorthWest",
-            Direction::NorthWest => "NorthWest",
-            Direction::NorthNorthWest => "NorthNorthWest",
+            Direction::WestNorthWest => "WNW",
+            Direction::NorthWest => "NW",
+            Direction::NorthNorthWest => "NNW",
         };
         write!(f, "{}", s)
     }

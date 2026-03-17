@@ -1,30 +1,9 @@
 use egui::{Color32, FontId, Pos2, Rect, Stroke, StrokeKind, Vec2};
-use factorio_blueprint::{decode, Direction};
+use factorio_blueprint::decode;
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
 use crate::colors::EntityCategory;
 use crate::viewport::ViewportTransform;
-
-fn direction_name(dir: Direction) -> &'static str {
-    match dir {
-        Direction::North => "North",
-        Direction::NorthNorthEast => "NNE",
-        Direction::NorthEast => "NE",
-        Direction::EastNorthEast => "ENE",
-        Direction::East => "East",
-        Direction::EastSouthEast => "ESE",
-        Direction::SouthEast => "SE",
-        Direction::SouthSouthEast => "SSE",
-        Direction::South => "South",
-        Direction::SouthSouthWest => "SSW",
-        Direction::SouthWest => "SW",
-        Direction::WestSouthWest => "WSW",
-        Direction::West => "West",
-        Direction::WestNorthWest => "WNW",
-        Direction::NorthWest => "NW",
-        Direction::NorthNorthWest => "NNW",
-    }
-}
 
 // ── App state ──────────────────────────────────────────────────────────
 
@@ -257,7 +236,7 @@ impl FactorioApp {
                                     ));
                                     ui.label(format!(
                                         "Direction: {}",
-                                        direction_name(entity.direction)
+                                        entity.direction
                                     ));
                                     if let Some(ref recipe) = entity.recipe {
                                         ui.label(format!("Recipe: {recipe}"));
@@ -369,23 +348,5 @@ impl eframe::App for FactorioApp {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
-    #[test]
-    fn test_direction_names_cardinal() {
-        assert_eq!(direction_name(Direction::North), "North");
-        assert_eq!(direction_name(Direction::East), "East");
-        assert_eq!(direction_name(Direction::South), "South");
-        assert_eq!(direction_name(Direction::West), "West");
-    }
-
-    #[test]
-    fn test_direction_names_intercardinal() {
-        assert_eq!(direction_name(Direction::NorthEast), "NE");
-        assert_eq!(direction_name(Direction::SouthEast), "SE");
-        assert_eq!(direction_name(Direction::SouthWest), "SW");
-        assert_eq!(direction_name(Direction::NorthWest), "NW");
-        assert_eq!(direction_name(Direction::NorthNorthEast), "NNE");
-        assert_eq!(direction_name(Direction::EastSouthEast), "ESE");
-    }
+    // UI-specific tests can be added here as needed
 }
