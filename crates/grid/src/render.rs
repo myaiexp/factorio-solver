@@ -4,9 +4,12 @@ use crate::grid::Grid;
 ///
 /// B=belt, I=inserter, A=assembler, F=furnace, S=splitter,
 /// U=underground belt, P=pipe, E=electric pole, C=chemical plant,
-/// R=refinery, K=beacon, X=combinator, L=lamp, ?=unknown
+/// R=refinery, K=beacon, X=combinator, L=lamp, H=chest, W=wall,
+/// T=turret, M=mining, G=power, O=logistics, N=storage tank, ?=unknown
 fn char_for_prototype(name: &str) -> char {
     // Order matters: check more specific patterns before general ones.
+    // Matching order is identical to EntityCategory::from_prototype_name
+    // in crates/ui/src/colors.rs
     if name.contains("underground") {
         'U'
     } else if name.contains("splitter") {
@@ -33,6 +36,31 @@ fn char_for_prototype(name: &str) -> char {
         'X'
     } else if name.contains("lamp") {
         'L'
+    } else if name.contains("chest") {
+        'H'
+    } else if name.contains("wall") || name.contains("gate") {
+        'W'
+    } else if name.contains("turret") {
+        'T'
+    } else if name.contains("drill") || name.contains("pumpjack") {
+        'M'
+    } else if name.contains("solar")
+        || name.contains("accumulator")
+        || name.contains("boiler")
+        || name.contains("steam-engine")
+        || name.contains("reactor")
+        || name.contains("heat")
+    {
+        'G'
+    } else if name.contains("roboport")
+        || name.contains("lab")
+        || name.contains("radar")
+        || name.contains("rocket-silo")
+        || name.contains("train-stop")
+    {
+        'O'
+    } else if name.contains("storage-tank") {
+        'N'
     } else {
         '?'
     }
@@ -247,6 +275,56 @@ mod tests {
         assert_eq!(char_for_prototype("arithmetic-combinator"), 'X');
         assert_eq!(char_for_prototype("decider-combinator"), 'X');
         assert_eq!(char_for_prototype("constant-combinator"), 'X');
+    }
+
+    #[test]
+    fn test_char_mapping_chests() {
+        assert_eq!(char_for_prototype("iron-chest"), 'H');
+        assert_eq!(char_for_prototype("steel-chest"), 'H');
+        assert_eq!(char_for_prototype("wooden-chest"), 'H');
+    }
+
+    #[test]
+    fn test_char_mapping_walls() {
+        assert_eq!(char_for_prototype("stone-wall"), 'W');
+        assert_eq!(char_for_prototype("gate"), 'W');
+    }
+
+    #[test]
+    fn test_char_mapping_turrets() {
+        assert_eq!(char_for_prototype("gun-turret"), 'T');
+        assert_eq!(char_for_prototype("laser-turret"), 'T');
+    }
+
+    #[test]
+    fn test_char_mapping_mining() {
+        assert_eq!(char_for_prototype("burner-mining-drill"), 'M');
+        assert_eq!(char_for_prototype("electric-mining-drill"), 'M');
+        assert_eq!(char_for_prototype("pumpjack"), 'M');
+    }
+
+    #[test]
+    fn test_char_mapping_power() {
+        assert_eq!(char_for_prototype("solar-panel"), 'G');
+        assert_eq!(char_for_prototype("accumulator"), 'G');
+        assert_eq!(char_for_prototype("boiler"), 'G');
+        assert_eq!(char_for_prototype("steam-engine"), 'G');
+        assert_eq!(char_for_prototype("nuclear-reactor"), 'G');
+        assert_eq!(char_for_prototype("heat-exchanger"), 'G');
+    }
+
+    #[test]
+    fn test_char_mapping_logistics() {
+        assert_eq!(char_for_prototype("roboport"), 'O');
+        assert_eq!(char_for_prototype("lab"), 'O');
+        assert_eq!(char_for_prototype("radar"), 'O');
+        assert_eq!(char_for_prototype("rocket-silo"), 'O');
+        assert_eq!(char_for_prototype("train-stop"), 'O');
+    }
+
+    #[test]
+    fn test_char_mapping_storage_tank() {
+        assert_eq!(char_for_prototype("storage-tank"), 'N');
     }
 
     #[test]

@@ -1,10 +1,10 @@
 {
   "active": true,
   "spec": "003-expand-entitycategory-to-cover-all-registered-prot",
-  "state": "planning",
+  "state": "building",
   "subtasks": {
-    "completed": 0,
-    "total": 0,
+    "completed": 2,
+    "total": 4,
     "in_progress": 1,
     "failed": 0
   },
@@ -18,8 +18,8 @@
     "max": 1
   },
   "session": {
-    "number": 2,
+    "number": 4,
     "started_at": "2026-03-17T17:52:06.696677"
   },
-  "last_update": "2026-03-17T17:57:14.465358"
+  "last_update": "2026-03-17T18:05:46.301001"
 }
