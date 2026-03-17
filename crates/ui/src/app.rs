@@ -2,7 +2,7 @@ use egui::{Color32, FontId, Pos2, Rect, Stroke, StrokeKind, Vec2};
 use factorio_blueprint::{decode, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
-use crate::colors::EntityCategory;
+use crate::colors::{EntityCategory, EntityCategoryExt};
 use crate::viewport::ViewportTransform;
 
 fn direction_name(dir: Direction) -> &'static str {
