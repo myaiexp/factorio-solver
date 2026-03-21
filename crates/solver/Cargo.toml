@@ -5,3 +5,4 @@ edition.workspace = true
 
 [dependencies]
 factorio-templates = { path = "../templates" }
+thiserror = "2"

@@ -144,6 +144,138 @@ mod tests {
         assert_eq!(data, decoded);
     }
 
+    // ── Regression tests: round-trip fidelity for circuit network fields ─
+
+    #[test]
+    fn test_roundtrip_entity_connections() {
+        use crate::types::Direction;
+
+        let connections_val =
+            serde_json::json!({"1": {"red": [{"entity_id": 2, "circuit_id": 1}]}});
+
+        let data = BlueprintData {
+            blueprint: Some(Blueprint {
+                item: "blueprint".to_string(),
+                label: None,
+                label_color: None,
+                description: None,
+                icons: None,
+                entities: vec![Entity {
+                    entity_number: 1,
+                    name: "arithmetic-combinator".to_string(),
+                    position: Position { x: 0.5, y: 0.0 },
+                    direction: Direction::North,
+                    entity_type: None,
+                    recipe: None,
+                    connections: Some(connections_val.clone()),
+                    control_behavior: None,
+                    items: None,
+                    wires: None,
+                    tags: None,
+                    extra: HashMap::new(),
+                }],
+                tiles: vec![],
+                wires: None,
+                schedules: None,
+                snap_to_grid: None,
+                absolute_snapping: None,
+                position_relative_to_grid: None,
+                version: 281479275675648,
+                extra: HashMap::new(),
+            }),
+            blueprint_book: None,
+        };
+
+        let encoded = encode(&data).unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        let entity = &decoded.blueprint.unwrap().entities[0];
+        assert_eq!(entity.connections, Some(connections_val));
+    }
+
+    #[test]
+    fn test_roundtrip_blueprint_wires() {
+        let wires_val = serde_json::json!([[1, 1, 2, 1, 1]]);
+
+        let data = BlueprintData {
+            blueprint: Some(Blueprint {
+                item: "blueprint".to_string(),
+                label: None,
+                label_color: None,
+                description: None,
+                icons: None,
+                entities: vec![],
+                tiles: vec![],
+                wires: Some(wires_val.clone()),
+                schedules: None,
+                snap_to_grid: None,
+                absolute_snapping: None,
+                position_relative_to_grid: None,
+                version: 281479275675648,
+                extra: HashMap::new(),
+            }),
+            blueprint_book: None,
+        };
+
+        let encoded = encode(&data).unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        assert_eq!(decoded.blueprint.unwrap().wires, Some(wires_val));
+    }
+
+    #[test]
+    fn test_roundtrip_control_behavior() {
+        use crate::types::Direction;
+
+        let cb_val = serde_json::json!({
+            "circuit_condition": {
+                "first_signal": {"name": "iron-ore", "type": "item"},
+                "comparator": ">",
+                "constant": 100
+            },
+            "circuit_enable_disable": true
+        });
+
+        let data = BlueprintData {
+            blueprint: Some(Blueprint {
+                item: "blueprint".to_string(),
+                label: None,
+                label_color: None,
+                description: None,
+                icons: None,
+                entities: vec![Entity {
+                    entity_number: 1,
+                    name: "inserter".to_string(),
+                    position: Position { x: 0.5, y: 0.5 },
+                    direction: Direction::North,
+                    entity_type: None,
+                    recipe: None,
+                    connections: None,
+                    control_behavior: Some(cb_val.clone()),
+                    items: None,
+                    wires: None,
+                    tags: None,
+                    extra: HashMap::new(),
+                }],
+                tiles: vec![],
+                wires: None,
+                schedules: None,
+                snap_to_grid: None,
+                absolute_snapping: None,
+                position_relative_to_grid: None,
+                version: 281479275675648,
+                extra: HashMap::new(),
+            }),
+            blueprint_book: None,
+        };
+
+        let encoded = encode(&data).unwrap();
+        let decoded = decode(&encoded).unwrap();
+
+        let entity = &decoded.blueprint.unwrap().entities[0];
+        assert_eq!(entity.control_behavior, Some(cb_val));
+    }
+
     #[test]
     fn test_manual_minimal_blueprint() {
         // Hand-craft the JSON, compress, encode, then verify decode matches

@@ -1,5 +1,6 @@
 mod app;
 mod colors;
+mod lod;
 mod viewport;
 
 use app::FactorioApp;

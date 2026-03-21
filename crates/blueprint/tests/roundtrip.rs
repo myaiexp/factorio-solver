@@ -127,6 +127,20 @@ const COMPLEX_CIRCUIT: &str = concat!(
 
 // -- Test cases ------------------------------------------------------------
 
+/// Verifies that encode→decode is idempotent: decode(encode(decode(s))) == decode(s).
+/// This is the core property required for blueprints to survive the
+/// import → export → re-import workflow without any data loss.
+#[test]
+fn test_encode_decode_idempotent() {
+    // Use a real-world blueprint that exercises all interesting fields:
+    // connections, control_behavior, items, wires, and blueprints-level wires.
+    assert_roundtrip(COMPLEX_CIRCUIT);
+
+    // Also verify a tiles blueprint and a blueprint book survive idempotently.
+    assert_roundtrip(TILES_BLUEPRINT);
+    assert_roundtrip(BLUEPRINT_BOOK);
+}
+
 #[test]
 fn test_single_belt() {
     assert_roundtrip(SINGLE_BELT);

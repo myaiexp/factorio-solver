@@ -5,3 +5,5 @@ edition.workspace = true
 
 [dependencies]
 factorio-grid = { path = "../grid" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -83,6 +83,11 @@ impl ViewportTransform {
         let zoom_x = screen_size.0 / world_w;
         let zoom_y = screen_size.1 / world_h;
         self.zoom = zoom_x.min(zoom_y);
+        // Enforce the same zoom bounds as the scroll handler in app.rs so that
+        // fitting to a large or zero-size blueprint cannot produce out-of-range
+        // zoom values (e.g. ~0.38 for a 10 000-cell blueprint, or inf/NaN for
+        // a zero-size one) that would later cause grid-line iteration to blow up.
+        self.zoom = self.zoom.clamp(2.0, 200.0);
     }
 }
 
@@ -161,5 +166,35 @@ mod tests {
         let visible = vp.visible_world_rect((800.0, 600.0));
         assert!(visible.0 <= 0.0 && visible.1 <= 0.0);
         assert!(visible.2 >= 20.0 && visible.3 >= 15.0);
+    }
+
+    /// A zero-size bounding box (min == max) used to produce inf or NaN zoom
+    /// (screen_px / 0.0 = inf). After the clamp it must stay in [2.0, 200.0].
+    #[test]
+    fn test_fit_to_bounds_clamps_zoom_zero_size() {
+        let mut vp = ViewportTransform::new();
+        vp.fit_to_bounds((5.0, 5.0), (5.0, 5.0), (800.0, 600.0), 0.0);
+        assert!(
+            vp.zoom.is_finite(),
+            "zoom must be finite after zero-size fit"
+        );
+        assert!(
+            (2.0..=200.0).contains(&vp.zoom),
+            "zoom {} out of [2.0, 200.0]",
+            vp.zoom
+        );
+    }
+
+    /// A very large blueprint (10 000 × 10 000) would produce zoom ≈ 0.38
+    /// without clamping. After the clamp zoom must be >= 2.0.
+    #[test]
+    fn test_fit_to_bounds_large_blueprint_clamps_zoom() {
+        let mut vp = ViewportTransform::new();
+        vp.fit_to_bounds((0.0, 0.0), (10_000.0, 10_000.0), (800.0, 600.0), 0.0);
+        assert!(
+            vp.zoom >= 2.0,
+            "zoom {} should be >= 2.0 after large-blueprint fit",
+            vp.zoom
+        );
     }
 }

@@ -80,6 +80,27 @@ impl EntityCategory {
         }
     }
 
+    /// Human-readable plural label used as a section header in the entity
+    /// palette panel.
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Belt => "Belts",
+            Self::UndergroundBelt => "Underground Belts",
+            Self::Splitter => "Splitters",
+            Self::Inserter => "Inserters",
+            Self::Assembler => "Assemblers",
+            Self::Furnace => "Furnaces",
+            Self::ChemicalPlant => "Chemical Plants",
+            Self::Refinery => "Refineries",
+            Self::Pipe => "Pipes",
+            Self::ElectricPole => "Electric Poles",
+            Self::Beacon => "Beacons",
+            Self::Combinator => "Combinators",
+            Self::Lamp => "Lamps",
+            Self::Unknown => "Other",
+        }
+    }
+
     /// Single character matching the ASCII renderer in `crates/grid/src/render.rs`.
     pub fn label_char(&self) -> char {
         match self {

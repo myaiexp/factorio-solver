@@ -41,8 +41,9 @@ pub struct Icon {
 
 /// Factorio 2.0 uses 16 directions (0–15). Cardinal directions are at
 /// multiples of 4: North=0, East=4, South=8, West=12.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum Direction {
+    #[default]
     North = 0,
     NorthNorthEast = 1,
     NorthEast = 2,
@@ -59,12 +60,6 @@ pub enum Direction {
     WestNorthWest = 13,
     NorthWest = 14,
     NorthNorthWest = 15,
-}
-
-impl Default for Direction {
-    fn default() -> Self {
-        Direction::North
-    }
 }
 
 impl Direction {
@@ -156,7 +151,7 @@ pub struct Tile {
 
 // ── Blueprint ─────────────────────────────────────────────────────────
 
-fn is_empty_vec<T>(v: &Vec<T>) -> bool {
+fn is_empty_vec<T>(v: &[T]) -> bool {
     v.is_empty()
 }
 

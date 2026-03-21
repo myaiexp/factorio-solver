@@ -19,4 +19,7 @@ pub enum BlueprintError {
 
     #[error("invalid data: {0}")]
     InvalidData(String),
+
+    #[error("decompressed blueprint exceeds size limit of {limit} bytes")]
+    DecompressedTooLarge { limit: usize },
 }

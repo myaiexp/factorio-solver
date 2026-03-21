@@ -6,3 +6,4 @@ edition.workspace = true
 [dependencies]
 factorio-blueprint = { path = "../blueprint" }
 thiserror = "2"
+serde = { version = "1", features = ["derive"] }

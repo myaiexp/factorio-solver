@@ -3,6 +3,7 @@ use factorio_blueprint::{decode, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
 use crate::colors::EntityCategory;
+use crate::lod::{lod_for_zoom, LodLevel};
 use crate::viewport::ViewportTransform;
 
 fn direction_name(dir: Direction) -> &'static str {
@@ -52,6 +53,9 @@ pub struct FactorioApp {
     viewport: ViewportTransform,
     /// Whether to draw grid lines in the viewport.
     show_grid_lines: bool,
+    /// Number of entities rendered in the last frame (updated by render_viewport).
+    /// Used by the bottom status bar to confirm culling is working.
+    visible_entities: usize,
 }
 
 impl FactorioApp {
@@ -61,6 +65,7 @@ impl FactorioApp {
             state: AppState::Empty,
             viewport: ViewportTransform::new(),
             show_grid_lines: true,
+            visible_entities: 0,
         }
     }
 
@@ -114,6 +119,27 @@ impl FactorioApp {
     }
 
     /// Render the grid viewport with pan, zoom, grid lines, and entity drawing.
+    ///
+    /// ## Performance Design
+    ///
+    /// This function uses three layered optimisations to remain fast with large blueprints:
+    ///
+    /// 1. **Spatial culling via `Grid::query_rect`** — instead of iterating every entity in the
+    ///    grid, the viewport's visible world rectangle is computed and passed to `query_rect`.
+    ///    The underlying `SpatialIndex` (16×16 chunk buckets) returns only entities that overlap
+    ///    the visible area, so render cost scales with *visible* entity count, not total count.
+    ///
+    /// 2. **Level-of-Detail via `lod_for_zoom`** — the current zoom level is mapped to one of
+    ///    three `LodLevel` tiers:
+    ///    - `Full`    (zoom ≥ 16 px/cell) — filled rect + border stroke + label character.
+    ///    - `Medium`  (4 ≤ zoom < 16)     — filled rect only; stroke and text skipped.
+    ///    - `Minimal` (zoom < 4)           — single `rect_filled` with a muted colour; at this
+    ///      scale entities are < 4 px wide so individual detail is imperceptible.
+    ///
+    /// 3. **O(1) bounding-box cache** — `Grid::bounding_box()` returns a cached
+    ///    `Option<(i32,i32,i32,i32)>` maintained incrementally by `Grid::place`/`Grid::remove`.
+    ///    The camera fit-to-blueprint operation (and any code that needs the grid extent) costs
+    ///    O(1) rather than scanning all occupied cells.
     fn render_viewport(&mut self, ui: &mut egui::Ui) {
         let (response, painter) =
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
@@ -180,11 +206,35 @@ impl FactorioApp {
         }
 
         // ── Entity rendering ──────────────────────────────────────────
+        //
+        // Performance design — three layers:
+        //   1. Spatial culling: `grid.query_rect` uses the chunk-based SpatialIndex
+        //      to return only entities whose footprint overlaps the visible viewport,
+        //      skipping all entities outside the camera frustum in O(chunks touched).
+        //   2. LOD (level of detail): rendering detail is scaled to zoom level —
+        //      full detail (rect + border + label) at high zoom, rect-only at medium
+        //      zoom, and a single filled rect at minimal zoom (see lod.rs / Phase 4).
+        //   3. Bounding-box cache: `grid.bounding_box()` is O(1) via the incremental
+        //      `bbox` field, avoiding a full cell scan on every fit-to-bounds call.
+        let mut visible_count = 0usize;
         if let AppState::Loaded { ref grid, .. } = self.state {
             let zoom = self.viewport.zoom;
+            let lod = lod_for_zoom(zoom);
             let border_stroke = Stroke::new(1.0, Color32::from_gray(20));
 
-            for entity in grid.entities() {
+            // Compute visible world rect and convert to integer cell coordinates.
+            let (vw_min_x, vw_min_y, vw_max_x, vw_max_y) =
+                self.viewport.visible_world_rect(screen_size);
+            let query_min_x = vw_min_x.floor() as i32;
+            let query_min_y = vw_min_y.floor() as i32;
+            let query_max_x = vw_max_x.ceil() as i32;
+            let query_max_y = vw_max_y.ceil() as i32;
+
+            // Fetch only entities that overlap the visible rectangle — O(chunks touched).
+            let visible = grid.query_rect(query_min_x, query_min_y, query_max_x, query_max_y);
+            visible_count = visible.len();
+
+            for entity in &visible {
                 let top_left_world = (entity.position.x as f32, entity.position.y as f32);
                 let top_left_screen =
                     self.viewport.world_to_screen(top_left_world, screen_size);
@@ -199,91 +249,102 @@ impl FactorioApp {
                     Vec2::new(entity_w, entity_h),
                 );
 
-                // Cull: skip if entity rect doesn't intersect the painter rect.
-                if !rect.intersects(entity_rect) {
-                    continue;
-                }
-
                 let category = EntityCategory::from_prototype_name(entity.prototype_name);
 
-                // Filled rect with category color.
-                painter.rect_filled(entity_rect, 0.0, category.color());
-
-                // Dark border.
-                painter.rect_stroke(entity_rect, 0.0, border_stroke, StrokeKind::Outside);
-
-                // Label character when zoomed in enough.
-                if zoom > 20.0 {
-                    let font_size = (zoom * 0.5).clamp(8.0, 40.0);
-                    let label = category.label_char().to_string();
-                    painter.text(
-                        entity_rect.center(),
-                        egui::Align2::CENTER_CENTER,
-                        label,
-                        FontId::monospace(font_size),
-                        Color32::WHITE,
-                    );
-                }
-            }
-        }
-
-        // ── Hover tooltip ──────────────────────────────────────────────
-        if let AppState::Loaded { ref grid, .. } = self.state {
-            if let Some(mouse_abs) = ui.input(|i| i.pointer.hover_pos()) {
-                if rect.contains(mouse_abs) {
-                    let mouse_rel = (mouse_abs.x - rect.left(), mouse_abs.y - rect.top());
-                    let world = self.viewport.screen_to_world(mouse_rel, screen_size);
-                    let cell_x = world.0.floor() as i32;
-                    let cell_y = world.1.floor() as i32;
-
-                    if let Some(entity) = grid.get_at(cell_x, cell_y) {
-                        let tooltip_id = response.id.with("entity_tooltip");
-                        egui::Area::new(tooltip_id)
-                            .order(egui::Order::Tooltip)
-                            .fixed_pos(mouse_abs + Vec2::new(12.0, 12.0))
-                            .show(ui.ctx(), |ui| {
-                                egui::Frame::popup(ui.style()).show(ui, |ui| {
-                                    ui.label(
-                                        egui::RichText::new(entity.prototype_name)
-                                            .strong(),
-                                    );
-                                    ui.label(format!(
-                                        "Position: ({}, {})",
-                                        entity.position.x, entity.position.y
-                                    ));
-                                    ui.label(format!(
-                                        "Size: {}x{}",
-                                        entity.size.0, entity.size.1
-                                    ));
-                                    ui.label(format!(
-                                        "Direction: {}",
-                                        direction_name(entity.direction)
-                                    ));
-                                    if let Some(ref recipe) = entity.recipe {
-                                        ui.label(format!("Recipe: {recipe}"));
-                                    }
-                                    if let Some(ref etype) = entity.entity_type {
-                                        ui.label(format!("Type: {etype}"));
-                                    }
-                                });
-                            });
+                match lod {
+                    // Full detail (zoom ≥ 16 px/cell): colored rect + dark border + label char.
+                    LodLevel::Full => {
+                        painter.rect_filled(entity_rect, 0.0, category.color());
+                        painter.rect_stroke(
+                            entity_rect,
+                            0.0,
+                            border_stroke,
+                            StrokeKind::Outside,
+                        );
+                        let font_size = (zoom * 0.5).clamp(8.0, 40.0);
+                        let label = category.label_char().to_string();
+                        painter.text(
+                            entity_rect.center(),
+                            egui::Align2::CENTER_CENTER,
+                            label,
+                            FontId::monospace(font_size),
+                            Color32::WHITE,
+                        );
+                    }
+                    // Medium detail (4 ≤ zoom < 16): colored rect only — no border, no label.
+                    // Skips two draw calls (stroke + text layout) per entity vs Full.
+                    LodLevel::Medium => {
+                        painter.rect_filled(entity_rect, 0.0, category.color());
+                    }
+                    // Minimal detail (zoom < 4): single muted filled rect, no border, no label.
+                    // At this zoom level entities are < 4 px wide; individual colour
+                    // accuracy is imperceptible, so we halve each channel to blend
+                    // quietly into the dark background and cut per-entity overdraw.
+                    LodLevel::Minimal => {
+                        let c = category.color();
+                        let muted = Color32::from_rgb(c.r() / 2, c.g() / 2, c.b() / 2);
+                        painter.rect_filled(entity_rect, 0.0, muted);
                     }
                 }
             }
         }
+        // Store visible count for the status bar (shown next frame — imperceptible lag).
+        self.visible_entities = visible_count;
+
+        // ── Hover tooltip ──────────────────────────────────────────────
+        if let AppState::Loaded { ref grid, .. } = self.state
+            && let Some(mouse_abs) = ui.input(|i| i.pointer.hover_pos())
+            && rect.contains(mouse_abs)
+        {
+            let mouse_rel = (mouse_abs.x - rect.left(), mouse_abs.y - rect.top());
+            let world = self.viewport.screen_to_world(mouse_rel, screen_size);
+            let cell_x = world.0.floor() as i32;
+            let cell_y = world.1.floor() as i32;
+
+            if let Some(entity) = grid.get_at(cell_x, cell_y) {
+                let tooltip_id = response.id.with("entity_tooltip");
+                egui::Area::new(tooltip_id)
+                    .order(egui::Order::Tooltip)
+                    .fixed_pos(mouse_abs + Vec2::new(12.0, 12.0))
+                    .show(ui.ctx(), |ui| {
+                        egui::Frame::popup(ui.style()).show(ui, |ui| {
+                            ui.label(
+                                egui::RichText::new(entity.prototype_name).strong(),
+                            );
+                            ui.label(format!(
+                                "Position: ({}, {})",
+                                entity.position.x, entity.position.y
+                            ));
+                            ui.label(format!(
+                                "Size: {}x{}",
+                                entity.size.0, entity.size.1
+                            ));
+                            ui.label(format!(
+                                "Direction: {}",
+                                direction_name(entity.direction)
+                            ));
+                            if let Some(ref recipe) = entity.recipe {
+                                ui.label(format!("Recipe: {recipe}"));
+                            }
+                            if let Some(ref etype) = entity.entity_type {
+                                ui.label(format!("Type: {etype}"));
+                            }
+                        });
+                    });
+            }
+        }
 
         // ── Home key: re-fit viewport to grid bounds ───────────────────
-        if ui.input(|i| i.key_pressed(egui::Key::Home)) {
-            if let AppState::Loaded { ref grid, .. } = self.state {
-                if let Some((min, max)) = grid.bounding_box() {
-                    self.viewport.fit_to_bounds(
-                        (min.x as f32, min.y as f32),
-                        (max.x as f32, max.y as f32),
-                        screen_size,
-                        2.0,
-                    );
-                }
-            }
+        if ui.input(|i| i.key_pressed(egui::Key::Home))
+            && let AppState::Loaded { ref grid, .. } = self.state
+            && let Some((min, max)) = grid.bounding_box()
+        {
+            self.viewport.fit_to_bounds(
+                (min.x as f32, min.y as f32),
+                (max.x as f32, max.y as f32),
+                screen_size,
+                2.0,
+            );
         }
     }
 }
@@ -336,7 +397,10 @@ impl eframe::App for FactorioApp {
                 }
                 AppState::Loaded { skipped, .. } => {
                     if skipped.is_empty() {
-                        ui.label("Blueprint loaded successfully");
+                        ui.label(format!(
+                            "Blueprint loaded — {} visible",
+                            self.visible_entities
+                        ));
                     } else {
                         ui.colored_label(
                             Color32::YELLOW,
@@ -350,6 +414,7 @@ impl eframe::App for FactorioApp {
                                     .join(", ")
                             ),
                         );
+                        ui.label(format!("{} visible", self.visible_entities));
                     }
                 }
                 AppState::Error(msg) => {
@@ -370,6 +435,8 @@ impl eframe::App for FactorioApp {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use factorio_blueprint::Position;
+    use factorio_grid::Grid;
 
     #[test]
     fn test_direction_names_cardinal() {
@@ -387,5 +454,45 @@ mod tests {
         assert_eq!(direction_name(Direction::NorthWest), "NW");
         assert_eq!(direction_name(Direction::NorthNorthEast), "NNE");
         assert_eq!(direction_name(Direction::EastSouthEast), "ESE");
+    }
+
+    /// Verify that viewport frustum culling returns only entities in the visible
+    /// window rather than scanning all entities in the grid.
+    ///
+    /// We place 100×100 = 10,000 transport-belt entities (1×1 each), set the
+    /// "viewport" to a 10×10 region, and assert that query_rect returns ≤ ~121
+    /// entities (11×11 cells with boundary allowance) — not all 10,000.
+    #[test]
+    fn test_viewport_culling_limits_visible_entities() {
+        let mut grid = Grid::new();
+
+        // Place 10,000 transport belts in a 100×100 grid.
+        for row in 0..100i32 {
+            for col in 0..100i32 {
+                // transport-belt is 1×1; center == top-left for odd-sized entities.
+                let center = Position {
+                    x: col as f64 + 0.5,
+                    y: row as f64 + 0.5,
+                };
+                let _ = grid.place("transport-belt", &center, Direction::North, None, None);
+            }
+        }
+
+        assert_eq!(grid.entity_count(), 10_000, "all entities placed");
+
+        // Simulate a viewport that shows only the 10×10 region [20, 30) × [20, 30).
+        let visible = grid.query_rect(20, 20, 29, 29);
+
+        // Should return exactly 100 entities (10×10), not all 10,000.
+        assert!(
+            visible.len() <= 110,
+            "culling should return ≤ 110 entities for a 10×10 view, got {}",
+            visible.len()
+        );
+        assert!(
+            visible.len() >= 90,
+            "culling should return ≥ 90 entities for a 10×10 view, got {}",
+            visible.len()
+        );
     }
 }

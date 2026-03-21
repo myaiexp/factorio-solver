@@ -9,6 +9,7 @@ path = "src/main.rs"
 
 [dependencies]
 factorio-solver = { path = "../solver" }
+factorio-templates = { path = "../templates" }
 factorio-grid = { path = "../grid" }
 factorio-blueprint = { path = "../blueprint" }
 eframe = "0.33"

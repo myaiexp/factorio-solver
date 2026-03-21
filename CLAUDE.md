@@ -17,7 +17,7 @@ factorio-solver/
 ├── crates/
 │   ├── blueprint/          # Blueprint string parsing/encoding + CLI
 │   ├── grid/               # 2D spatial engine, entity placement, collision
-│   ├── templates/          # Template library (stub)
+│   ├── templates/          # Template library — TemplateLibrary, 10+ built-in templates
 │   ├── solver/             # Layout composition (stub)
 │   └── ui/                 # egui frontend — viewport, colors, tooltips
 ├── docs/
@@ -44,9 +44,9 @@ Each crate is independently testable. UI is the thinnest layer — all logic liv
 
 ## Current Phase
 
-**Phase 3: Basic UI** — COMPLETE. Blueprints visualized in native egui window with pan, zoom, tooltips, entity colors.
+**Phase 4: Built-in Template Library** — COMPLETE. `factorio-templates` crate ships ≥10 built-in production templates (belt balancers, smelter arrays, circuit lines, science packs) with a `TemplateLibrary` registry and egui browser panel.
 
-No active phase. Next logical step: Phase 4 (templates crate, or solver work).
+No active phase. Next logical step: Phase 5 (solver crate — layout composition using templates).
 
 Completed phase details: `.claude/phases/current.md`
 
@@ -60,6 +60,9 @@ Completed phase details: `.claude/phases/current.md`
 - **Tombstone removal**: entity vec uses `Option<PlacedEntity>`, removed entities become None, IDs never reused; O(1) live count via counter
 - **Graceful import**: unknown entity prototypes are skipped (collected as `SkippedEntity`) rather than failing the whole blueprint
 - **79 entity prototypes**: registered in hardcoded registry — base game (assemblers, inserters, belts, furnaces, splitters, underground belts, pipes, poles, chests, turrets, power, mining, logistics, combinators) + Space Age DLC (turbo belts, biochamber, recycler, foundry, electromagnetic plant, cryogenic plant, heating tower)
+- **TemplateLibrary**: static `OnceLock<Vec<Template>>` registry; `all()`, `by_category()`, `find()` APIs; `Template::build_grid()` places entities on a fresh `Grid`
+- **Built-in templates (≥10)**: balancer-2-2, balancer-4-4, balancer-8-8, smelter-stone-8, smelter-steel-8, smelter-electric-4, circuit-green-4, circuit-red-2, science-red-2, science-green-2
+- **UI template browser**: left `SidePanel` grouped by category; clicking a template loads its grid into the viewport; description tooltip + I/O port counts shown per entry
 
 ---
 

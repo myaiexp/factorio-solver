@@ -1,8 +1,9 @@
 use factorio_blueprint::{Direction, Position};
+use serde::{Deserialize, Serialize};
 
 // ── Grid position (integer cell coordinates) ─────────────────────────
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GridPos {
     pub x: i32,
     pub y: i32,

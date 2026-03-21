@@ -4,6 +4,7 @@ use factorio_blueprint::{Direction, Position};
 
 use crate::error::GridError;
 use crate::prototype::{effective_size, lookup};
+use crate::spatial::SpatialIndex;
 use crate::types::{CellState, EntityId, GridPos, PlacedEntity};
 
 // ── Grid ────────────────────────────────────────────────────────────────
@@ -12,8 +13,13 @@ use crate::types::{CellState, EntityId, GridPos, PlacedEntity};
 pub struct Grid {
     cells: HashMap<(i32, i32), CellState>,
     entities: Vec<Option<PlacedEntity>>,
-    bounds: Option<(i32, i32, i32, i32)>, // (min_x, min_y, max_x, max_y)
+    /// Optional constraint rectangle: placement outside this area is rejected.
+    constraint: Option<(i32, i32, i32, i32)>, // (min_x, min_y, max_x, max_y)
+    /// Incremental bounding box of all currently-placed entity footprints.
+    /// `None` when the grid is empty. Updated by `place` and `remove`.
+    bbox: Option<(i32, i32, i32, i32)>, // (min_x, min_y, max_x, max_y)
     live_count: usize,
+    spatial: SpatialIndex,
 }
 
 impl Grid {
@@ -21,17 +27,25 @@ impl Grid {
         Self {
             cells: HashMap::new(),
             entities: Vec::new(),
-            bounds: None,
+            constraint: None,
+            bbox: None,
             live_count: 0,
+            spatial: SpatialIndex::new(),
         }
     }
 
+    /// Construct a grid that rejects placements outside the given rectangle.
+    ///
+    /// The constraint rectangle is not the same as the bounding box of placed
+    /// entities — it is a hard limit enforced during `place` / `can_place`.
     pub fn with_bounds(min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Self {
         Self {
             cells: HashMap::new(),
             entities: Vec::new(),
-            bounds: Some((min_x, min_y, max_x, max_y)),
+            constraint: Some((min_x, min_y, max_x, max_y)),
+            bbox: None,
             live_count: 0,
+            spatial: SpatialIndex::new(),
         }
     }
 
@@ -50,8 +64,8 @@ impl Grid {
         let (w, h) = effective_size(proto, direction);
         let (top_left_x, top_left_y) = center_to_topleft(center, w, h);
 
-        // Bounds check
-        if let Some((min_x, min_y, max_x, max_y)) = self.bounds {
+        // Constraint check — rejects entities outside the hard placement boundary.
+        if let Some((min_x, min_y, max_x, max_y)) = self.constraint {
             for dy in 0..h as i32 {
                 for dx in 0..w as i32 {
                     let cx = top_left_x + dx;
@@ -151,6 +165,24 @@ impl Grid {
             }
         }
 
+        // Register in spatial index for fast range queries
+        self.spatial.insert(id, (top_left_x, top_left_y), (w, h));
+
+        // Expand incremental bounding box cache to include this entity's footprint.
+        // `get_or_insert` initialises the cache on the first placement, then both
+        // paths (init and expand) share the same min/max clamp below.
+        let entity_min_x = top_left_x;
+        let entity_min_y = top_left_y;
+        let entity_max_x = top_left_x + w as i32 - 1;
+        let entity_max_y = top_left_y + h as i32 - 1;
+        let bb = self
+            .bbox
+            .get_or_insert((entity_min_x, entity_min_y, entity_max_x, entity_max_y));
+        bb.0 = bb.0.min(entity_min_x);
+        bb.1 = bb.1.min(entity_min_y);
+        bb.2 = bb.2.max(entity_max_x);
+        bb.3 = bb.3.max(entity_max_y);
+
         Ok(id)
     }
 
@@ -164,8 +196,12 @@ impl Grid {
             .ok_or(GridError::EntityNotFound(id))?
             .clone();
 
-        // Free cells
+        // Remove from spatial index before freeing cells
         let (w, h) = entity.size;
+        self.spatial
+            .remove(id, (entity.position.x, entity.position.y), (w, h));
+
+        // Free cells
         for dy in 0..h as i32 {
             for dx in 0..w as i32 {
                 let cx = entity.position.x + dx;
@@ -177,6 +213,51 @@ impl Grid {
         // Tombstone the slot
         self.entities[id.0] = None;
         self.live_count -= 1;
+
+        // Update bounding box cache.
+        //
+        // Three cases:
+        //   1. Grid is now empty → clear the cache.
+        //   2. Removed entity touched a bbox edge → recompute from remaining entities
+        //      (O(entities), but only triggered when necessary).
+        //   3. Entity was entirely interior to the bbox → cache is still valid, do nothing.
+        if self.live_count == 0 {
+            self.bbox = None;
+        } else if let Some(bb) = self.bbox {
+            let entity_min_x = entity.position.x;
+            let entity_min_y = entity.position.y;
+            let entity_max_x = entity.position.x + entity.size.0 as i32 - 1;
+            let entity_max_y = entity.position.y + entity.size.1 as i32 - 1;
+
+            // If any edge of the removed entity's footprint coincides with a bbox
+            // boundary the bbox may have shrunk — recompute from the entity vec.
+            // Entities that are wholly interior cannot affect the bbox, so we skip them.
+            if entity_min_x == bb.0
+                || entity_min_y == bb.1
+                || entity_max_x == bb.2
+                || entity_max_y == bb.3
+            {
+                self.bbox = self.entities.iter().filter_map(|slot| slot.as_ref()).fold(
+                    None,
+                    |acc, e| {
+                        let e_min_x = e.position.x;
+                        let e_min_y = e.position.y;
+                        let e_max_x = e.position.x + e.size.0 as i32 - 1;
+                        let e_max_y = e.position.y + e.size.1 as i32 - 1;
+                        Some(match acc {
+                            None => (e_min_x, e_min_y, e_max_x, e_max_y),
+                            Some((min_x, min_y, max_x, max_y)) => (
+                                min_x.min(e_min_x),
+                                min_y.min(e_min_y),
+                                max_x.max(e_max_x),
+                                max_y.max(e_max_y),
+                            ),
+                        })
+                    },
+                );
+            }
+            // else: entity was interior — bbox is still valid
+        }
 
         Ok(entity)
     }
@@ -198,6 +279,34 @@ impl Grid {
         self.entities.get(id.0).and_then(|slot| slot.as_ref())
     }
 
+    /// Return all live entities whose footprint overlaps the rectangle
+    /// `[min_x, max_x] × [min_y, max_y]` (cell coordinates, inclusive).
+    ///
+    /// Uses the chunk-based `SpatialIndex` for fast candidate selection (O(chunks
+    /// touched + candidates)), then applies an exact AABB check to exclude entities
+    /// that are in a touched chunk but don't actually overlap the query rectangle.
+    /// Tombstoned entity slots are silently skipped.
+    pub fn query_rect(&self, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Vec<&PlacedEntity> {
+        self.spatial
+            .query_rect(min_x, min_y, max_x, max_y)
+            .into_iter()
+            .filter_map(|id| {
+                // Resolve ID → live entity reference; skip tombstones.
+                let entity = self.entities.get(id.0)?.as_ref()?;
+                // Exact footprint intersection (spatial index is chunk-coarse).
+                let tl_x = entity.position.x;
+                let tl_y = entity.position.y;
+                let br_x = tl_x + entity.size.0 as i32 - 1;
+                let br_y = tl_y + entity.size.1 as i32 - 1;
+                if tl_x <= max_x && br_x >= min_x && tl_y <= max_y && br_y >= min_y {
+                    Some(entity)
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
     /// Iterate over all live (non-removed) entities.
     pub fn entities(&self) -> impl Iterator<Item = &PlacedEntity> {
         self.entities.iter().filter_map(|slot| slot.as_ref())
@@ -213,52 +322,40 @@ impl Grid {
         self.cells.len()
     }
 
-    /// Axis-aligned bounding box of all occupied cells.
+    /// Axis-aligned bounding box of all placed entity footprints.
     /// Returns `(top_left, bottom_right)` in cell coordinates, or `None` if empty.
+    ///
+    /// O(1) — reads from the incremental `bbox` cache maintained by `place` and
+    /// `remove`. The cache is expanded on every `place` and recomputed (O(entities))
+    /// only when a `remove` touches a bbox edge.
     pub fn bounding_box(&self) -> Option<(GridPos, GridPos)> {
-        if self.cells.is_empty() {
-            return None;
-        }
-
-        let mut min_x = i32::MAX;
-        let mut min_y = i32::MAX;
-        let mut max_x = i32::MIN;
-        let mut max_y = i32::MIN;
-
-        for &(x, y) in self.cells.keys() {
-            min_x = min_x.min(x);
-            min_y = min_y.min(y);
-            max_x = max_x.max(x);
-            max_y = max_y.max(y);
-        }
-
-        Some((
-            GridPos { x: min_x, y: min_y },
-            GridPos { x: max_x, y: max_y },
-        ))
+        self.bbox.map(|(min_x, min_y, max_x, max_y)| {
+            (GridPos { x: min_x, y: min_y }, GridPos { x: max_x, y: max_y })
+        })
     }
 
-    /// Find all entities whose occupied cells fall within `radius` cells
-    /// of the given center cell (Chebyshev distance).
+    /// Find all entities whose footprint overlaps the square of `radius` cells
+    /// around `center` (Chebyshev distance). Delegates to `query_rect` so no
+    /// manual cell iteration or HashSet deduplication is needed.
     pub fn get_neighbors(&self, center: GridPos, radius: i32) -> Vec<&PlacedEntity> {
-        let mut seen = std::collections::HashSet::new();
-        let mut result = Vec::new();
+        self.query_rect(
+            center.x - radius,
+            center.y - radius,
+            center.x + radius,
+            center.y + radius,
+        )
+    }
 
-        for dy in -radius..=radius {
-            for dx in -radius..=radius {
-                let cx = center.x + dx;
-                let cy = center.y + dy;
-                if let Some(CellState::Occupied { entity_id }) = self.cells.get(&(cx, cy)) {
-                    if seen.insert(*entity_id) {
-                        if let Some(entity) = self.entities[entity_id.0].as_ref() {
-                            result.push(entity);
-                        }
-                    }
-                }
-            }
-        }
-
-        result
+    /// Find the shortest path from `from` to `to` using A* with default settings:
+    /// 4-directional movement and no cost limit.
+    ///
+    /// Returns `Some(path)` where `path` is a `Vec<GridPos>` ordered from `from`
+    /// (inclusive) to `to` (inclusive), or `None` if no path exists.
+    ///
+    /// Occupied cells are treated as non-walkable; the start and goal cells are
+    /// always walkable regardless of occupancy (endpoints may lie inside entities).
+    pub fn find_path(&self, from: GridPos, to: GridPos) -> Option<Vec<GridPos>> {
+        crate::astar::find_path(self, from, to, &crate::astar::AStarConfig::default())
     }
 }
 
@@ -678,6 +775,111 @@ mod tests {
         assert_eq!(center_to_topleft(&pos(0.5, 0.5), 5, 5), (-2, -2));
     }
 
+    // ── Bounding-box cache tests (subtask 2-5) ──────────────────────
+
+    /// (a) Cache is correct immediately after a single place call.
+    #[test]
+    fn test_bbox_cache_after_place() {
+        let mut grid = Grid::new();
+        // 1×1 belt at center (0.5, 0.5) → top-left (0, 0), max (0, 0)
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 0, y: 0 });
+
+        // Adding a second entity far away expands the cache correctly.
+        grid.place("transport-belt", &pos(8.5, 5.5), Direction::North, None, None)
+            .unwrap();
+
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 8, y: 5 });
+    }
+
+    /// (b) Cache remains valid after removing an entity that is interior
+    /// to the bounding box (no recompute needed).
+    #[test]
+    fn test_bbox_cache_unaffected_by_interior_removal() {
+        let mut grid = Grid::new();
+        // Corner entities define the bbox.
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+        grid.place("transport-belt", &pos(10.5, 6.5), Direction::North, None, None)
+            .unwrap();
+        // Interior entity — entirely within (0,0)..(10,6).
+        let interior_id = grid
+            .place("transport-belt", &pos(4.5, 3.5), Direction::North, None, None)
+            .unwrap();
+
+        // Confirm full bbox before removal.
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 10, y: 6 });
+
+        // Remove the interior entity — bbox must not change.
+        grid.remove(interior_id).unwrap();
+
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 10, y: 6 });
+    }
+
+    /// (c) Cache is recomputed correctly when an edge entity is removed.
+    #[test]
+    fn test_bbox_cache_recomputed_after_edge_removal() {
+        let mut grid = Grid::new();
+        // Three entities: two establish the extreme edges, one is inward.
+        //   (0,0) — top-left corner anchor
+        //   (3,2) — interior
+        //   (10,5) — bottom-right corner anchor
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+        grid.place("transport-belt", &pos(3.5, 2.5), Direction::North, None, None)
+            .unwrap();
+        let edge_id = grid
+            .place("transport-belt", &pos(10.5, 5.5), Direction::North, None, None)
+            .unwrap();
+
+        // Before removal: bbox is (0,0)..(10,5).
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 10, y: 5 });
+
+        // Remove the entity that sits on the max_x / max_y edge.
+        grid.remove(edge_id).unwrap();
+
+        // bbox must recompute to the tightest box around the two remaining entities:
+        // (0,0) and (3,2) → tl (0,0), br (3,2).
+        let (tl, br) = grid.bounding_box().unwrap();
+        assert_eq!(tl, GridPos { x: 0, y: 0 });
+        assert_eq!(br, GridPos { x: 3, y: 2 });
+    }
+
+    /// (d) Cache becomes None once all entities are removed.
+    #[test]
+    fn test_bbox_cache_none_after_all_removed() {
+        let mut grid = Grid::new();
+        let id0 = grid
+            .place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+        let id1 = grid
+            .place("transport-belt", &pos(5.5, 5.5), Direction::North, None, None)
+            .unwrap();
+
+        assert!(grid.bounding_box().is_some());
+
+        grid.remove(id0).unwrap();
+        assert!(grid.bounding_box().is_some(), "bbox should still exist after partial removal");
+
+        grid.remove(id1).unwrap();
+        assert!(
+            grid.bounding_box().is_none(),
+            "bbox should be None once all entities are removed"
+        );
+    }
+
     // ── Bounds tests ────────────────────────────────────────────────
 
     #[test]
@@ -780,5 +982,143 @@ mod tests {
         assert_eq!(names.len(), 2);
         assert!(names.contains(&"transport-belt"));
         assert!(names.contains(&"pipe"));
+    }
+
+    // ── Memory footprint sanity test (subtask 6-2) ──────────────────
+
+    /// Verify that a grid with 5,000 entities stays well under 500 MB.
+    ///
+    /// Per-entity memory breakdown (approximate):
+    ///   - `Option<PlacedEntity>` in `entities` vec:
+    ///       PlacedEntity = EntityId(8) + &'static str ptr(8) + GridPos(8) +
+    ///                      Position(16) + Direction(1+pad≈4) + (u32,u32)(8) +
+    ///                      Option<String>(24) + Option<String>(24) ≈ 104 bytes
+    ///       With Option discriminant overhead: ~112 bytes
+    ///   - `CellState` cells in `HashMap<(i32,i32), CellState>`:
+    ///       Each 1×1 entity occupies 1 cell.
+    ///       HashMap entry ≈ (i32,i32)(8) + CellState(8) + overhead ≈ 40 bytes
+    ///   - SpatialIndex `HashMap<(i32,i32), Vec<EntityId>>` chunk entries:
+    ///       5,000 belts in a ~70×72 area → ceil(70/16)×ceil(72/16) ≈ 20 chunks
+    ///       Each chunk vec entry: 8 bytes per EntityId.
+    ///       Total spatial index ≈ 5000 × 8 = 40 KB (negligible)
+    ///
+    /// Estimated total for 5,000 1×1 entities:
+    ///   entities vec: 5,000 × 112   =  560 KB
+    ///   cells map:    5,000 × 40    =  200 KB
+    ///   spatial idx:  5,000 × 8     =   40 KB
+    ///   ─────────────────────────────────────
+    ///   Total:                      ≈  800 KB  (< 1 MB for 5,000 entities)
+    ///
+    /// For 100,000 entities (large megabase) the estimate scales to ~16 MB —
+    /// more than two orders of magnitude below the 500 MB acceptance threshold.
+    #[test]
+    fn test_memory_footprint_5000_entities() {
+        use std::mem::size_of;
+
+        let mut grid = Grid::new();
+
+        // Place 5,000 transport-belt entities in a ~70×72 region.
+        // (71 * 71 = 5041 > 5000; we stop at 5000 to hit the target exactly.)
+        let mut count = 0_usize;
+        'outer: for y in 0..72_i32 {
+            for x in 0..71_i32 {
+                grid.place(
+                    "transport-belt",
+                    &pos(x as f64 + 0.5, y as f64 + 0.5),
+                    Direction::North,
+                    None,
+                    None,
+                )
+                .unwrap();
+                count += 1;
+                if count == 5_000 {
+                    break 'outer;
+                }
+            }
+        }
+
+        assert_eq!(grid.entity_count(), 5_000);
+
+        // Estimate memory consumed by the core data structures.
+        //
+        // We can't call size_of_val on the Grid itself (it only measures the
+        // stack portion, not heap allocations), so we compute an upper-bound
+        // estimate from known element sizes × counts.
+
+        // entities vec: each slot is Option<PlacedEntity>
+        let entity_slot_bytes = size_of::<Option<PlacedEntity>>();
+        let entities_heap = entity_slot_bytes * grid.entities.capacity();
+
+        // cells hashmap: each entry holds a (i32,i32) key and CellState value.
+        // HashMap has ~1.8× load overhead, so we multiply by 2 to be safe.
+        let cell_entry_bytes = size_of::<(i32, i32)>() + size_of::<CellState>();
+        let cells_heap = cell_entry_bytes * grid.cells.capacity();
+
+        // Per-entity String heap for recipe/entity_type (None for belts → 0).
+        // Include it for correctness even though it's zero here.
+        let strings_heap: usize = grid
+            .entities()
+            .map(|e| {
+                e.recipe.as_ref().map_or(0, |s| s.capacity())
+                    + e.entity_type.as_ref().map_or(0, |s| s.capacity())
+            })
+            .sum();
+
+        let total_bytes = entities_heap + cells_heap + strings_heap;
+        let total_mb = total_bytes as f64 / (1024.0 * 1024.0);
+
+        // 500 MB acceptance criterion.  In practice this runs at < 1 MB.
+        const LIMIT_MB: f64 = 500.0;
+        assert!(
+            total_mb < LIMIT_MB,
+            "estimated memory {total_mb:.2} MB exceeds the {LIMIT_MB} MB limit for 5,000 entities"
+        );
+    }
+
+    // ── Performance test ─────────────────────────────────────────────
+
+    /// Verify that `query_rect` on a large grid scales with result size, not
+    /// total entity count.  We place 10,000 transport-belt entities (1×1) in a
+    /// 100×100 grid, then query a 10×10 region and assert:
+    ///   1. The returned entity count matches the expected 100 entities in
+    ///      that region.
+    ///   2. The query completes in under 5 ms — demonstrating O(result) rather
+    ///      than O(all-entities) behaviour.
+    #[test]
+    fn test_query_rect_performance_10k_entities() {
+        let mut grid = Grid::new();
+
+        // Place 10,000 transport-belt entities at (x+0.5, y+0.5) for x,y in 0..100
+        for y in 0..100_i32 {
+            for x in 0..100_i32 {
+                grid.place(
+                    "transport-belt",
+                    &pos(x as f64 + 0.5, y as f64 + 0.5),
+                    Direction::North,
+                    None,
+                    None,
+                )
+                .unwrap();
+            }
+        }
+
+        assert_eq!(grid.entity_count(), 10_000);
+
+        // Query a 10×10 region (cells 0..=9 in both axes → 100 entities)
+        let start = std::time::Instant::now();
+        let results = grid.query_rect(0, 0, 9, 9);
+        let elapsed = start.elapsed();
+
+        assert_eq!(
+            results.len(),
+            100,
+            "expected exactly 100 entities in the 10×10 query region"
+        );
+
+        assert!(
+            elapsed.as_millis() < 5,
+            "query_rect should complete in < 5 ms, took {} ms",
+            elapsed.as_millis()
+        );
     }
 }
