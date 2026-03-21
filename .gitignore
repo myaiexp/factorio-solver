@@ -1,7 +1,3 @@
-# Project docs (private)
-CLAUDE.md
-.claude/
-
 # Rust
 /target/
 **/*.rs.bk
@@ -14,7 +10,7 @@ Cargo.lock
 *.swo
 *~
 
-# Auto Claude data directory
+# Auto Claude (tool-managed, contains secrets)
 .auto-claude/
 .auto-claude-*
 .claude_settings.json
