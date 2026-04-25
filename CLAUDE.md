@@ -48,7 +48,7 @@ Each crate is independently testable. UI is the thinnest layer — all logic liv
 
 No active phase. Next logical step: Phase 5 (solver crate — layout composition using templates).
 
-Completed phase details: `.claude/phases/current.md`
+Completed phase details: `phases/current.md`
 
 ### Decisions from previous phases
 
@@ -75,9 +75,9 @@ This project splits documentation to minimize context usage. Follow these rules:
 | File                           | Purpose                                                        | When to read                                                  |
 | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
 | `CLAUDE.md` (this file)        | Project identity, structure, patterns, current phase pointer   | Auto-loaded every session                                     |
-| `.claude/phases/current.md`    | Symlink → active phase file                                    | Read when starting phase work                                 |
-| `.claude/phases/NNN-name.md`   | Phase files (active via symlink, completed ones local-only)    | Only if you need historical context                           |
-| `.claude/ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning next phase or brainstorming                     |
+| `phases/current.md`    | Symlink → active phase file                                    | Read when starting phase work                                 |
+| `phases/NNN-name.md`   | Phase files (active via symlink, completed ones local-only)    | Only if you need historical context                           |
+| `ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning next phase or brainstorming                     |
 | `.claude/plans/`               | Design docs and implementation plans from brainstorming        | When implementing or reviewing designs                        |
 | `.claude/references/`          | Domain reference material (specs, external docs, data sources) | When you need domain knowledge                                |
 | `docs/factorio-solver-plan.md` | Full concept/architecture doc with all phases and tech details | Reference for architecture decisions, data structures, solver |
