@@ -20,8 +20,6 @@ factorio-solver/
 │   ├── templates/          # Template library — TemplateLibrary, 10+ built-in templates
 │   ├── solver/             # Layout composition (stub)
 │   └── ui/                 # egui frontend — viewport, colors, tooltips
-├── docs/
-│   └── factorio-solver-plan.md   # Full concept/architecture doc
 ```
 
 ### Crate Dependency Graph
@@ -80,7 +78,7 @@ This project splits documentation to minimize context usage. Follow these rules:
 | `ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning next phase or brainstorming                     |
 | `.claude/plans/`               | Design docs and implementation plans from brainstorming        | When implementing or reviewing designs                        |
 | `.claude/references/`          | Domain reference material (specs, external docs, data sources) | When you need domain knowledge                                |
-| `docs/factorio-solver-plan.md` | Full concept/architecture doc with all phases and tech details | Reference for architecture decisions, data structures, solver |
+| `.claude/references/factorio-solver-plan.md` | Full concept/architecture doc with all phases and tech details | Reference for architecture decisions, data structures, solver |
 | `.claude/[freeform].md`        | Project-specific context docs (architecture, deployment, etc.) | As referenced from this file                                  |
 
 ### Phase transitions
@@ -97,5 +95,5 @@ When a phase is completed:
 
 - **This file**: project-wide truths (stack, structure, patterns, conventions). Things that are true regardless of which phase you're in.
 - **Phase doc**: goals, requirements, architecture decisions, implementation notes, and anything specific to the current body of work.
-- **Concept doc** (`docs/factorio-solver-plan.md`): full architecture reference — crate details, data structures, phased build order, technical risks.
+- **Concept doc** (`.claude/references/factorio-solver-plan.md`): full architecture reference — crate details, data structures, phased build order, technical risks.
 - **Process rules**: delegation and modularization standards live in `~/.claude/process.md` (global, not per-project).

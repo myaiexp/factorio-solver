@@ -27,7 +27,7 @@ _What "done" looks like:_
 3. Decoded bytes are zlib-compressed
 4. Decompressed data is JSON
 
-**Key data structures** (see `docs/factorio-solver-plan.md` for full details):
+**Key data structures** (see `.claude/references/factorio-solver-plan.md` for full details):
 - `Blueprint` — top-level container with label, entities, tiles, icons, version
 - `Entity` — entity_number, name, position, direction, recipe, items, connections, type_field
 - `Position` — x/y as f64 (center-based, 0.5 offsets for odd-width entities)
