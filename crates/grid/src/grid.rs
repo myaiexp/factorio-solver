@@ -1077,13 +1077,18 @@ mod tests {
 
     // ── Performance test ─────────────────────────────────────────────
 
-    /// Verify that `query_rect` on a large grid scales with result size, not
-    /// total entity count.  We place 10,000 transport-belt entities (1×1) in a
-    /// 100×100 grid, then query a 10×10 region and assert:
+    /// Verify that `query_rect` on a large grid scales with the queried area,
+    /// not total entity count.  We place 10,000 transport-belt entities (1×1) in
+    /// a 100×100 grid, then query a 10×10 region and assert:
     ///   1. The returned entity count matches the expected 100 entities in
     ///      that region.
-    ///   2. The query completes in under 5 ms — demonstrating O(result) rather
-    ///      than O(all-entities) behaviour.
+    ///   2. The spatial index scans only the single chunk the query touches
+    ///      (256 candidate occupants), not all 10,000 entities — demonstrating
+    ///      O(touched-chunks) rather than O(all-entities) behaviour.
+    ///
+    /// The scaling property is checked structurally (candidate count) rather
+    /// than with a wall-clock budget, which would be flaky under load, coverage
+    /// instrumentation, or debug builds.
     #[test]
     fn test_query_rect_performance_10k_entities() {
         let mut grid = Grid::new();
@@ -1105,9 +1110,7 @@ mod tests {
         assert_eq!(grid.entity_count(), 10_000);
 
         // Query a 10×10 region (cells 0..=9 in both axes → 100 entities)
-        let start = std::time::Instant::now();
         let results = grid.query_rect(0, 0, 9, 9);
-        let elapsed = start.elapsed();
 
         assert_eq!(
             results.len(),
@@ -1115,10 +1118,17 @@ mod tests {
             "expected exactly 100 entities in the 10×10 query region"
         );
 
-        assert!(
-            elapsed.as_millis() < 5,
-            "query_rect should complete in < 5 ms, took {} ms",
-            elapsed.as_millis()
+        // Structural proof of O(touched-chunks), not O(all-entities): the query
+        // region 0..=9 lies entirely within chunk (0,0) (16×16 cells), so the
+        // spatial index scans only that one chunk's bucket — the 256 belts in
+        // cells 0..15 × 0..15 — never the full 10,000. The exact-AABB filter
+        // above then narrows those 256 candidates to the 100 in-region hits.
+        let candidates = grid.spatial.query_rect(0, 0, 9, 9);
+        assert_eq!(
+            candidates.len(),
+            256,
+            "spatial index should scan only the single touched chunk's 256 \
+             occupants, independent of the 10,000 total entities"
         );
     }
 }

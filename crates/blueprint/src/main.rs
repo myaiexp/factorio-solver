@@ -17,11 +17,13 @@ fn main() {
 
     match command.as_str() {
         "decode" => match factorio_blueprint::decode_to_json(blueprint_string) {
-            Ok(json) => {
-                let value: serde_json::Value =
-                    serde_json::from_str(&json).expect("decoded JSON should be valid");
-                println!("{}", serde_json::to_string_pretty(&value).unwrap());
-            }
+            Ok(json) => match serde_json::from_str::<serde_json::Value>(&json) {
+                Ok(value) => println!("{}", serde_json::to_string_pretty(&value).unwrap()),
+                Err(e) => {
+                    eprintln!("Error: {e}");
+                    process::exit(1);
+                }
+            },
             Err(e) => {
                 eprintln!("Error: {e}");
                 process::exit(1);
