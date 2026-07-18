@@ -83,7 +83,7 @@ pub fn extract_template(
     max_y: i32,
     name: &str,
 ) -> Template {
-    let entities = grid.entities_in_region(min_x, min_y, max_x, max_y);
+    let entities = grid.query_rect(min_x, min_y, max_x, max_y);
 
     let template_entities = entities
         .into_iter()

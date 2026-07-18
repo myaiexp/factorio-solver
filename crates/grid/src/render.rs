@@ -87,7 +87,7 @@ mod tests {
     #[test]
     fn test_render_single_belt() {
         let mut grid = Grid::new();
-        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None, 1)
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
             .unwrap();
         let ascii = render_ascii(&grid);
         assert_eq!(ascii, "B\n");
@@ -102,7 +102,6 @@ mod tests {
             Direction::North,
             Some("iron-gear-wheel".to_string()),
             None,
-            1,
         )
         .unwrap();
 
@@ -121,20 +120,19 @@ mod tests {
             Direction::North,
             None,
             None,
-            4,
         )
         .unwrap();
 
         // Belt at (0.5, 0.5) → cell (0, 0)
-        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None, 1)
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
             .unwrap();
 
         // Belt at (0.5, 1.5) → cell (0, 1)
-        grid.place("transport-belt", &pos(0.5, 1.5), Direction::North, None, None, 2)
+        grid.place("transport-belt", &pos(0.5, 1.5), Direction::North, None, None)
             .unwrap();
 
         // Belt at (0.5, 2.5) → cell (0, 2)
-        grid.place("transport-belt", &pos(0.5, 2.5), Direction::North, None, None, 3)
+        grid.place("transport-belt", &pos(0.5, 2.5), Direction::North, None, None)
             .unwrap();
 
         let ascii = render_ascii(&grid);

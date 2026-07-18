@@ -46,7 +46,6 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
             entity.direction,
             entity.recipe.clone(),
             entity.entity_type.clone(),
-            entity.entity_number,
         ) {
             Ok(_) => {}
             Err(GridError::UnknownPrototype(name)) => {

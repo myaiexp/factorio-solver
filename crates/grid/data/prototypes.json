@@ -1,0 +1,120 @@
+[
+  { "name": "transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 15.0 },
+  { "name": "fast-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 30.0 },
+  { "name": "express-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 45.0 },
+  { "name": "turbo-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 60.0 },
+  { "name": "underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 15.0 },
+  { "name": "fast-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 30.0 },
+  { "name": "express-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 45.0 },
+  { "name": "turbo-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 60.0 },
+  { "name": "splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 15.0 },
+  { "name": "fast-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 30.0 },
+  { "name": "express-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 45.0 },
+  { "name": "turbo-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 60.0 },
+
+  { "name": "burner-inserter", "tile_width": 1, "tile_height": 1 },
+  { "name": "inserter", "tile_width": 1, "tile_height": 1 },
+  { "name": "long-handed-inserter", "tile_width": 1, "tile_height": 1 },
+  { "name": "fast-inserter", "tile_width": 1, "tile_height": 1 },
+  { "name": "bulk-inserter", "tile_width": 1, "tile_height": 1 },
+  { "name": "stack-inserter", "tile_width": 1, "tile_height": 1 },
+
+  { "name": "assembling-machine-1", "tile_width": 3, "tile_height": 3, "crafting_speed": 0.5, "power_kw": 75.0, "module_slots": 0 },
+  { "name": "assembling-machine-2", "tile_width": 3, "tile_height": 3, "crafting_speed": 0.75, "power_kw": 150.0, "module_slots": 2 },
+  { "name": "assembling-machine-3", "tile_width": 3, "tile_height": 3, "crafting_speed": 1.25, "power_kw": 375.0, "module_slots": 4 },
+
+  { "name": "stone-furnace", "tile_width": 2, "tile_height": 2 },
+  { "name": "steel-furnace", "tile_width": 2, "tile_height": 2 },
+  { "name": "electric-furnace", "tile_width": 3, "tile_height": 3, "crafting_speed": 2.0, "power_kw": 180.0, "module_slots": 2 },
+
+  { "name": "chemical-plant", "tile_width": 3, "tile_height": 3, "crafting_speed": 1.0, "power_kw": 210.0, "module_slots": 3,
+    "fluid_connections": [
+      { "dx": 0.0, "dy": -1.5, "connection_type": "input" },
+      { "dx": 2.0, "dy": -1.5, "connection_type": "input" },
+      { "dx": 0.0, "dy": 1.5, "connection_type": "output" },
+      { "dx": 2.0, "dy": 1.5, "connection_type": "output" }
+    ] },
+  { "name": "oil-refinery", "tile_width": 5, "tile_height": 5, "crafting_speed": 1.0, "power_kw": 420.0, "module_slots": 3,
+    "fluid_connections": [
+      { "dx": -1.0, "dy": 2.5, "connection_type": "input" },
+      { "dx": 1.0, "dy": 2.5, "connection_type": "input" },
+      { "dx": -2.0, "dy": -2.5, "connection_type": "output" },
+      { "dx": 0.0, "dy": -2.5, "connection_type": "output" },
+      { "dx": 2.0, "dy": -2.5, "connection_type": "output" }
+    ] },
+  { "name": "pipe", "tile_width": 1, "tile_height": 1 },
+  { "name": "pipe-to-ground", "tile_width": 1, "tile_height": 1 },
+  { "name": "pump", "tile_width": 1, "tile_height": 2,
+    "fluid_connections": [
+      { "dx": 0.0, "dy": -1.0, "connection_type": "input" },
+      { "dx": 0.0, "dy": 1.0, "connection_type": "output" }
+    ] },
+  { "name": "storage-tank", "tile_width": 3, "tile_height": 3,
+    "fluid_connections": [
+      { "dx": 1.0, "dy": 1.0, "connection_type": "input_output" }
+    ] },
+  { "name": "offshore-pump", "tile_width": 1, "tile_height": 1 },
+
+  { "name": "burner-mining-drill", "tile_width": 2, "tile_height": 2 },
+  { "name": "electric-mining-drill", "tile_width": 3, "tile_height": 3, "module_slots": 3 },
+  { "name": "big-mining-drill", "tile_width": 3, "tile_height": 3, "module_slots": 4 },
+  { "name": "pumpjack", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
+
+  { "name": "boiler", "tile_width": 3, "tile_height": 2 },
+  { "name": "steam-engine", "tile_width": 3, "tile_height": 5, "power_kw": 900.0 },
+  { "name": "solar-panel", "tile_width": 3, "tile_height": 3, "power_kw": 60.0 },
+  { "name": "accumulator", "tile_width": 2, "tile_height": 2 },
+  { "name": "nuclear-reactor", "tile_width": 5, "tile_height": 5 },
+  { "name": "heat-pipe", "tile_width": 1, "tile_height": 1 },
+  { "name": "heat-exchanger", "tile_width": 3, "tile_height": 2 },
+  { "name": "steam-turbine", "tile_width": 3, "tile_height": 5, "power_kw": 5820.0 },
+
+  { "name": "small-electric-pole", "tile_width": 1, "tile_height": 1 },
+  { "name": "medium-electric-pole", "tile_width": 1, "tile_height": 1 },
+  { "name": "big-electric-pole", "tile_width": 2, "tile_height": 2 },
+  { "name": "substation", "tile_width": 2, "tile_height": 2 },
+
+  { "name": "wooden-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "iron-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "steel-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "storage-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "passive-provider-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "active-provider-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "buffer-chest", "tile_width": 1, "tile_height": 1 },
+  { "name": "requester-chest", "tile_width": 1, "tile_height": 1 },
+
+  { "name": "arithmetic-combinator", "tile_width": 1, "tile_height": 2 },
+  { "name": "decider-combinator", "tile_width": 1, "tile_height": 2 },
+  { "name": "constant-combinator", "tile_width": 1, "tile_height": 1 },
+  { "name": "power-switch", "tile_width": 2, "tile_height": 2 },
+  { "name": "programmable-speaker", "tile_width": 1, "tile_height": 1 },
+  { "name": "small-lamp", "tile_width": 1, "tile_height": 1 },
+
+  { "name": "gun-turret", "tile_width": 2, "tile_height": 2 },
+  { "name": "laser-turret", "tile_width": 2, "tile_height": 2 },
+  { "name": "flamethrower-turret", "tile_width": 2, "tile_height": 3 },
+  { "name": "artillery-turret", "tile_width": 3, "tile_height": 3 },
+  { "name": "radar", "tile_width": 3, "tile_height": 3 },
+  { "name": "stone-wall", "tile_width": 1, "tile_height": 1 },
+  { "name": "gate", "tile_width": 1, "tile_height": 1 },
+  { "name": "rocket-turret", "tile_width": 2, "tile_height": 2 },
+
+  { "name": "train-stop", "tile_width": 2, "tile_height": 2 },
+  { "name": "rail-signal", "tile_width": 1, "tile_height": 1 },
+  { "name": "rail-chain-signal", "tile_width": 1, "tile_height": 1 },
+
+  { "name": "beacon", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
+  { "name": "roboport", "tile_width": 4, "tile_height": 4 },
+  { "name": "lab", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
+  { "name": "rocket-silo", "tile_width": 9, "tile_height": 9, "module_slots": 4 },
+
+  { "name": "biochamber", "tile_width": 3, "tile_height": 3, "crafting_speed": 2.0, "power_kw": 400.0, "module_slots": 4 },
+  { "name": "recycler", "tile_width": 2, "tile_height": 2, "module_slots": 4 },
+  { "name": "foundry", "tile_width": 4, "tile_height": 4, "crafting_speed": 4.0, "power_kw": 500.0, "module_slots": 4 },
+  { "name": "electromagnetic-plant", "tile_width": 4, "tile_height": 4, "crafting_speed": 2.0, "power_kw": 500.0, "module_slots": 5 },
+  { "name": "cryogenic-plant", "tile_width": 5, "tile_height": 5, "crafting_speed": 2.0, "power_kw": 500.0, "module_slots": 8 },
+  { "name": "heating-tower", "tile_width": 3, "tile_height": 3 },
+  { "name": "biolab", "tile_width": 4, "tile_height": 4, "module_slots": 4 },
+  { "name": "agricultural-tower", "tile_width": 3, "tile_height": 3 },
+  { "name": "lightning-rod", "tile_width": 1, "tile_height": 1 }
+]

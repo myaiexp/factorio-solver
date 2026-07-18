@@ -1,5 +1,7 @@
 pub mod astar;
+pub mod category;
 pub mod error;
+pub mod export;
 pub mod grid;
 pub mod import;
 pub mod prototype;
@@ -8,10 +10,12 @@ pub mod spatial;
 pub mod types;
 
 pub use astar::{find_path, AStarConfig};
+pub use category::EntityCategory;
 pub use error::GridError;
+pub use export::to_blueprint;
 pub use grid::Grid;
 pub use import::{from_blueprint, ImportResult, SkippedEntity};
-pub use prototype::{EntityPrototype, lookup as lookup_prototype};
+pub use prototype::{lookup as lookup_prototype, EntityPrototype};
 pub use render::render_ascii;
 pub use spatial::{SpatialIndex, CHUNK_SIZE};
 pub use types::{CellState, EntityId, GridPos, PlacedEntity};

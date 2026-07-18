@@ -139,7 +139,7 @@ impl Grid {
         let id = EntityId(self.entities.len());
         let entity = PlacedEntity {
             id,
-            prototype_name: proto.name,
+            prototype_name: proto.name.as_str(),
             position: GridPos {
                 x: top_left_x,
                 y: top_left_y,
