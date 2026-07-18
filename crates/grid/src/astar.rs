@@ -260,4 +260,78 @@ mod tests {
         );
         assert!(result.is_none(), "enclosed goal must be unreachable");
     }
+
+    #[test]
+    fn test_diagonal_beats_orthogonal() {
+        // Exercises the 8-directional neighbor generation and the Chebyshev
+        // heuristic — both dead code paths under AStarConfig::default().
+        let grid = Grid::new();
+        let from = GridPos { x: 0, y: 0 };
+        let to = GridPos { x: 3, y: 3 };
+
+        let ortho = find_path(&grid, from, to, &AStarConfig::default())
+            .expect("orthogonal path exists on empty grid");
+        // Manhattan distance 6 → 7 cells inclusive.
+        assert_eq!(ortho.len(), 7);
+
+        let diag = find_path(
+            &grid,
+            from,
+            to,
+            &AStarConfig {
+                allow_diagonal: true,
+                ..Default::default()
+            },
+        )
+        .expect("diagonal path exists on empty grid");
+        // Chebyshev distance max(3,3)=3 → 4 cells inclusive: strictly shorter,
+        // and equal to the theoretical minimum (proves optimality).
+        assert_eq!(diag.len(), 4);
+        assert!(diag.len() < ortho.len(), "diagonal route must be shorter");
+        assert_eq!(diag.first(), Some(&from));
+        assert_eq!(diag.last(), Some(&to));
+
+        // A 3-step, 4-cell path from (0,0)→(3,3) can only be three (+1,+1)
+        // moves — monotone toward the goal, every step a legal single hop.
+        for pair in diag.windows(2) {
+            let dx = pair[1].x - pair[0].x;
+            let dy = pair[1].y - pair[0].y;
+            assert_eq!((dx, dy), (1, 1), "step {pair:?} is not a monotone diagonal move");
+        }
+    }
+
+    #[test]
+    fn test_max_cost_bounds_reachability() {
+        // Exercises the cost-limit early-exit branch. True path cost from
+        // (0,0)→(3,0) is 3 steps (4 cells inclusive).
+        let grid = Grid::new();
+        let from = GridPos { x: 0, y: 0 };
+        let to = GridPos { x: 3, y: 0 };
+
+        let with_limit = |limit: u32| {
+            find_path(
+                &grid,
+                from,
+                to,
+                &AStarConfig {
+                    max_cost: Some(limit),
+                    ..Default::default()
+                },
+            )
+        };
+
+        // Just below the true cost → goal never expanded within budget.
+        assert!(
+            with_limit(2).is_none(),
+            "cost limit 2 (< 3) must yield no path"
+        );
+
+        // Exactly at the true cost → reachable.
+        let at = with_limit(3).expect("cost limit 3 (== 3) must yield a path");
+        assert_eq!(at.len(), 4);
+
+        // Above the true cost → still reachable, same optimal path.
+        let above = with_limit(10).expect("cost limit 10 (> 3) must yield a path");
+        assert_eq!(above.len(), 4);
+    }
 }
