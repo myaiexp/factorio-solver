@@ -138,13 +138,7 @@ mod tests {
 
     #[test]
     fn test_render_imported_blueprint() {
-        const ASSEMBLER_SETUP: &str = concat!(
-            "0eNqNkcFqwzAMhl9l6GxD6yYpyW3P0OMow0lFKrCVYDvrSsi7T1kgDJptvRgs8X2/",
-            "kEao3YB9IE5QjUAJPVQ/agqcrdFJ7TVG9LXD8HLCNPTSQU6UCCNUb+Pyub/z4GsMUO",
-            "0VsPUonF044lZ721yJURuB+y4K3PGc+gnVTsFd3klBwIb6GaTQsW7RBn27ooyg4ELSX",
-            "CAzqYdMs2YSRwxJag852qxB/9gOT9g2ZcWGLFtlKViOfReSlrWmjQEPW85sw5k/7fx",
-            "FeVZATcfL/SK1bN0M/HU3URBfUJz7Gf/AEL9leWHKrCzzbHcsiqOZpi/Cqcff",
-        );
+        use factorio_blueprint::fixtures::ASSEMBLER_SETUP;
 
         let data = factorio_blueprint::decode(ASSEMBLER_SETUP).unwrap();
         let blueprint = data.blueprint.as_ref().expect("expected a blueprint");

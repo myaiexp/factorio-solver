@@ -1,53 +1,15 @@
 //! Integration tests for blueprint import.
 //!
-//! Uses real Factorio blueprint strings (same as in `crates/blueprint/tests/roundtrip.rs`)
-//! decoded via `factorio_blueprint::decode()` and imported into the grid engine.
+//! Uses the shared real-Factorio blueprint fixtures from
+//! `factorio_blueprint::fixtures`, decoded via `factorio_blueprint::decode()`
+//! and imported into the grid engine.
 
+use factorio_blueprint::fixtures::{
+    ASSEMBLER_SETUP, COMPLEX_CIRCUIT, SINGLE_BELT, UNDERGROUND_BELTS,
+};
 use factorio_blueprint::{decode, encode, Direction, Position};
 use factorio_grid::import::from_blueprint;
 use factorio_grid::{to_blueprint, Grid};
-
-// -- Test blueprint strings ---------------------------------------------------
-
-/// Minimal blueprint: a single transport belt facing east.
-const SINGLE_BELT: &str = concat!(
-    "0eNptzcEKgzAMgOF3ybkbKrZiX2WMUTWMgKbSVplI332tveywU0nC9/eEYd5wdcQB",
-    "9AkUcAH9sxOAHCgQetCPswzHi7dlQAe6FsBmwSSCM+xX68JtwDmz1frELOfqB3R1lw",
-    "KO640CJnI4lmsTnwJotFw+8PRmM2f0P5ww8YSpWGe4o/NXRqqmb/tetlWnVNfE+AWu",
-    "hUgS",
-);
-
-/// Assembler with inserters and belts, tests recipe & direction fields.
-const ASSEMBLER_SETUP: &str = concat!(
-    "0eNqNkcFqwzAMhl9l6GxD6yYpyW3P0OMow0lFKrCVYDvrSsi7T1kgDJptvRgs8X2/",
-    "kEao3YB9IE5QjUAJPVQ/agqcrdFJ7TVG9LXD8HLCNPTSQU6UCCNUb+Pyub/z4GsMUO",
-    "0VsPUonF044lZ721yJURuB+y4K3PGc+gnVTsFd3klBwIb6GaTQsW7RBn27ooyg4ELSX",
-    "CAzqYdMs2YSRwxJag852qxB/9gOT9g2ZcWGLFtlKViOfReSlrWmjQEPW85sw5k/7fx",
-    "FeVZATcfL/SK1bN0M/HU3URBfUJz7Gf/AEL9leWHKrCzzbHcsiqOZpi/Cqcff",
-);
-
-/// Underground belt pair with "type": "input"/"output".
-const UNDERGROUND_BELTS: &str = concat!(
-    "0eNqVkVGKwjAQQO8y31G021aaq4gsbR1koJ2EZCKW0rubWBBBw65fQxLeeySZoRsCWk",
-    "csoGcgwRH0y54CZCEh9KCP87qYfjmMHTrQewXcjhiJwGd0F2fi3HQ4JNAaH0HDyXsD",
-    "vdtWCqbHXBScyWG/nhYKZLJJQmyDwKLeOsUXnfLvjgmSCf08Q+Ja9tY4yWQ2+ft88J",
-    "b/9lZ57UkB9YbXn/B04XZIUO5lIk5xLzr3Cb2i8w9RVRdN2TRVuTvU9aFYljv3gKqg",
-);
-
-/// Complex blueprint with circuit connections, combinators, modules, and control_behavior.
-const COMPLEX_CIRCUIT: &str = concat!(
-    "0eNqtVNuK2zAQ/ZWi19oldpws8UOh9BP6uAQj25NkQDdkKW0I/veOpF0nWyfLpq0NQr",
-    "c5OnN0NGfWCg/GonKsPjN0IFl9NZcxwVsQNPcdbefRffoBzhuaB+XQIQysfj6nwalR",
-    "XrZgWV1kTHEJFMUtuoMEh13eadmi4k5bijZ6oGitwqG/WL3I2InaL6sxYz1a6NJamb",
-    "FOK2e1aFo48CNSLAVcQBta7iPQEBZ2aAfXDLhXXISxO5lA4ojWeZqZWKUd+TdGxw0Q",
-    "MALQ4HhQgchrA5YnCuwzhWnvjH8MmL5spks5beyhwx7sB0QpPyjKC+J/UORKisUiDK",
-    "XhNlKs2de/UyOgmBNx88o1O6tlg4owWO2sh5tSLSeUVzrvakUqPWShHQoHNpn30UT8",
-    "i0tQ9UBHF4H9DCO+pAkArVa5EdzBFURVThjluL0lQnVhILkQueDS3M89OeVWtl16ux",
-    "dv/Ls15sagZT8AnSF0EDbd7Dyn1aU2DAPIVqDa55J3B1SQL+fZ5ct0sQRPl4qRIwi6X",
-    "pI0VJWUGsUFxaPnBwPQ51L3XkBekoq3aKwnGhJ69DJPmIRotIA5jeqNwUgHlRwWTyx",
-    "CY6G/roXYR5O8Sh+H4zZjewug/ty4DPcfVn+Sc4Mrn4uspL/YZtSr6C+pF2aWsUdtt",
-    "qYeRWAXSbzx8bvFd7zn3Pulabw2asaO9HKiMqt1uak2m1W1eFqvn8px/A0lpiJv",
-);
 
 // -- Helpers ------------------------------------------------------------------
 
@@ -188,66 +150,22 @@ fn test_import_complex_circuit() {
 
 #[test]
 fn test_import_all_unknown() {
-    // Build a blueprint with only unknown entity names
-    use std::collections::HashMap;
+    // Build a blueprint with only unknown entity names.
+    let unknown = |entity_number: u32, name: &str, x: f64| factorio_blueprint::Entity {
+        entity_number,
+        name: name.to_string(),
+        position: Position { x, y: 0.5 },
+        ..Default::default()
+    };
     let bp = factorio_blueprint::Blueprint {
         item: "blueprint".to_string(),
-        label: None,
-        label_color: None,
-        description: None,
-        icons: None,
         entities: vec![
-            factorio_blueprint::Entity {
-                entity_number: 1,
-                name: "modded-laser-turret".to_string(),
-                position: factorio_blueprint::Position { x: 0.5, y: 0.5 },
-                direction: factorio_blueprint::Direction::North,
-                entity_type: None,
-                recipe: None,
-                connections: None,
-                control_behavior: None,
-                items: None,
-                wires: None,
-                tags: None,
-                extra: HashMap::new(),
-            },
-            factorio_blueprint::Entity {
-                entity_number: 2,
-                name: "alien-artifact-processor".to_string(),
-                position: factorio_blueprint::Position { x: 1.5, y: 0.5 },
-                direction: factorio_blueprint::Direction::North,
-                entity_type: None,
-                recipe: None,
-                connections: None,
-                control_behavior: None,
-                items: None,
-                wires: None,
-                tags: None,
-                extra: HashMap::new(),
-            },
-            factorio_blueprint::Entity {
-                entity_number: 3,
-                name: "space-science-lab".to_string(),
-                position: factorio_blueprint::Position { x: 2.5, y: 0.5 },
-                direction: factorio_blueprint::Direction::North,
-                entity_type: None,
-                recipe: None,
-                connections: None,
-                control_behavior: None,
-                items: None,
-                wires: None,
-                tags: None,
-                extra: HashMap::new(),
-            },
+            unknown(1, "modded-laser-turret", 0.5),
+            unknown(2, "alien-artifact-processor", 1.5),
+            unknown(3, "space-science-lab", 2.5),
         ],
-        tiles: vec![],
-        wires: None,
-        schedules: None,
-        snap_to_grid: None,
-        absolute_snapping: None,
-        position_relative_to_grid: None,
         version: 281479275675648,
-        extra: HashMap::new(),
+        ..Default::default()
     };
 
     let result = from_blueprint(&bp);

@@ -1,5 +1,6 @@
 pub mod codec;
 pub mod error;
+pub mod fixtures;
 pub mod types;
 
 pub use codec::{decode, decode_to_json, encode};

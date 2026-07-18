@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 // ── Position ──────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Position {
     pub x: f64,
     pub y: f64,
@@ -107,7 +107,7 @@ fn is_north(d: &Direction) -> bool {
 
 // ── Entity ────────────────────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Entity {
     pub entity_number: u32,
     pub name: String,
@@ -155,7 +155,7 @@ fn is_empty_vec<T>(v: &[T]) -> bool {
     v.is_empty()
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Blueprint {
     pub item: String,
 
@@ -206,7 +206,7 @@ pub struct BlueprintBookEntry {
     pub blueprint: Blueprint,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct BlueprintBook {
     pub item: String,
 
@@ -232,7 +232,7 @@ pub struct BlueprintBook {
 
 // ── BlueprintData (top-level envelope) ────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct BlueprintData {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blueprint: Option<Blueprint>,
@@ -312,15 +312,7 @@ mod tests {
             entity_number: 1,
             name: "transport-belt".to_string(),
             position: Position { x: 1.5, y: 2.5 },
-            direction: Direction::North,
-            entity_type: None,
-            recipe: None,
-            connections: None,
-            control_behavior: None,
-            items: None,
-            wires: None,
-            tags: None,
-            extra: HashMap::new(),
+            ..Default::default()
         };
 
         let val = serde_json::to_value(&entity).unwrap();
@@ -388,20 +380,10 @@ mod tests {
             blueprint: Some(Blueprint {
                 item: "blueprint".to_string(),
                 label: Some("Test".to_string()),
-                label_color: None,
-                description: None,
-                icons: None,
-                entities: vec![],
-                tiles: vec![],
-                wires: None,
-                schedules: None,
-                snap_to_grid: None,
-                absolute_snapping: None,
-                position_relative_to_grid: None,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
-            blueprint_book: None,
+            ..Default::default()
         };
 
         let json_str = serde_json::to_string(&data).unwrap();
@@ -417,36 +399,22 @@ mod tests {
     #[test]
     fn test_blueprint_data_with_book() {
         let data = BlueprintData {
-            blueprint: None,
             blueprint_book: Some(BlueprintBook {
                 item: "blueprint-book".to_string(),
                 label: Some("My Book".to_string()),
-                label_color: None,
-                description: None,
-                icons: None,
                 blueprints: vec![BlueprintBookEntry {
                     index: 0,
                     blueprint: Blueprint {
                         item: "blueprint".to_string(),
-                        label: None,
-                        label_color: None,
-                        description: None,
-                        icons: None,
-                        entities: vec![],
-                        tiles: vec![],
-                        wires: None,
-                        schedules: None,
-                        snap_to_grid: None,
-                        absolute_snapping: None,
-                        position_relative_to_grid: None,
                         version: 281479275675648,
-                        extra: HashMap::new(),
+                        ..Default::default()
                     },
                 }],
                 active_index: 0,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
+            ..Default::default()
         };
 
         let json_str = serde_json::to_string(&data).unwrap();
@@ -458,19 +426,7 @@ mod tests {
     fn test_blueprint_entities_always_emitted() {
         let bp = Blueprint {
             item: "blueprint".to_string(),
-            label: None,
-            label_color: None,
-            description: None,
-            icons: None,
-            entities: vec![],
-            tiles: vec![],
-            wires: None,
-            schedules: None,
-            snap_to_grid: None,
-            absolute_snapping: None,
-            position_relative_to_grid: None,
-            version: 0,
-            extra: HashMap::new(),
+            ..Default::default()
         };
 
         let val = serde_json::to_value(&bp).unwrap();

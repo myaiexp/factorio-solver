@@ -73,28 +73,15 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use factorio_blueprint::{
-        Blueprint, Direction, Entity, Position,
-    };
-    use std::collections::HashMap;
+    use factorio_blueprint::{Blueprint, Direction, Entity, Position};
 
     /// Helper to build a minimal Blueprint with the given entities.
     fn make_blueprint(entities: Vec<Entity>) -> Blueprint {
         Blueprint {
             item: "blueprint".to_string(),
-            label: None,
-            label_color: None,
-            description: None,
-            icons: None,
             entities,
-            tiles: vec![],
-            wires: None,
-            schedules: None,
-            snap_to_grid: None,
-            absolute_snapping: None,
-            position_relative_to_grid: None,
             version: 281479275675648,
-            extra: HashMap::new(),
+            ..Default::default()
         }
     }
 
@@ -111,14 +98,7 @@ mod tests {
             name: name.to_string(),
             position: Position { x, y },
             direction,
-            entity_type: None,
-            recipe: None,
-            connections: None,
-            control_behavior: None,
-            items: None,
-            wires: None,
-            tags: None,
-            extra: HashMap::new(),
+            ..Default::default()
         }
     }
 

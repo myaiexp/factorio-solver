@@ -7,6 +7,13 @@ use std::io::{Read, Write};
 use crate::error::BlueprintError;
 use crate::types::BlueprintData;
 
+/// Upper bound on decompressed blueprint JSON. Zlib compresses ~1000:1, so a
+/// tiny pasted string can expand to gigabytes (a "zip bomb"). The decoder is
+/// capped at this many bytes so a malicious or corrupt blueprint can't OOM or
+/// freeze the app — decode fails fast with `DecompressedTooLarge` instead. Real
+/// blueprints decompress to a few MB at most; 64 MiB is comfortably generous.
+pub const DECOMPRESSED_LIMIT: usize = 64 * 1024 * 1024;
+
 /// Decode a Factorio blueprint string into a `BlueprintData` struct.
 ///
 /// Pipeline: strip version byte → base64 decode → zlib decompress → JSON parse.
@@ -32,9 +39,25 @@ pub fn decode_to_json(blueprint_string: &str) -> Result<String, BlueprintError> 
     let encoded = &blueprint_string[1..];
     let compressed = STANDARD.decode(encoded)?;
 
-    let mut decoder = ZlibDecoder::new(&compressed[..]);
-    let mut json = String::new();
-    decoder.read_to_string(&mut json)?;
+    // Cap decompression at DECOMPRESSED_LIMIT: read one byte past the limit and,
+    // if the reader still had data, reject as a zip bomb. `take` bounds the work
+    // to LIMIT+1 bytes regardless of how large the stream would expand to, so
+    // memory stays bounded even for adversarial input. Read into a byte buffer
+    // (not read_to_string) so the size check runs before UTF-8 validation and an
+    // oversized paste reports DecompressedTooLarge rather than a spurious
+    // invalid-UTF-8 error from a mid-character truncation.
+    let mut decoder = ZlibDecoder::new(&compressed[..]).take(DECOMPRESSED_LIMIT as u64 + 1);
+    let mut buf = Vec::new();
+    decoder.read_to_end(&mut buf)?;
+    if buf.len() > DECOMPRESSED_LIMIT {
+        return Err(BlueprintError::DecompressedTooLarge {
+            limit: DECOMPRESSED_LIMIT,
+        });
+    }
+
+    let json = String::from_utf8(buf).map_err(|e| {
+        BlueprintError::Zlib(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+    })?;
 
     Ok(json)
 }
@@ -58,7 +81,6 @@ pub fn encode(data: &BlueprintData) -> Result<String, BlueprintError> {
 mod tests {
     use super::*;
     use crate::types::{Blueprint, Entity, Position};
-    use std::collections::HashMap;
 
     // ── Error path tests ──────────────────────────────────────────────
 
@@ -100,6 +122,54 @@ mod tests {
         assert!(matches!(result, Err(BlueprintError::Json(_))));
     }
 
+    #[test]
+    fn test_decode_rejects_zip_bomb() {
+        // A tiny pasted string that decompresses past the limit must be rejected
+        // before it can exhaust memory. Highly-repetitive data compresses ~1000:1,
+        // so this "bomb" is only a few KB encoded but expands past 64 MiB.
+        let bomb = vec![b' '; DECOMPRESSED_LIMIT + 1];
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(&bomb).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let encoded = STANDARD.encode(&compressed);
+        // Sanity: the compressed paste is tiny relative to what it expands to.
+        assert!(encoded.len() < 1024 * 1024, "compressed bomb should stay small");
+        let blueprint_string = format!("0{encoded}");
+
+        let result = decode_to_json(&blueprint_string);
+        assert!(matches!(
+            result,
+            Err(BlueprintError::DecompressedTooLarge { limit }) if limit == DECOMPRESSED_LIMIT
+        ));
+
+        // decode() (which also parses JSON) must reject it too.
+        assert!(matches!(
+            decode(&blueprint_string),
+            Err(BlueprintError::DecompressedTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    fn test_decode_accepts_at_limit() {
+        // Content that decompresses to exactly the limit must still succeed —
+        // the guard rejects only strictly-larger payloads (LIMIT is inclusive).
+        // Use valid JSON padded to exactly DECOMPRESSED_LIMIT bytes.
+        let padding = DECOMPRESSED_LIMIT - r#"{"blueprint":{"item":"blueprint","version":0,"_pad":""}}"#.len();
+        let json = format!(
+            r#"{{"blueprint":{{"item":"blueprint","version":0,"_pad":"{}"}}}}"#,
+            " ".repeat(padding)
+        );
+        assert_eq!(json.len(), DECOMPRESSED_LIMIT);
+
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(json.as_bytes()).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let blueprint_string = format!("0{}", STANDARD.encode(&compressed));
+
+        let data = decode(&blueprint_string).expect("exactly-at-limit blueprint should decode");
+        assert_eq!(data.blueprint.unwrap().item, "blueprint");
+    }
+
     // ── Happy path tests ──────────────────────────────────────────────
 
     #[test]
@@ -108,33 +178,17 @@ mod tests {
             blueprint: Some(Blueprint {
                 item: "blueprint".to_string(),
                 label: Some("Test Blueprint".to_string()),
-                label_color: None,
-                description: None,
-                icons: None,
                 entities: vec![Entity {
                     entity_number: 1,
                     name: "transport-belt".to_string(),
                     position: Position { x: 0.5, y: 0.5 },
                     direction: crate::types::Direction::East,
-                    entity_type: None,
-                    recipe: None,
-                    connections: None,
-                    control_behavior: None,
-                    items: None,
-                    wires: None,
-                    tags: None,
-                    extra: HashMap::new(),
+                    ..Default::default()
                 }],
-                tiles: vec![],
-                wires: None,
-                schedules: None,
-                snap_to_grid: None,
-                absolute_snapping: None,
-                position_relative_to_grid: None,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
-            blueprint_book: None,
+            ..Default::default()
         };
 
         let encoded = encode(&data).unwrap();
@@ -148,42 +202,23 @@ mod tests {
 
     #[test]
     fn test_roundtrip_entity_connections() {
-        use crate::types::Direction;
-
         let connections_val =
             serde_json::json!({"1": {"red": [{"entity_id": 2, "circuit_id": 1}]}});
 
         let data = BlueprintData {
             blueprint: Some(Blueprint {
                 item: "blueprint".to_string(),
-                label: None,
-                label_color: None,
-                description: None,
-                icons: None,
                 entities: vec![Entity {
                     entity_number: 1,
                     name: "arithmetic-combinator".to_string(),
                     position: Position { x: 0.5, y: 0.0 },
-                    direction: Direction::North,
-                    entity_type: None,
-                    recipe: None,
                     connections: Some(connections_val.clone()),
-                    control_behavior: None,
-                    items: None,
-                    wires: None,
-                    tags: None,
-                    extra: HashMap::new(),
+                    ..Default::default()
                 }],
-                tiles: vec![],
-                wires: None,
-                schedules: None,
-                snap_to_grid: None,
-                absolute_snapping: None,
-                position_relative_to_grid: None,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
-            blueprint_book: None,
+            ..Default::default()
         };
 
         let encoded = encode(&data).unwrap();
@@ -200,21 +235,11 @@ mod tests {
         let data = BlueprintData {
             blueprint: Some(Blueprint {
                 item: "blueprint".to_string(),
-                label: None,
-                label_color: None,
-                description: None,
-                icons: None,
-                entities: vec![],
-                tiles: vec![],
                 wires: Some(wires_val.clone()),
-                schedules: None,
-                snap_to_grid: None,
-                absolute_snapping: None,
-                position_relative_to_grid: None,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
-            blueprint_book: None,
+            ..Default::default()
         };
 
         let encoded = encode(&data).unwrap();
@@ -225,8 +250,6 @@ mod tests {
 
     #[test]
     fn test_roundtrip_control_behavior() {
-        use crate::types::Direction;
-
         let cb_val = serde_json::json!({
             "circuit_condition": {
                 "first_signal": {"name": "iron-ore", "type": "item"},
@@ -239,34 +262,17 @@ mod tests {
         let data = BlueprintData {
             blueprint: Some(Blueprint {
                 item: "blueprint".to_string(),
-                label: None,
-                label_color: None,
-                description: None,
-                icons: None,
                 entities: vec![Entity {
                     entity_number: 1,
                     name: "inserter".to_string(),
                     position: Position { x: 0.5, y: 0.5 },
-                    direction: Direction::North,
-                    entity_type: None,
-                    recipe: None,
-                    connections: None,
                     control_behavior: Some(cb_val.clone()),
-                    items: None,
-                    wires: None,
-                    tags: None,
-                    extra: HashMap::new(),
+                    ..Default::default()
                 }],
-                tiles: vec![],
-                wires: None,
-                schedules: None,
-                snap_to_grid: None,
-                absolute_snapping: None,
-                position_relative_to_grid: None,
                 version: 281479275675648,
-                extra: HashMap::new(),
+                ..Default::default()
             }),
-            blueprint_book: None,
+            ..Default::default()
         };
 
         let encoded = encode(&data).unwrap();
