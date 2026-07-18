@@ -1,61 +1,52 @@
+// ASCII rendering of a grid's occupied cells for debugging and tests.
+use crate::category::EntityCategory;
 use crate::grid::Grid;
 
-/// Map a prototype name to its single-character ASCII representation.
+/// Maximum bounding-box area (in cells) that [`render_ascii`] will materialize.
 ///
-/// B=belt, I=inserter, A=assembler, F=furnace, S=splitter,
-/// U=underground belt, P=pipe, E=electric pole, C=chemical plant,
-/// R=refinery, K=beacon, X=combinator, L=lamp, ?=unknown
-fn char_for_prototype(name: &str) -> char {
-    // Order matters: check more specific patterns before general ones.
-    if name.contains("underground") {
-        'U'
-    } else if name.contains("splitter") {
-        'S'
-    } else if name.contains("belt") {
-        'B'
-    } else if name.contains("inserter") {
-        'I'
-    } else if name.contains("assembling") {
-        'A'
-    } else if name.contains("furnace") {
-        'F'
-    } else if name.contains("chemical") {
-        'C'
-    } else if name.contains("refinery") {
-        'R'
-    } else if name.contains("pipe") {
-        'P'
-    } else if name.contains("electric-pole") || name.contains("substation") {
-        'E'
-    } else if name.contains("beacon") {
-        'K'
-    } else if name.contains("combinator") {
-        'X'
-    } else if name.contains("lamp") {
-        'L'
-    } else {
-        '?'
-    }
-}
+/// The grid is sparse with unbounded coordinates, so two entities placed far
+/// apart — e.g. an imported blueprint with a single outlier at 100k — would
+/// otherwise force a nested loop over the entire bounding box: up to ~10^10
+/// iterations and a multi-gigabyte String. Blueprint import accepts arbitrary
+/// untrusted positions, so this cap keeps one outlier entity from hanging or
+/// OOMing any caller. A 1000×1000 factory (1M cells) still renders in full.
+pub const MAX_RENDER_CELLS: i64 = 1_000_000;
 
 /// Render the grid as ASCII art.
 ///
-/// Entity type is mapped to a single character per the mapping in
-/// [`char_for_prototype`]. Empty cells are rendered as '.'.
+/// Each occupied cell becomes the [`EntityCategory::label_char`] of its entity
+/// (B=belt, I=inserter, A=assembler, …, ?=unknown); empty cells render as '.'.
+/// Classification is delegated to [`EntityCategory`] so the substring-matching
+/// ladder lives in exactly one place.
 ///
-/// Returns an empty string if the grid contains no entities.
+/// Returns an empty string if the grid contains no entities, or a short
+/// bracketed placeholder (never valid art) when the bounding box would exceed
+/// [`MAX_RENDER_CELLS`] — see that constant for why.
 pub fn render_ascii(grid: &Grid) -> String {
     let (min, max) = match grid.bounding_box() {
         Some(bounds) => bounds,
         None => return String::new(),
     };
 
-    let mut output = String::new();
+    // Extents are computed in i64: coordinates are unbounded i32, so an
+    // adversarial pair near i32::MIN/MAX would overflow an i32 subtraction.
+    let width = max.x as i64 - min.x as i64 + 1;
+    let height = max.y as i64 - min.y as i64 + 1;
+    if width.saturating_mul(height) > MAX_RENDER_CELLS {
+        return format!(
+            "<render skipped: {width}×{height} region exceeds {MAX_RENDER_CELLS}-cell cap>"
+        );
+    }
+
+    // Past the guard the area fits usize; +height reserves the row newlines.
+    let mut output = String::with_capacity((width * height + height) as usize);
 
     for y in min.y..=max.y {
         for x in min.x..=max.x {
             let ch = match grid.get_at(x, y) {
-                Some(entity) => char_for_prototype(entity.prototype_name),
+                Some(entity) => {
+                    EntityCategory::from_prototype_name(entity.prototype_name).label_char()
+                }
                 None => '.',
             };
             output.push(ch);
@@ -174,83 +165,45 @@ mod tests {
         assert!(ascii.contains('B'), "expected belt chars in render");
     }
 
-    // ── char_for_prototype mapping tests ─────────────────────────────
+    // ── Oversized-region guard ───────────────────────────────────────
 
     #[test]
-    fn test_char_mapping_belts() {
-        assert_eq!(char_for_prototype("transport-belt"), 'B');
-        assert_eq!(char_for_prototype("fast-transport-belt"), 'B');
-        assert_eq!(char_for_prototype("express-transport-belt"), 'B');
+    fn test_render_far_apart_entities_are_capped() {
+        // Two belts 100k cells apart: the bounding box is ~10^10 cells, which
+        // would hang/OOM an unguarded renderer. It must return the placeholder
+        // (and thus terminate immediately) instead of scanning every cell.
+        let mut grid = Grid::new();
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+        grid.place(
+            "transport-belt",
+            &pos(100_000.5, 100_000.5),
+            Direction::North,
+            None,
+            None,
+        )
+        .unwrap();
+
+        let ascii = render_ascii(&grid);
+        assert!(
+            ascii.starts_with("<render skipped:"),
+            "expected placeholder, got {} chars",
+            ascii.len()
+        );
     }
 
     #[test]
-    fn test_char_mapping_underground() {
-        assert_eq!(char_for_prototype("underground-belt"), 'U');
-        assert_eq!(char_for_prototype("fast-underground-belt"), 'U');
-        assert_eq!(char_for_prototype("express-underground-belt"), 'U');
-    }
+    fn test_render_at_cap_still_renders() {
+        // A grid whose bounding box is within the cap renders normally rather
+        // than tripping the guard.
+        let mut grid = Grid::new();
+        grid.place("transport-belt", &pos(0.5, 0.5), Direction::North, None, None)
+            .unwrap();
+        grid.place("transport-belt", &pos(9.5, 9.5), Direction::North, None, None)
+            .unwrap();
 
-    #[test]
-    fn test_char_mapping_splitters() {
-        assert_eq!(char_for_prototype("splitter"), 'S');
-        assert_eq!(char_for_prototype("fast-splitter"), 'S');
-        assert_eq!(char_for_prototype("express-splitter"), 'S');
-    }
-
-    #[test]
-    fn test_char_mapping_inserters() {
-        assert_eq!(char_for_prototype("inserter"), 'I');
-        assert_eq!(char_for_prototype("fast-inserter"), 'I');
-        assert_eq!(char_for_prototype("long-handed-inserter"), 'I');
-        assert_eq!(char_for_prototype("stack-inserter"), 'I');
-        assert_eq!(char_for_prototype("bulk-inserter"), 'I');
-    }
-
-    #[test]
-    fn test_char_mapping_assemblers() {
-        assert_eq!(char_for_prototype("assembling-machine-1"), 'A');
-        assert_eq!(char_for_prototype("assembling-machine-2"), 'A');
-        assert_eq!(char_for_prototype("assembling-machine-3"), 'A');
-    }
-
-    #[test]
-    fn test_char_mapping_furnaces() {
-        assert_eq!(char_for_prototype("stone-furnace"), 'F');
-        assert_eq!(char_for_prototype("steel-furnace"), 'F');
-        assert_eq!(char_for_prototype("electric-furnace"), 'F');
-    }
-
-    #[test]
-    fn test_char_mapping_chemical_and_refinery() {
-        assert_eq!(char_for_prototype("chemical-plant"), 'C');
-        assert_eq!(char_for_prototype("oil-refinery"), 'R');
-    }
-
-    #[test]
-    fn test_char_mapping_pipes() {
-        assert_eq!(char_for_prototype("pipe"), 'P');
-        assert_eq!(char_for_prototype("pipe-to-ground"), 'P');
-    }
-
-    #[test]
-    fn test_char_mapping_electric_poles() {
-        assert_eq!(char_for_prototype("small-electric-pole"), 'E');
-        assert_eq!(char_for_prototype("medium-electric-pole"), 'E');
-        assert_eq!(char_for_prototype("big-electric-pole"), 'E');
-        assert_eq!(char_for_prototype("substation"), 'E');
-    }
-
-    #[test]
-    fn test_char_mapping_misc() {
-        assert_eq!(char_for_prototype("beacon"), 'K');
-        assert_eq!(char_for_prototype("small-lamp"), 'L');
-        assert_eq!(char_for_prototype("arithmetic-combinator"), 'X');
-        assert_eq!(char_for_prototype("decider-combinator"), 'X');
-        assert_eq!(char_for_prototype("constant-combinator"), 'X');
-    }
-
-    #[test]
-    fn test_char_mapping_unknown() {
-        assert_eq!(char_for_prototype("something-weird"), '?');
+        let ascii = render_ascii(&grid);
+        assert!(!ascii.starts_with("<render skipped:"));
+        assert!(ascii.contains('B'));
     }
 }

@@ -1,8 +1,8 @@
 use egui::{Color32, FontId, Pos2, Rect, Stroke, StrokeKind, Vec2};
 use factorio_blueprint::{decode, Direction};
-use factorio_grid::{from_blueprint, Grid, SkippedEntity};
+use factorio_grid::{from_blueprint, EntityCategory, Grid, SkippedEntity};
 
-use crate::colors::EntityCategory;
+use crate::colors::CategoryStyle;
 use crate::lod::{lod_for_zoom, LodLevel};
 use crate::viewport::ViewportTransform;
 
