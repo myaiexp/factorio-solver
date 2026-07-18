@@ -35,6 +35,26 @@ pub struct PlacedEntity {
     pub entity_type: Option<String>,
 }
 
+// ── Footprint geometry ───────────────────────────────────────────────
+
+/// Inclusive axis-aligned bounding box `(min_x, min_y, max_x, max_y)` of a
+/// footprint anchored at `top_left` with the given `size`. The `+ size - 1`
+/// converts the top-left origin into the inclusive bottom-right corner — the
+/// off-by-one-prone step, defined once here so every call site (bbox cache,
+/// query overlap, chunk range) stays consistent.
+pub(crate) fn footprint_aabb(top_left: (i32, i32), size: (u32, u32)) -> (i32, i32, i32, i32) {
+    let (x, y) = top_left;
+    (x, y, x + size.0 as i32 - 1, y + size.1 as i32 - 1)
+}
+
+impl PlacedEntity {
+    /// Inclusive AABB `(min_x, min_y, max_x, max_y)` of this entity's footprint
+    /// in cell coordinates.
+    pub fn aabb(&self) -> (i32, i32, i32, i32) {
+        footprint_aabb((self.position.x, self.position.y), self.size)
+    }
+}
+
 // ── Tests ────────────────────────────────────────────────────────────
 
 #[cfg(test)]

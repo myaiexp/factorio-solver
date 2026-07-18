@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use crate::types::EntityId;
+use crate::types::{footprint_aabb, EntityId};
 
 /// Side length (in cells) of one spatial chunk. Entities are bucketed into the
 /// chunks their footprint overlaps; range queries only scan the chunks that
@@ -34,14 +34,12 @@ impl SpatialIndex {
 
     /// Inclusive chunk range covered by a footprint at `top_left` of `size`.
     fn chunk_range(top_left: (i32, i32), size: (u32, u32)) -> (i32, i32, i32, i32) {
-        let (x, y) = top_left;
-        let w = size.0 as i32;
-        let h = size.1 as i32;
+        let (min_x, min_y, max_x, max_y) = footprint_aabb(top_left, size);
         (
-            chunk_of(x),
-            chunk_of(y),
-            chunk_of(x + w - 1),
-            chunk_of(y + h - 1),
+            chunk_of(min_x),
+            chunk_of(min_y),
+            chunk_of(max_x),
+            chunk_of(max_y),
         )
     }
 

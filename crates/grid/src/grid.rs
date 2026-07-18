@@ -5,7 +5,7 @@ use factorio_blueprint::{Direction, Position};
 use crate::error::GridError;
 use crate::prototype::{effective_size, lookup};
 use crate::spatial::SpatialIndex;
-use crate::types::{CellState, EntityId, GridPos, PlacedEntity};
+use crate::types::{footprint_aabb, CellState, EntityId, GridPos, PlacedEntity};
 
 // ── Grid ────────────────────────────────────────────────────────────────
 
@@ -171,10 +171,8 @@ impl Grid {
         // Expand incremental bounding box cache to include this entity's footprint.
         // `get_or_insert` initialises the cache on the first placement, then both
         // paths (init and expand) share the same min/max clamp below.
-        let entity_min_x = top_left_x;
-        let entity_min_y = top_left_y;
-        let entity_max_x = top_left_x + w as i32 - 1;
-        let entity_max_y = top_left_y + h as i32 - 1;
+        let (entity_min_x, entity_min_y, entity_max_x, entity_max_y) =
+            footprint_aabb((top_left_x, top_left_y), (w, h));
         let bb = self
             .bbox
             .get_or_insert((entity_min_x, entity_min_y, entity_max_x, entity_max_y));
@@ -224,10 +222,7 @@ impl Grid {
         if self.live_count == 0 {
             self.bbox = None;
         } else if let Some(bb) = self.bbox {
-            let entity_min_x = entity.position.x;
-            let entity_min_y = entity.position.y;
-            let entity_max_x = entity.position.x + entity.size.0 as i32 - 1;
-            let entity_max_y = entity.position.y + entity.size.1 as i32 - 1;
+            let (entity_min_x, entity_min_y, entity_max_x, entity_max_y) = entity.aabb();
 
             // If any edge of the removed entity's footprint coincides with a bbox
             // boundary the bbox may have shrunk — recompute from the entity vec.
@@ -240,10 +235,7 @@ impl Grid {
                 self.bbox = self.entities.iter().filter_map(|slot| slot.as_ref()).fold(
                     None,
                     |acc, e| {
-                        let e_min_x = e.position.x;
-                        let e_min_y = e.position.y;
-                        let e_max_x = e.position.x + e.size.0 as i32 - 1;
-                        let e_max_y = e.position.y + e.size.1 as i32 - 1;
+                        let (e_min_x, e_min_y, e_max_x, e_max_y) = e.aabb();
                         Some(match acc {
                             None => (e_min_x, e_min_y, e_max_x, e_max_y),
                             Some((min_x, min_y, max_x, max_y)) => (
@@ -294,10 +286,7 @@ impl Grid {
                 // Resolve ID → live entity reference; skip tombstones.
                 let entity = self.entities.get(id.0)?.as_ref()?;
                 // Exact footprint intersection (spatial index is chunk-coarse).
-                let tl_x = entity.position.x;
-                let tl_y = entity.position.y;
-                let br_x = tl_x + entity.size.0 as i32 - 1;
-                let br_y = tl_y + entity.size.1 as i32 - 1;
+                let (tl_x, tl_y, br_x, br_y) = entity.aabb();
                 if tl_x <= max_x && br_x >= min_x && tl_y <= max_y && br_y >= min_y {
                     Some(entity)
                 } else {
@@ -986,7 +975,9 @@ mod tests {
 
     // ── Memory footprint sanity test (subtask 6-2) ──────────────────
 
-    /// Verify that a grid with 5,000 entities stays well under 500 MB.
+    /// Verify that a grid with 5,000 entities stays within a tight per-entity
+    /// memory budget — i.e. no accidental per-entity bloat has crept into
+    /// `PlacedEntity`/`CellState`.
     ///
     /// Per-entity memory breakdown (approximate):
     ///   - `Option<PlacedEntity>` in `entities` vec:
@@ -1009,8 +1000,8 @@ mod tests {
     ///   ─────────────────────────────────────
     ///   Total:                      ≈  800 KB  (< 1 MB for 5,000 entities)
     ///
-    /// For 100,000 entities (large megabase) the estimate scales to ~16 MB —
-    /// more than two orders of magnitude below the 500 MB acceptance threshold.
+    /// That works out to ~206 B per live entity, comfortably under the
+    /// 384 B/entity budget the assertion enforces (see below).
     #[test]
     fn test_memory_footprint_5000_entities() {
         use std::mem::size_of;
@@ -1065,13 +1056,24 @@ mod tests {
             .sum();
 
         let total_bytes = entities_heap + cells_heap + strings_heap;
-        let total_mb = total_bytes as f64 / (1024.0 * 1024.0);
 
-        // 500 MB acceptance criterion.  In practice this runs at < 1 MB.
-        const LIMIT_MB: f64 = 500.0;
+        // Tight per-entity budget rather than an unfalsifiable absolute ceiling.
+        // The theoretical minimum is ~112 B for the `Option<PlacedEntity>` slot
+        // plus ~16 B for its cell entry ≈ 128 B/live-entity; container
+        // over-allocation (Vec capacity doubling, HashMap load factor) roughly
+        // doubles the effective figure. A 384 B/entity ceiling absorbs that
+        // over-allocation while still tripping on any real regression — a
+        // doubling of `PlacedEntity`'s size, or an added kilobyte-scale field,
+        // blows straight past it (unlike the old 500 MB / ~500× headroom bound,
+        // which no plausible implementation could ever fail).
+        const MAX_BYTES_PER_ENTITY: usize = 384;
+        let ceiling = MAX_BYTES_PER_ENTITY * grid.entity_count();
+        let bytes_per_entity = total_bytes as f64 / grid.entity_count() as f64;
         assert!(
-            total_mb < LIMIT_MB,
-            "estimated memory {total_mb:.2} MB exceeds the {LIMIT_MB} MB limit for 5,000 entities"
+            total_bytes < ceiling,
+            "estimated {bytes_per_entity:.1} B/entity exceeds the \
+             {MAX_BYTES_PER_ENTITY} B/entity ceiling for {} entities",
+            grid.entity_count()
         );
     }
 
