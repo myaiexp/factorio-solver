@@ -168,7 +168,8 @@ pub enum CellState {
 
 pub struct PlacedEntity {
     pub prototype: &'static EntityPrototype,
-    pub position: GridPos,
+    pub top_left: GridPos,   // footprint origin — NOT the Factorio `position`,
+    pub center: Position,    // which is the center and lives here
     pub direction: Direction,
     pub recipe: Option<String>,
 }

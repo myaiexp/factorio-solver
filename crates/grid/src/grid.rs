@@ -5,7 +5,7 @@ use factorio_blueprint::{Direction, Position};
 use crate::error::GridError;
 use crate::prototype::{effective_size, lookup};
 use crate::spatial::SpatialIndex;
-use crate::types::{footprint_aabb, CellState, EntityId, GridPos, PlacedEntity};
+use crate::types::{footprint_aabb, footprint_cells, CellState, EntityId, GridPos, PlacedEntity};
 
 // ── Grid ────────────────────────────────────────────────────────────────
 
@@ -65,20 +65,34 @@ impl Grid {
         let (top_left_x, top_left_y) = center_to_topleft(center, w, h);
 
         // Constraint check — rejects entities outside the hard placement boundary.
+        //
+        // Both the footprint and the constraint are axis-aligned rectangles, so
+        // "does the footprint fit?" is one inclusive-AABB containment test rather
+        // than a per-cell scan. The reported (x, y) is the *violating edge* of the
+        // footprint on each axis (the corner that pokes out), which is more useful
+        // than the first interior cell a scan would have hit.
         if let Some((min_x, min_y, max_x, max_y)) = self.constraint {
-            for dy in 0..h as i32 {
-                for dx in 0..w as i32 {
-                    let cx = top_left_x + dx;
-                    let cy = top_left_y + dy;
-                    if cx < min_x || cx > max_x || cy < min_y || cy > max_y {
-                        return Err(GridError::OutOfBounds {
-                            x: cx,
-                            y: cy,
-                            max_x,
-                            max_y,
-                        });
+            let (f_min_x, f_min_y, f_max_x, f_max_y) =
+                footprint_aabb((top_left_x, top_left_y), (w, h));
+
+            if f_min_x < min_x || f_min_y < min_y || f_max_x > max_x || f_max_y > max_y {
+                // Per axis: report whichever edge is out of bounds, falling back
+                // to the (in-bounds) low edge — always a real footprint cell.
+                let violating = |lo: i32, hi: i32, min: i32, max: i32| {
+                    if lo < min {
+                        lo
+                    } else if hi > max {
+                        hi
+                    } else {
+                        lo
                     }
-                }
+                };
+                return Err(GridError::OutOfBounds {
+                    x: violating(f_min_x, f_max_x, min_x, max_x),
+                    y: violating(f_min_y, f_max_y, min_y, max_y),
+                    max_x,
+                    max_y,
+                });
             }
         }
 
@@ -97,15 +111,10 @@ impl Grid {
         let (_proto, top_left_x, top_left_y, w, h) =
             self.validate_placement(prototype_name, center, direction)?;
 
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                if self.cells.contains_key(&(top_left_x + dx, top_left_y + dy)) {
-                    return Ok(false);
-                }
-            }
-        }
+        let collides = footprint_cells((top_left_x, top_left_y), (w, h))
+            .any(|cell| self.cells.contains_key(&cell));
 
-        Ok(true)
+        Ok(!collides)
     }
 
     /// Place an entity on the grid. Returns the assigned `EntityId`.
@@ -120,18 +129,14 @@ impl Grid {
         let (proto, top_left_x, top_left_y, w, h) =
             self.validate_placement(prototype_name, center, direction)?;
 
-        // Collision check
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                let cx = top_left_x + dx;
-                let cy = top_left_y + dy;
-                if let Some(CellState::Occupied { entity_id }) = self.cells.get(&(cx, cy)) {
-                    return Err(GridError::Collision {
-                        x: cx,
-                        y: cy,
-                        occupant: *entity_id,
-                    });
-                }
+        // Collision check — first occupied cell in row-major order wins.
+        for (cx, cy) in footprint_cells((top_left_x, top_left_y), (w, h)) {
+            if let Some(CellState::Occupied { entity_id }) = self.cells.get(&(cx, cy)) {
+                return Err(GridError::Collision {
+                    x: cx,
+                    y: cy,
+                    occupant: *entity_id,
+                });
             }
         }
 
@@ -140,7 +145,7 @@ impl Grid {
         let entity = PlacedEntity {
             id,
             prototype_name: proto.name.as_str(),
-            position: GridPos {
+            top_left: GridPos {
                 x: top_left_x,
                 y: top_left_y,
             },
@@ -157,12 +162,8 @@ impl Grid {
         self.live_count += 1;
 
         // Occupy cells
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                let cx = top_left_x + dx;
-                let cy = top_left_y + dy;
-                self.cells.insert((cx, cy), CellState::Occupied { entity_id: id });
-            }
+        for cell in footprint_cells((top_left_x, top_left_y), (w, h)) {
+            self.cells.insert(cell, CellState::Occupied { entity_id: id });
         }
 
         // Register in spatial index for fast range queries
@@ -195,17 +196,12 @@ impl Grid {
             .clone();
 
         // Remove from spatial index before freeing cells
-        let (w, h) = entity.size;
         self.spatial
-            .remove(id, (entity.position.x, entity.position.y), (w, h));
+            .remove(id, (entity.top_left.x, entity.top_left.y), entity.size);
 
         // Free cells
-        for dy in 0..h as i32 {
-            for dx in 0..w as i32 {
-                let cx = entity.position.x + dx;
-                let cy = entity.position.y + dy;
-                self.cells.remove(&(cx, cy));
-            }
+        for cell in entity.cells() {
+            self.cells.remove(&cell);
         }
 
         // Tombstone the slot
@@ -390,7 +386,7 @@ mod tests {
 
         let entity = grid.get_entity(id).unwrap();
         assert_eq!(entity.prototype_name, "transport-belt");
-        assert_eq!(entity.position, GridPos { x: 0, y: 0 });
+        assert_eq!(entity.top_left, GridPos { x: 0, y: 0 });
         assert_eq!(entity.size, (1, 1));
 
         // Cell (0,0) should be occupied
@@ -415,7 +411,7 @@ mod tests {
         assert_eq!(grid.cell_count(), 9);
 
         let entity = grid.get_entity(id).unwrap();
-        assert_eq!(entity.position, GridPos { x: -1, y: -1 });
+        assert_eq!(entity.top_left, GridPos { x: -1, y: -1 });
         assert_eq!(entity.size, (3, 3));
 
         // All 9 cells should be occupied
@@ -442,7 +438,7 @@ mod tests {
         assert_eq!(grid.cell_count(), 4);
 
         let entity = grid.get_entity(id).unwrap();
-        assert_eq!(entity.position, GridPos { x: 0, y: 0 });
+        assert_eq!(entity.top_left, GridPos { x: 0, y: 0 });
         assert_eq!(entity.size, (2, 2));
 
         // All 4 cells occupied
@@ -643,7 +639,7 @@ mod tests {
             .unwrap();
         let e_n = grid.get_entity(id_n).unwrap();
         assert_eq!(e_n.size, (2, 1));
-        assert_eq!(e_n.position, GridPos { x: -1, y: 0 });
+        assert_eq!(e_n.top_left, GridPos { x: -1, y: 0 });
         assert!(grid.get_at(-1, 0).is_some());
         assert!(grid.get_at(0, 0).is_some());
         // Height is 1, so y=1 should be empty
@@ -655,7 +651,7 @@ mod tests {
             .unwrap();
         let e_e = grid.get_entity(id_e).unwrap();
         assert_eq!(e_e.size, (1, 2));
-        assert_eq!(e_e.position, GridPos { x: 5, y: -1 });
+        assert_eq!(e_e.top_left, GridPos { x: 5, y: -1 });
         assert!(grid.get_at(5, -1).is_some());
         assert!(grid.get_at(5, 0).is_some());
         // Width is 1, so x=6 should be empty
@@ -679,7 +675,7 @@ mod tests {
             .unwrap();
         let e_n = grid.get_entity(id_n).unwrap();
         assert_eq!(e_n.size, (1, 2));
-        assert_eq!(e_n.position, GridPos { x: 0, y: -1 });
+        assert_eq!(e_n.top_left, GridPos { x: 0, y: -1 });
         assert!(grid.get_at(0, -1).is_some());
         assert!(grid.get_at(0, 0).is_some());
         assert!(grid.get_at(1, -1).is_none()); // only 1 wide
@@ -696,7 +692,7 @@ mod tests {
             .unwrap();
         let e_e = grid.get_entity(id_e).unwrap();
         assert_eq!(e_e.size, (2, 1));
-        assert_eq!(e_e.position, GridPos { x: 4, y: 5 });
+        assert_eq!(e_e.top_left, GridPos { x: 4, y: 5 });
         assert!(grid.get_at(4, 5).is_some());
         assert!(grid.get_at(5, 5).is_some());
         assert!(grid.get_at(4, 6).is_none()); // only 1 tall
@@ -915,6 +911,72 @@ mod tests {
             None,
         );
         assert!(result.is_ok());
+    }
+
+    /// The constraint check is an AABB containment test, so the reported
+    /// `OutOfBounds` coordinate is the footprint edge that actually pokes out —
+    /// not an arbitrary interior cell hit by a scan.
+    #[test]
+    fn test_out_of_bounds_reports_violating_edge() {
+        let mut grid = Grid::with_bounds(0, 0, 9, 9);
+
+        // Overhang on both max edges: 3×3 at (9.5, 9.5) → cells 8..=10.
+        let err = grid
+            .place(
+                "assembling-machine-1",
+                &pos(9.5, 9.5),
+                Direction::North,
+                None,
+                None,
+            )
+            .unwrap_err();
+        match err {
+            GridError::OutOfBounds { x, y, max_x, max_y } => {
+                assert_eq!((x, y), (10, 10), "should report the max-edge corner");
+                assert_eq!((max_x, max_y), (9, 9));
+            }
+            other => panic!("expected OutOfBounds, got: {other:?}"),
+        }
+
+        // Overhang on both min edges: 3×3 at (0.5, 0.5) → cells -1..=1.
+        let err = grid
+            .place(
+                "assembling-machine-1",
+                &pos(0.5, 0.5),
+                Direction::North,
+                None,
+                None,
+            )
+            .unwrap_err();
+        match err {
+            GridError::OutOfBounds { x, y, .. } => {
+                assert_eq!((x, y), (-1, -1), "should report the min-edge corner");
+            }
+            other => panic!("expected OutOfBounds, got: {other:?}"),
+        }
+
+        // Out on y only: the in-bounds x axis still reports a real footprint cell.
+        let err = grid
+            .can_place("transport-belt", &pos(5.5, -0.5), Direction::North)
+            .unwrap_err();
+        match err {
+            GridError::OutOfBounds { x, y, .. } => {
+                assert_eq!((x, y), (5, -1));
+            }
+            other => panic!("expected OutOfBounds, got: {other:?}"),
+        }
+
+        // Footprint exactly filling the constraint corner is accepted — the
+        // containment test is inclusive on both edges.
+        assert!(grid
+            .place(
+                "assembling-machine-1",
+                &pos(8.5, 8.5),
+                Direction::North,
+                None,
+                None
+            )
+            .is_ok());
     }
 
     // ── Error case tests ────────────────────────────────────────────

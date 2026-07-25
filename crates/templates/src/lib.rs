@@ -90,8 +90,8 @@ pub fn extract_template(
         .map(|e| TemplateEntity {
             prototype_name: e.prototype_name.to_string(),
             relative_pos: GridPos {
-                x: e.position.x - min_x,
-                y: e.position.y - min_y,
+                x: e.top_left.x - min_x,
+                y: e.top_left.y - min_y,
             },
             direction: e.direction,
             size: e.size,

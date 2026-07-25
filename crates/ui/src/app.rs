@@ -161,7 +161,7 @@ impl FactorioApp {
                 let ticks = scroll_delta / 50.0;
                 let factor = 1.1_f32.powf(ticks);
                 self.viewport.zoom_at(mouse_rel, screen_size, factor);
-                self.viewport.zoom = self.viewport.zoom.clamp(2.0, 200.0);
+                self.viewport.clamp_zoom();
             }
         }
 
@@ -173,7 +173,7 @@ impl FactorioApp {
             let (vw_min_x, vw_min_y, vw_max_x, vw_max_y) =
                 self.viewport.visible_world_rect(screen_size);
             let grid_color = Color32::from_gray(60);
-            let grid_stroke = Stroke::new(0.5, grid_color);
+            let grid_stroke = Stroke::new(0.5_f32, grid_color);
 
             let min_col = vw_min_x.floor() as i32;
             let max_col = vw_max_x.ceil() as i32;
@@ -220,7 +220,7 @@ impl FactorioApp {
         if let AppState::Loaded { ref grid, .. } = self.state {
             let zoom = self.viewport.zoom;
             let lod = lod_for_zoom(zoom);
-            let border_stroke = Stroke::new(1.0, Color32::from_gray(20));
+            let border_stroke = Stroke::new(1.0_f32, Color32::from_gray(20));
 
             // Compute visible world rect and convert to integer cell coordinates.
             let (vw_min_x, vw_min_y, vw_max_x, vw_max_y) =
@@ -235,7 +235,7 @@ impl FactorioApp {
             visible_count = visible.len();
 
             for entity in &visible {
-                let top_left_world = (entity.position.x as f32, entity.position.y as f32);
+                let top_left_world = (entity.top_left.x as f32, entity.top_left.y as f32);
                 let top_left_screen =
                     self.viewport.world_to_screen(top_left_world, screen_size);
                 let entity_w = entity.size.0 as f32 * zoom;
@@ -311,9 +311,16 @@ impl FactorioApp {
                             ui.label(
                                 egui::RichText::new(entity.prototype_name).strong(),
                             );
+                            // Both coordinates are shown because they mean different
+                            // things: the top-left cell is what the grid indexes on,
+                            // while "position" in a Factorio blueprint is the center.
                             ui.label(format!(
-                                "Position: ({}, {})",
-                                entity.position.x, entity.position.y
+                                "Top-left: ({}, {})",
+                                entity.top_left.x, entity.top_left.y
+                            ));
+                            ui.label(format!(
+                                "Center: ({}, {})",
+                                entity.center.x, entity.center.y
                             ));
                             ui.label(format!(
                                 "Size: {}x{}",

@@ -12,6 +12,28 @@ pub struct ViewportTransform {
 }
 
 impl ViewportTransform {
+    /// Minimum zoom in pixels per grid cell. Below this, grid-line iteration
+    /// spans an impractical number of cells per frame.
+    pub const MIN_ZOOM: f32 = 2.0;
+    /// Maximum zoom in pixels per grid cell.
+    pub const MAX_ZOOM: f32 = 200.0;
+
+    /// Clamp `zoom` into `[MIN_ZOOM, MAX_ZOOM]`.
+    ///
+    /// Single source of truth for the zoom limits — every path that mutates
+    /// `zoom` (scroll handler in `app.rs`, `fit_to_bounds`) funnels through here
+    /// so the two can't drift apart.
+    pub fn clamp_zoom(&mut self) {
+        // `f32::clamp` propagates NaN rather than clamping it, and a NaN zoom
+        // poisons every world↔screen conversion downstream. Fold it to the
+        // minimum first. (Reachable via `fit_to_bounds` on a zero-size bounding
+        // box in a zero-size viewport: 0.0 / 0.0 = NaN.)
+        if self.zoom.is_nan() {
+            self.zoom = Self::MIN_ZOOM;
+        }
+        self.zoom = self.zoom.clamp(Self::MIN_ZOOM, Self::MAX_ZOOM);
+    }
+
     /// Create a default viewport centered at world origin with 32 px/cell zoom.
     pub fn new() -> Self {
         Self {
@@ -83,11 +105,10 @@ impl ViewportTransform {
         let zoom_x = screen_size.0 / world_w;
         let zoom_y = screen_size.1 / world_h;
         self.zoom = zoom_x.min(zoom_y);
-        // Enforce the same zoom bounds as the scroll handler in app.rs so that
-        // fitting to a large or zero-size blueprint cannot produce out-of-range
-        // zoom values (e.g. ~0.38 for a 10 000-cell blueprint, or inf/NaN for
-        // a zero-size one) that would later cause grid-line iteration to blow up.
-        self.zoom = self.zoom.clamp(2.0, 200.0);
+        // Fitting to a large or zero-size blueprint can produce out-of-range zoom
+        // (e.g. ~0.38 for a 10 000-cell blueprint, or inf/NaN for a zero-size one)
+        // that would later make grid-line iteration blow up.
+        self.clamp_zoom();
     }
 }
 
@@ -169,7 +190,7 @@ mod tests {
     }
 
     /// A zero-size bounding box (min == max) used to produce inf or NaN zoom
-    /// (screen_px / 0.0 = inf). After the clamp it must stay in [2.0, 200.0].
+    /// (screen_px / 0.0 = inf). After the clamp it must stay in range.
     #[test]
     fn test_fit_to_bounds_clamps_zoom_zero_size() {
         let mut vp = ViewportTransform::new();
@@ -179,22 +200,55 @@ mod tests {
             "zoom must be finite after zero-size fit"
         );
         assert!(
-            (2.0..=200.0).contains(&vp.zoom),
-            "zoom {} out of [2.0, 200.0]",
+            (ViewportTransform::MIN_ZOOM..=ViewportTransform::MAX_ZOOM).contains(&vp.zoom),
+            "zoom {} out of range",
             vp.zoom
         );
     }
 
     /// A very large blueprint (10 000 × 10 000) would produce zoom ≈ 0.38
-    /// without clamping. After the clamp zoom must be >= 2.0.
+    /// without clamping. After the clamp zoom must be >= MIN_ZOOM.
     #[test]
     fn test_fit_to_bounds_large_blueprint_clamps_zoom() {
         let mut vp = ViewportTransform::new();
         vp.fit_to_bounds((0.0, 0.0), (10_000.0, 10_000.0), (800.0, 600.0), 0.0);
         assert!(
-            vp.zoom >= 2.0,
-            "zoom {} should be >= 2.0 after large-blueprint fit",
+            vp.zoom >= ViewportTransform::MIN_ZOOM,
+            "zoom {} should be >= MIN_ZOOM after large-blueprint fit",
             vp.zoom
         );
+    }
+
+    /// `clamp_zoom` is the single enforcement point for the zoom limits, so it
+    /// must handle every out-of-range input — including NaN, which `f32::clamp`
+    /// propagates instead of clamping.
+    #[test]
+    fn test_clamp_zoom_handles_all_out_of_range_values() {
+        let cases = [
+            (f32::NAN, ViewportTransform::MIN_ZOOM),
+            (f32::INFINITY, ViewportTransform::MAX_ZOOM),
+            (f32::NEG_INFINITY, ViewportTransform::MIN_ZOOM),
+            (0.0, ViewportTransform::MIN_ZOOM),
+            (1_000.0, ViewportTransform::MAX_ZOOM),
+            (32.0, 32.0), // in range — untouched
+        ];
+        for (input, expected) in cases {
+            let mut vp = ViewportTransform {
+                center: (0.0, 0.0),
+                zoom: input,
+            };
+            vp.clamp_zoom();
+            assert_eq!(vp.zoom, expected, "clamp_zoom({input}) should be {expected}");
+        }
+    }
+
+    /// A zero-size fit into a zero-size viewport yields 0.0/0.0 = NaN before
+    /// clamping — the case that motivated the NaN branch in `clamp_zoom`.
+    #[test]
+    fn test_fit_to_bounds_zero_viewport_is_not_nan() {
+        let mut vp = ViewportTransform::new();
+        vp.fit_to_bounds((5.0, 5.0), (5.0, 5.0), (0.0, 0.0), 0.0);
+        assert!(vp.zoom.is_finite(), "zoom must not be NaN, got {}", vp.zoom);
+        assert_eq!(vp.zoom, ViewportTransform::MIN_ZOOM);
     }
 }
