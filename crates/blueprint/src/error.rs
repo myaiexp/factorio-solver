@@ -22,4 +22,7 @@ pub enum BlueprintError {
 
     #[error("decompressed blueprint exceeds size limit of {limit} bytes")]
     DecompressedTooLarge { limit: usize },
+
+    #[error("compressed blueprint exceeds size limit of {limit} bytes")]
+    CompressedTooLarge { limit: usize },
 }

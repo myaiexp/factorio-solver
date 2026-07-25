@@ -14,6 +14,14 @@ use crate::types::BlueprintData;
 /// blueprints decompress to a few MB at most; 64 MiB is comfortably generous.
 pub const DECOMPRESSED_LIMIT: usize = 64 * 1024 * 1024;
 
+/// Upper bound on the compressed payload (base64-decoded, pre-inflate).
+/// `DECOMPRESSED_LIMIT` bounds how far a paste can *expand*, but base64 decoding
+/// runs first and allocates ~3/4 of the pasted string up front — so without this
+/// cap a multi-hundred-MB paste could exhaust memory before the zlib guard ever
+/// ran, defeating the same threat model. Even a large blueprint book compresses
+/// to well under a megabyte, so 16 MiB leaves orders of magnitude of headroom.
+pub const COMPRESSED_LIMIT: usize = 16 * 1024 * 1024;
+
 /// Decode a Factorio blueprint string into a `BlueprintData` struct.
 ///
 /// Pipeline: strip version byte → base64 decode → zlib decompress → JSON parse.
@@ -37,6 +45,17 @@ pub fn decode_to_json(blueprint_string: &str) -> Result<String, BlueprintError> 
     }
 
     let encoded = &blueprint_string[1..];
+
+    // Reject an oversized paste before decoding it: base64 packs 3 bytes into 4
+    // chars, so `len / 4 * 3` is an exact upper bound on what `decode` would
+    // allocate. Checking here means a gigabyte-scale paste costs one integer
+    // comparison instead of a gigabyte-scale buffer (plus everything downstream).
+    if encoded.len() / 4 * 3 > COMPRESSED_LIMIT {
+        return Err(BlueprintError::CompressedTooLarge {
+            limit: COMPRESSED_LIMIT,
+        });
+    }
+
     let compressed = STANDARD.decode(encoded)?;
 
     // Cap decompression at DECOMPRESSED_LIMIT: read one byte past the limit and,
@@ -168,6 +187,57 @@ mod tests {
 
         let data = decode(&blueprint_string).expect("exactly-at-limit blueprint should decode");
         assert_eq!(data.blueprint.unwrap().item, "blueprint");
+    }
+
+    /// Longest base64 payload whose decoded size stays within `COMPRESSED_LIMIT`
+    /// (`n / 4 * 3` bytes for `n` chars). One base64 group (4 chars) beyond this
+    /// is the first input the guard must reject.
+    const MAX_ENCODED_LEN: usize = COMPRESSED_LIMIT / 3 * 4;
+
+    #[test]
+    fn test_decode_rejects_oversized_compressed_input() {
+        // A paste too large to be a real blueprint must be rejected before
+        // base64 decoding allocates a buffer for it — the decompression cap
+        // alone comes too late to prevent that allocation.
+        let blueprint_string = format!("0{}", "A".repeat(MAX_ENCODED_LEN + 4));
+
+        assert!(matches!(
+            decode_to_json(&blueprint_string),
+            Err(BlueprintError::CompressedTooLarge { limit }) if limit == COMPRESSED_LIMIT
+        ));
+
+        // decode() (which also parses JSON) must reject it too.
+        assert!(matches!(
+            decode(&blueprint_string),
+            Err(BlueprintError::CompressedTooLarge { .. })
+        ));
+    }
+
+    #[test]
+    fn test_decode_compressed_guard_accepts_at_limit() {
+        // A payload that decodes to within the limit must pass the size guard —
+        // it fails later as garbage zlib, never as CompressedTooLarge.
+        assert!(MAX_ENCODED_LEN / 4 * 3 <= COMPRESSED_LIMIT);
+        let blueprint_string = format!("0{}", "A".repeat(MAX_ENCODED_LEN));
+
+        assert!(matches!(
+            decode_to_json(&blueprint_string),
+            Err(BlueprintError::Zlib(_))
+        ));
+    }
+
+    #[test]
+    fn test_decode_ordinary_blueprint_passes_compressed_guard() {
+        // Sanity: a real blueprint is nowhere near the cap, so the guard can't
+        // regress into rejecting legitimate pastes.
+        let json = r#"{"blueprint":{"item":"blueprint","entities":[],"version":0}}"#;
+        let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
+        encoder.write_all(json.as_bytes()).unwrap();
+        let compressed = encoder.finish().unwrap();
+        assert!(compressed.len() < COMPRESSED_LIMIT / 1000);
+
+        let blueprint_string = format!("0{}", STANDARD.encode(&compressed));
+        assert!(decode(&blueprint_string).is_ok());
     }
 
     // ── Happy path tests ──────────────────────────────────────────────
