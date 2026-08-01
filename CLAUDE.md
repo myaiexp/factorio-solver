@@ -61,6 +61,8 @@ Next logical step: solver crate — recipe database, production-chain calculator
 - **Loose typing for complex fields**: `connections`, `control_behavior`, `items`, `wires`, `schedules` typed as `Option<serde_json::Value>` — full typing deferred
 - **Unknown field preservation**: `#[serde(flatten)] extra: HashMap<String, Value>` on Entity, Blueprint, BlueprintBook for round-trip fidelity
 - **Direction serialization**: serialized as u8, omitted when North (matches Factorio's own behavior)
+- **Legacy 1.x directions**: `from_blueprint` upgrades 0/2/4/6 cardinals when `directions_look_legacy(dirs, version)` is true — major version `< 2` always upgrades pure `{0,2,4,6}` sets (covers pure-South / N+S-only); major `≥ 2` requires a definitive East/West marker (decoded 2 or 6) so true 2.0 North+East is not rewritten
+- **Blueprint book entries**: `BlueprintBookEntry` has optional `blueprint` and optional nested `blueprint_book` (empty index-only slots allowed), matching Factorio's nested-book wire shape
 - **Sparse grid**: `HashMap<(i32, i32), CellState>` — cells only exist when occupied, unbounded coordinates
 - **Tombstone removal**: entity vec uses `Option<PlacedEntity>`, removed entities become None, IDs never reused; O(1) live count via counter
 - **Graceful import**: unknown entity prototypes are skipped (collected as `SkippedEntity`) rather than failing the whole blueprint

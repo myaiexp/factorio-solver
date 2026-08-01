@@ -34,8 +34,11 @@ pub struct SkippedEntity {
 /// prototypes are gracefully skipped and collected in `ImportResult.skipped`.
 ///
 /// Factorio 1.x cardinal directions (N/E/S/W = 0/2/4/6) are upgraded to the
-/// 2.0 scheme when the blueprint's direction set looks legacy — otherwise
-/// non-square footprints (combinators, splitters) collide and route wrong.
+/// 2.0 scheme when the blueprint's version/direction set looks legacy —
+/// otherwise non-square footprints (combinators, splitters) collide and route
+/// wrong. Major version `< 2` always upgrades pure cardinal sets (including
+/// pure-South and North+South-only); major `≥ 2` only upgrades when a
+/// definitive East/West marker is present so true 2.0 North+East is kept.
 ///
 /// This function never panics on valid blueprints — real Factorio blueprints
 /// contain non-overlapping entities, and unknown entities are simply skipped.
@@ -43,7 +46,10 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
     let mut grid = Grid::new();
     let mut skipped = Vec::new();
 
-    let legacy = directions_look_legacy(blueprint.entities.iter().map(|e| e.direction));
+    let legacy = directions_look_legacy(
+        blueprint.entities.iter().map(|e| e.direction),
+        blueprint.version,
+    );
 
     for entity in &blueprint.entities {
         let direction = if legacy {
@@ -126,9 +132,13 @@ mod tests {
 
     #[test]
     fn test_import_single_known_entity() {
-        let bp = make_blueprint(vec![
-            make_entity(1, "transport-belt", 0.5, 0.5, Direction::East),
-        ]);
+        // Use 2.0 version so East (value 4) is not upgraded as 1.x South.
+        let bp = Blueprint {
+            item: "blueprint".to_string(),
+            entities: vec![make_entity(1, "transport-belt", 0.5, 0.5, Direction::East)],
+            version: 2u64 << 48,
+            ..Default::default()
+        };
         let result = from_blueprint(&bp);
         assert_eq!(result.grid.entity_count(), 1);
         assert!(result.skipped.is_empty());
@@ -222,15 +232,21 @@ mod tests {
     }
 
     /// Pure 2.0 East (value 4) with no 1.x markers must not be rewritten to South.
+    /// Covered further in `tests/blueprint_import.rs` for pure-South / N+S cases.
     #[test]
     fn test_import_modern_east_direction_not_rewritten() {
-        let bp = make_blueprint(vec![make_entity(
-            1,
-            "arithmetic-combinator",
-            0.0,
-            0.5,
-            Direction::East,
-        )]);
+        let bp = Blueprint {
+            item: "blueprint".to_string(),
+            entities: vec![make_entity(
+                1,
+                "arithmetic-combinator",
+                0.0,
+                0.5,
+                Direction::East,
+            )],
+            version: 2u64 << 48,
+            ..Default::default()
+        };
         let result = from_blueprint(&bp);
         let entity = result.grid.entities().next().unwrap();
         assert_eq!(entity.direction, Direction::East);

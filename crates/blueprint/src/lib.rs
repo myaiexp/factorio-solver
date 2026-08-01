@@ -6,6 +6,6 @@ pub mod types;
 pub use codec::{decode, decode_to_json, encode};
 pub use error::BlueprintError;
 pub use types::{
-    directions_look_legacy, Blueprint, BlueprintBook, BlueprintBookEntry, BlueprintData, Color,
-    Direction, Entity, Icon, Position, SignalId, Tile,
+    directions_look_legacy, factorio_major_version, Blueprint, BlueprintBook, BlueprintBookEntry,
+    BlueprintData, Color, Direction, Entity, Icon, Position, SignalId, Tile,
 };

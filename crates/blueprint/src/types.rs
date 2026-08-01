@@ -108,14 +108,27 @@ impl Direction {
     }
 }
 
+/// Factorio packs `version` as `major<<48 | minor<<32 | patch<<16 | dev`.
+pub fn factorio_major_version(version: u64) -> u16 {
+    (version >> 48) as u16
+}
+
 /// Detect Factorio 1.x cardinal direction encoding in a set of decoded values.
 ///
 /// 1.x uses N/E/S/W = 0/2/4/6. After a naive 2.0 decode those become
 /// North/NorthEast/East/SouthEast. A pure 2.0 blueprint that only faces
 /// North+East is {0, 4} and must **not** be rewritten (4 would become South).
-/// We only treat the set as legacy when every value is in `{0,2,4,6}` **and**
-/// at least one definitive 1.x marker (2 or 6) is present.
-pub fn directions_look_legacy(dirs: impl IntoIterator<Item = Direction>) -> bool {
+///
+/// Rules:
+/// - Any direction outside `{0,2,4,6}` ⇒ not pure 1.x encoding (modern 2.0).
+/// - Blueprint major version `< 2` ⇒ treat any pure `{0,2,4,6}` set as legacy
+///   (covers pure-South raw 4 and North+South-only sets that lack East/West markers).
+/// - Blueprint major version `≥ 2` ⇒ only upgrade when a definitive 1.x marker
+///   (decoded 2 or 6) is present; ambiguous `{0,4}` stays as 2.0 North+East.
+pub fn directions_look_legacy(
+    dirs: impl IntoIterator<Item = Direction>,
+    version: u64,
+) -> bool {
     let mut saw_marker = false;
     let mut any = false;
     for d in dirs {
@@ -126,7 +139,15 @@ pub fn directions_look_legacy(dirs: impl IntoIterator<Item = Direction>) -> bool
             _ => return false,
         }
     }
-    any && saw_marker
+    if !any {
+        return false;
+    }
+    if factorio_major_version(version) < 2 {
+        // 1.x always used the 0/2/4/6 cardinal scheme.
+        return true;
+    }
+    // 2.0+: require a definitive East/West marker so pure North+East is kept.
+    saw_marker
 }
 
 impl Serialize for Direction {
@@ -243,10 +264,18 @@ pub struct Blueprint {
 
 // ── BlueprintBook ─────────────────────────────────────────────────────
 
+/// One slot in a blueprint book. Factorio allows a leaf `blueprint`, a nested
+/// `blueprint_book`, both absent (empty/index-only slot), but not both present
+/// in normal game data — we model both as optional to match the wire shape.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct BlueprintBookEntry {
     pub index: u32,
-    pub blueprint: Blueprint,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blueprint: Option<Blueprint>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub blueprint_book: Option<BlueprintBook>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -343,19 +372,50 @@ mod tests {
         assert_eq!(Direction::North.upgrade_from_legacy(), Direction::North); // 0
     }
 
+    const VERSION_1_1: u64 = 281479275675648; // major 1
+    const VERSION_2_0: u64 = 2u64 << 48;
+
     #[test]
-    fn test_directions_look_legacy_requires_marker() {
-        // Definitive 1.x East/West markers.
-        assert!(directions_look_legacy([Direction::North, Direction::NorthEast]));
-        assert!(directions_look_legacy([Direction::SouthEast]));
-        // Ambiguous pure {0,4} — could be 2.0 N+E; do not rewrite.
-        assert!(!directions_look_legacy([Direction::North, Direction::East]));
-        // Any true 2.0-only value rejects legacy mode.
-        assert!(!directions_look_legacy([
-            Direction::NorthEast,
-            Direction::South
-        ]));
-        assert!(!directions_look_legacy(std::iter::empty()));
+    fn test_factorio_major_version() {
+        assert_eq!(factorio_major_version(VERSION_1_1), 1);
+        assert_eq!(factorio_major_version(VERSION_2_0), 2);
+        assert_eq!(factorio_major_version(0), 0);
+    }
+
+    #[test]
+    fn test_directions_look_legacy_version_and_markers() {
+        // Definitive 1.x East/West markers — legacy under both majors.
+        assert!(directions_look_legacy(
+            [Direction::North, Direction::NorthEast],
+            VERSION_2_0
+        ));
+        assert!(directions_look_legacy([Direction::SouthEast], VERSION_2_0));
+        assert!(directions_look_legacy([Direction::SouthEast], VERSION_1_1));
+
+        // Ambiguous pure {0,4}: 2.0 keeps as North+East; 1.x upgrades (4→South).
+        assert!(!directions_look_legacy(
+            [Direction::North, Direction::East],
+            VERSION_2_0
+        ));
+        assert!(directions_look_legacy(
+            [Direction::North, Direction::East],
+            VERSION_1_1
+        ));
+
+        // Pure South (raw 4 only): same disambiguation.
+        assert!(!directions_look_legacy([Direction::East], VERSION_2_0));
+        assert!(directions_look_legacy([Direction::East], VERSION_1_1));
+
+        // Any true 2.0-only value rejects legacy mode regardless of version.
+        assert!(!directions_look_legacy(
+            [Direction::NorthEast, Direction::South],
+            VERSION_1_1
+        ));
+        assert!(!directions_look_legacy(
+            [Direction::NorthEast, Direction::South],
+            VERSION_2_0
+        ));
+        assert!(!directions_look_legacy(std::iter::empty(), VERSION_1_1));
     }
 
     // Entity tests
@@ -480,11 +540,12 @@ mod tests {
                 label: Some("My Book".to_string()),
                 blueprints: vec![BlueprintBookEntry {
                     index: 0,
-                    blueprint: Blueprint {
+                    blueprint: Some(Blueprint {
                         item: "blueprint".to_string(),
                         version: 281479275675648,
                         ..Default::default()
-                    },
+                    }),
+                    blueprint_book: None,
                 }],
                 active_index: 0,
                 version: 281479275675648,
@@ -496,6 +557,88 @@ mod tests {
         let json_str = serde_json::to_string(&data).unwrap();
         let roundtripped: BlueprintData = serde_json::from_str(&json_str).unwrap();
         assert_eq!(data, roundtripped);
+    }
+
+    #[test]
+    fn test_nested_blueprint_book_entry_decodes() {
+        // Real Factorio books can nest entries that carry blueprint_book instead
+        // of blueprint (or empty index-only slots).
+        let json = r#"{
+            "blueprint_book": {
+                "item": "blueprint-book",
+                "label": "Outer",
+                "active_index": 0,
+                "version": 281479275675648,
+                "blueprints": [
+                    {
+                        "index": 0,
+                        "blueprint": {
+                            "item": "blueprint",
+                            "label": "Leaf",
+                            "entities": [],
+                            "version": 281479275675648
+                        }
+                    },
+                    {
+                        "index": 1,
+                        "blueprint_book": {
+                            "item": "blueprint-book",
+                            "label": "Inner",
+                            "active_index": 0,
+                            "version": 281479275675648,
+                            "blueprints": [
+                                {
+                                    "index": 0,
+                                    "blueprint": {
+                                        "item": "blueprint",
+                                        "label": "Nested leaf",
+                                        "entities": [],
+                                        "version": 281479275675648
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    { "index": 2 }
+                ]
+            }
+        }"#;
+
+        let data: BlueprintData = serde_json::from_str(json).unwrap();
+        let book = data.blueprint_book.as_ref().expect("outer book");
+        assert_eq!(book.blueprints.len(), 3);
+
+        let leaf = book.blueprints[0]
+            .blueprint
+            .as_ref()
+            .expect("index 0 is a leaf blueprint");
+        assert_eq!(leaf.label.as_deref(), Some("Leaf"));
+        assert!(book.blueprints[0].blueprint_book.is_none());
+
+        let inner = book.blueprints[1]
+            .blueprint_book
+            .as_ref()
+            .expect("index 1 is a nested book");
+        assert_eq!(inner.label.as_deref(), Some("Inner"));
+        assert!(book.blueprints[1].blueprint.is_none());
+        assert_eq!(
+            inner.blueprints[0]
+                .blueprint
+                .as_ref()
+                .unwrap()
+                .label
+                .as_deref(),
+            Some("Nested leaf")
+        );
+
+        // Empty index-only slot.
+        assert!(book.blueprints[2].blueprint.is_none());
+        assert!(book.blueprints[2].blueprint_book.is_none());
+
+        // Round-trip through serde keeps the nested shape.
+        let again: BlueprintData =
+            serde_json::from_str(&serde_json::to_string(&data).unwrap()).unwrap();
+        assert_eq!(data, again);
     }
 
     #[test]
