@@ -63,7 +63,12 @@ pub enum Direction {
 }
 
 impl Direction {
-    fn from_u8(v: u8) -> Option<Direction> {
+    /// Raw Factorio direction byte (0–15 in the 2.0 scheme).
+    pub fn as_u8(self) -> u8 {
+        self as u8
+    }
+
+    pub fn from_u8(v: u8) -> Option<Direction> {
         match v {
             0 => Some(Direction::North),
             1 => Some(Direction::NorthNorthEast),
@@ -84,6 +89,44 @@ impl Direction {
             _ => None,
         }
     }
+
+    /// Map a Factorio 1.x direction byte (0–7 scheme) into the 2.0 16-way value.
+    ///
+    /// 1.x N/E/S/W = 0/2/4/6 become 2.0 0/4/8/12 (`value * 2`).
+    pub fn from_legacy_u8(v: u8) -> Option<Direction> {
+        if v <= 7 {
+            Direction::from_u8(v * 2)
+        } else {
+            None
+        }
+    }
+
+    /// Upgrade a direction that was decoded under the 2.0 table but originated
+    /// as a 1.x cardinal encoding (raw 0/2/4/6 → 2.0 N/E/S/W).
+    pub fn upgrade_from_legacy(self) -> Direction {
+        Direction::from_legacy_u8(self.as_u8()).unwrap_or(self)
+    }
+}
+
+/// Detect Factorio 1.x cardinal direction encoding in a set of decoded values.
+///
+/// 1.x uses N/E/S/W = 0/2/4/6. After a naive 2.0 decode those become
+/// North/NorthEast/East/SouthEast. A pure 2.0 blueprint that only faces
+/// North+East is {0, 4} and must **not** be rewritten (4 would become South).
+/// We only treat the set as legacy when every value is in `{0,2,4,6}` **and**
+/// at least one definitive 1.x marker (2 or 6) is present.
+pub fn directions_look_legacy(dirs: impl IntoIterator<Item = Direction>) -> bool {
+    let mut saw_marker = false;
+    let mut any = false;
+    for d in dirs {
+        any = true;
+        match d.as_u8() {
+            0 | 4 => {}
+            2 | 6 => saw_marker = true,
+            _ => return false,
+        }
+    }
+    any && saw_marker
 }
 
 impl Serialize for Direction {
@@ -280,6 +323,39 @@ mod tests {
 
         let result = serde_json::from_value::<Direction>(json!(255));
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_from_legacy_u8_maps_1x_cardinals() {
+        assert_eq!(Direction::from_legacy_u8(0), Some(Direction::North));
+        assert_eq!(Direction::from_legacy_u8(2), Some(Direction::East));
+        assert_eq!(Direction::from_legacy_u8(4), Some(Direction::South));
+        assert_eq!(Direction::from_legacy_u8(6), Some(Direction::West));
+        assert!(Direction::from_legacy_u8(8).is_none());
+    }
+
+    #[test]
+    fn test_upgrade_from_legacy_after_naive_2_0_decode() {
+        // Codec maps 1.x bytes onto 2.0 variants by raw value; upgrade fixes them.
+        assert_eq!(Direction::NorthEast.upgrade_from_legacy(), Direction::East); // 2
+        assert_eq!(Direction::East.upgrade_from_legacy(), Direction::South); // 4
+        assert_eq!(Direction::SouthEast.upgrade_from_legacy(), Direction::West); // 6
+        assert_eq!(Direction::North.upgrade_from_legacy(), Direction::North); // 0
+    }
+
+    #[test]
+    fn test_directions_look_legacy_requires_marker() {
+        // Definitive 1.x East/West markers.
+        assert!(directions_look_legacy([Direction::North, Direction::NorthEast]));
+        assert!(directions_look_legacy([Direction::SouthEast]));
+        // Ambiguous pure {0,4} — could be 2.0 N+E; do not rewrite.
+        assert!(!directions_look_legacy([Direction::North, Direction::East]));
+        // Any true 2.0-only value rejects legacy mode.
+        assert!(!directions_look_legacy([
+            Direction::NorthEast,
+            Direction::South
+        ]));
+        assert!(!directions_look_legacy(std::iter::empty()));
     }
 
     // Entity tests

@@ -274,7 +274,14 @@ impl Grid {
     /// touched + candidates)), then applies an exact AABB check to exclude entities
     /// that are in a touched chunk but don't actually overlap the query rectangle.
     /// Tombstoned entity slots are silently skipped.
+    ///
+    /// Inverted rectangles (`max < min` on either axis) are normalized the same way
+    /// as `SpatialIndex::query_rect`, so callers need not pre-sort the corners.
     pub fn query_rect(&self, min_x: i32, min_y: i32, max_x: i32, max_y: i32) -> Vec<&PlacedEntity> {
+        // Match SpatialIndex: tolerate inverted corners rather than filtering everything out.
+        let (min_x, max_x) = (min_x.min(max_x), min_x.max(max_x));
+        let (min_y, max_y) = (min_y.min(max_y), min_y.max(max_y));
+
         self.spatial
             .query_rect(min_x, min_y, max_x, max_y)
             .into_iter()
@@ -593,6 +600,35 @@ mod tests {
         let (tl, br) = grid.bounding_box().unwrap();
         assert_eq!(tl, GridPos { x: 0, y: 0 });
         assert_eq!(br, GridPos { x: 10, y: 5 });
+    }
+
+    // ── query_rect tests ────────────────────────────────────────────
+
+    #[test]
+    fn test_query_rect_inverted_matches_ordered() {
+        let mut grid = Grid::new();
+        let id_in = grid
+            .place("transport-belt", &pos(2.5, 2.5), Direction::North, None, None)
+            .unwrap();
+        let _id_out = grid
+            .place("transport-belt", &pos(20.5, 20.5), Direction::North, None, None)
+            .unwrap();
+
+        let mut ordered: Vec<EntityId> = grid
+            .query_rect(0, 0, 5, 5)
+            .iter()
+            .map(|e| e.id)
+            .collect();
+        ordered.sort_by_key(|id| id.0);
+        let mut inverted: Vec<EntityId> = grid
+            .query_rect(5, 5, 0, 0)
+            .iter()
+            .map(|e| e.id)
+            .collect();
+        inverted.sort_by_key(|id| id.0);
+
+        assert_eq!(ordered, inverted);
+        assert_eq!(ordered, vec![id_in]);
     }
 
     // ── Neighbor tests ──────────────────────────────────────────────

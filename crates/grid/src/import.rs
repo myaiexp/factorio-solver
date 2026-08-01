@@ -1,4 +1,4 @@
-use factorio_blueprint::Blueprint;
+use factorio_blueprint::{directions_look_legacy, Blueprint};
 
 use crate::error::GridError;
 use crate::grid::Grid;
@@ -33,17 +33,29 @@ pub struct SkippedEntity {
 /// `crate::prototype::lookup()`, and calls `grid.place()`. Unknown
 /// prototypes are gracefully skipped and collected in `ImportResult.skipped`.
 ///
+/// Factorio 1.x cardinal directions (N/E/S/W = 0/2/4/6) are upgraded to the
+/// 2.0 scheme when the blueprint's direction set looks legacy — otherwise
+/// non-square footprints (combinators, splitters) collide and route wrong.
+///
 /// This function never panics on valid blueprints — real Factorio blueprints
 /// contain non-overlapping entities, and unknown entities are simply skipped.
 pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
     let mut grid = Grid::new();
     let mut skipped = Vec::new();
 
+    let legacy = directions_look_legacy(blueprint.entities.iter().map(|e| e.direction));
+
     for entity in &blueprint.entities {
+        let direction = if legacy {
+            entity.direction.upgrade_from_legacy()
+        } else {
+            entity.direction
+        };
+
         match grid.place(
             &entity.name,
             &entity.position,
-            entity.direction,
+            direction,
             entity.recipe.clone(),
             entity.entity_type.clone(),
         ) {
@@ -67,6 +79,8 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
 
     ImportResult { grid, skipped }
 }
+
+
 
 // ── Tests ───────────────────────────────────────────────────────────
 
@@ -181,4 +195,46 @@ mod tests {
         assert!(types.contains(&"input".to_string()));
         assert!(types.contains(&"output".to_string()));
     }
+
+    /// 1.x East is raw byte 2 → decoded as NorthEast. After import upgrade it
+    /// must be East with the combinator's E/W footprint (2, 1), not N/S (1, 2).
+    #[test]
+    fn test_import_legacy_east_combinator_has_swapped_footprint() {
+        // NorthEast alone is a definitive 1.x East marker (raw 2).
+        let bp = make_blueprint(vec![make_entity(
+            1,
+            "arithmetic-combinator",
+            0.0,
+            0.5,
+            Direction::NorthEast,
+        )]);
+        let result = from_blueprint(&bp);
+        assert!(result.skipped.is_empty(), "skipped: {:?}", result.skipped);
+        assert_eq!(result.grid.entity_count(), 1);
+
+        let entity = result.grid.entities().next().unwrap();
+        assert_eq!(entity.direction, Direction::East);
+        assert_eq!(
+            entity.size,
+            (2, 1),
+            "1.x East combinator must place as 2×1, not 1×2"
+        );
+    }
+
+    /// Pure 2.0 East (value 4) with no 1.x markers must not be rewritten to South.
+    #[test]
+    fn test_import_modern_east_direction_not_rewritten() {
+        let bp = make_blueprint(vec![make_entity(
+            1,
+            "arithmetic-combinator",
+            0.0,
+            0.5,
+            Direction::East,
+        )]);
+        let result = from_blueprint(&bp);
+        let entity = result.grid.entities().next().unwrap();
+        assert_eq!(entity.direction, Direction::East);
+        assert_eq!(entity.size, (2, 1));
+    }
+
 }

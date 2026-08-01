@@ -126,6 +126,24 @@ fn test_import_complex_circuit() {
         .collect();
     assert!(!constant.is_empty(), "expected at least one constant combinator");
 
+    // COMPLEX_CIRCUIT uses 1.x direction encoding (East = 2). After import
+    // upgrade, non-square combinators must face East with size (2, 1).
+    for c in arithmetic.iter().chain(decider.iter()) {
+        assert_eq!(
+            c.direction,
+            Direction::East,
+            "{} should be upgraded from 1.x East",
+            c.prototype_name
+        );
+        assert_eq!(
+            c.size,
+            (2, 1),
+            "{} East footprint must be 2×1 (was {:?})",
+            c.prototype_name,
+            c.size
+        );
+    }
+
     // The total placed + skipped should equal the blueprint entity count
     let total = result.grid.entity_count() + result.skipped.len();
     assert_eq!(

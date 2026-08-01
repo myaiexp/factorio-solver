@@ -150,4 +150,14 @@ mod tests {
         let hits = idx.query_rect(0, 0, 5, 5);
         assert_eq!(hits, vec![EntityId(0)]);
     }
+
+    #[test]
+    fn test_query_rect_inverted_matches_ordered() {
+        let mut idx = SpatialIndex::new();
+        idx.insert(EntityId(3), (4, 4), (2, 2));
+        let ordered = idx.query_rect(0, 0, 10, 10);
+        let inverted = idx.query_rect(10, 10, 0, 0);
+        assert_eq!(ordered, inverted);
+        assert_eq!(ordered, vec![EntityId(3)]);
+    }
 }

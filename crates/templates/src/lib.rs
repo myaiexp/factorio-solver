@@ -74,6 +74,9 @@ pub struct Template {
 /// are included. Their positions are remapped so that `(min_x, min_y)` maps
 /// to `(0, 0)` in the template coordinate space.
 ///
+/// Inverted corners (`max < min`) are normalized before querying and measuring
+/// so width/height stay positive and relative positions use the true origin.
+///
 /// `io_points` is left empty — the user assigns connection points in the UI.
 pub fn extract_template(
     grid: &factorio_grid::Grid,
@@ -83,6 +86,9 @@ pub fn extract_template(
     max_y: i32,
     name: &str,
 ) -> Template {
+    let (min_x, max_x) = (min_x.min(max_x), min_x.max(max_x));
+    let (min_y, max_y) = (min_y.min(max_y), min_y.max(max_y));
+
     let entities = grid.query_rect(min_x, min_y, max_x, max_y);
 
     let template_entities = entities
@@ -382,6 +388,31 @@ mod tests {
         assert_eq!(t.name, "empty-region");
         assert_eq!(t.width, 4); // 3 - 0 + 1
         assert_eq!(t.height, 4);
+    }
+
+    /// Inverted corners must normalize: same hits/dims/relative_pos as ordered args.
+    #[test]
+    fn extract_template_inverted_region_normalizes_dimensions() {
+        let mut grid = factorio_grid::Grid::new();
+        // Belt at world top-left (5, 3)
+        grid.place("transport-belt", &center_1x1(5, 3), Direction::North, None, None)
+            .unwrap();
+
+        let ordered = extract_template(&grid, 3, 1, 8, 5, "ordered");
+        let inverted = extract_template(&grid, 8, 5, 3, 1, "inverted");
+
+        assert_eq!(inverted.width, ordered.width);
+        assert_eq!(inverted.height, ordered.height);
+        assert_eq!(inverted.width, 6); // |8-3|+1
+        assert_eq!(inverted.height, 5); // |5-1|+1
+        assert_eq!(inverted.entities.len(), 1);
+        assert_eq!(ordered.entities.len(), 1);
+        // Origin is the true min corner (3, 1) either way → relative (2, 2)
+        assert_eq!(inverted.entities[0].relative_pos, GridPos { x: 2, y: 2 });
+        assert_eq!(
+            inverted.entities[0].relative_pos,
+            ordered.entities[0].relative_pos
+        );
     }
 
     // ── save_to_json / load_from_json tests ───────────────────────────
