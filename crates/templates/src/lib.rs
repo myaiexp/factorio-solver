@@ -21,7 +21,9 @@ pub struct TemplateEntity {
     pub size: (u32, u32),
     /// Assembler/furnace recipe, if any.
     pub recipe: Option<String>,
-    /// Entity type tag (e.g. "assembling-machine"), if available.
+    /// Factorio entity JSON `type` field (not a prototype category).
+    /// Used by underground belts (`"input"` / `"output"`) and similar
+    /// dual-role entities; `None` for ordinary belts, assemblers, etc.
     pub entity_type: Option<String>,
 }
 
@@ -150,7 +152,8 @@ mod tests {
             direction: Direction::North,
             size: (1, 1),
             recipe: None,
-            entity_type: Some("transport-belt".to_string()),
+            // Ordinary belts have no Factorio `type` field.
+            entity_type: None,
         }
     }
 
@@ -207,11 +210,20 @@ mod tests {
                     direction: Direction::South,
                     size: (2, 2),
                     recipe: None,
-                    entity_type: Some("furnace".to_string()),
+                    entity_type: None,
+                },
+                TemplateEntity {
+                    prototype_name: "underground-belt".to_string(),
+                    relative_pos: GridPos { x: 4, y: 1 },
+                    direction: Direction::East,
+                    size: (1, 1),
+                    recipe: None,
+                    // Factorio `type` for underground belts is input/output.
+                    entity_type: Some("input".to_string()),
                 },
                 TemplateEntity {
                     prototype_name: "inserter".to_string(),
-                    relative_pos: GridPos { x: 4, y: 1 },
+                    relative_pos: GridPos { x: 5, y: 1 },
                     direction: Direction::East,
                     size: (1, 1),
                     recipe: Some("iron-plate".to_string()),
@@ -238,7 +250,7 @@ mod tests {
         assert_eq!(back.name, "iron-smelter");
         assert_eq!(back.width, 6);
         assert_eq!(back.height, 4);
-        assert_eq!(back.entities.len(), 3);
+        assert_eq!(back.entities.len(), 4);
         assert_eq!(back.io_points.len(), 2);
 
         // Spot-check entity fields
@@ -247,9 +259,15 @@ mod tests {
         assert_eq!(furnace.relative_pos.x, 2);
         assert_eq!(furnace.relative_pos.y, 1);
         assert_eq!(furnace.size, (2, 2));
+        assert!(furnace.entity_type.is_none());
+
+        // Factorio `type` (input/output), not a prototype category tag
+        let ug_belt = &back.entities[2];
+        assert_eq!(ug_belt.prototype_name, "underground-belt");
+        assert_eq!(ug_belt.entity_type.as_deref(), Some("input"));
 
         // Spot-check with recipe
-        let inserter = &back.entities[2];
+        let inserter = &back.entities[3];
         assert_eq!(inserter.recipe, Some("iron-plate".to_string()));
         assert!(inserter.entity_type.is_none());
 
@@ -328,13 +346,14 @@ mod tests {
     fn extract_template_copies_entity_fields() {
         let mut grid = factorio_grid::Grid::new();
 
-        // Inserter (1×1) at world top-left (1, 0), facing East, no recipe
+        // Underground belt (1×1) at world top-left (1, 0), facing East.
+        // Factorio `type` is input/output — not a prototype category tag.
         grid.place(
-            "inserter",
+            "underground-belt",
             &center_1x1(1, 0),
             Direction::East,
             None,
-            Some("inserter".to_string()),
+            Some("input".to_string()),
         )
         .unwrap();
 
@@ -354,16 +373,17 @@ mod tests {
 
         assert_eq!(t.entities.len(), 2);
 
-        let inserter = t
+        let ug_belt = t
             .entities
             .iter()
-            .find(|e| e.prototype_name == "inserter")
-            .expect("inserter not found");
-        assert_eq!(inserter.direction, Direction::East);
-        assert_eq!(inserter.size, (1, 1));
-        assert!(inserter.recipe.is_none());
-        // Inserter world top-left (1, 0), region origin (0, 0) → relative (1, 0)
-        assert_eq!(inserter.relative_pos, GridPos { x: 1, y: 0 });
+            .find(|e| e.prototype_name == "underground-belt")
+            .expect("underground-belt not found");
+        assert_eq!(ug_belt.direction, Direction::East);
+        assert_eq!(ug_belt.size, (1, 1));
+        assert!(ug_belt.recipe.is_none());
+        assert_eq!(ug_belt.entity_type.as_deref(), Some("input"));
+        // World top-left (1, 0), region origin (0, 0) → relative (1, 0)
+        assert_eq!(ug_belt.relative_pos, GridPos { x: 1, y: 0 });
 
         let asm = t
             .entities
@@ -373,6 +393,7 @@ mod tests {
         assert_eq!(asm.size, (3, 3));
         assert_eq!(asm.direction, Direction::South);
         assert_eq!(asm.recipe, Some("iron-gear-wheel".to_string()));
+        assert!(asm.entity_type.is_none());
         // Assembler world top-left (4, 0), region origin (0, 0) → relative (4, 0)
         assert_eq!(asm.relative_pos, GridPos { x: 4, y: 0 });
     }
@@ -497,7 +518,7 @@ mod tests {
                 direction: Direction::North,
                 size: (2, 2),
                 recipe: None,
-                entity_type: Some("furnace".to_string()),
+                entity_type: None,
             }],
             io_points: vec![IoPoint {
                 name: "ore-in".to_string(),
