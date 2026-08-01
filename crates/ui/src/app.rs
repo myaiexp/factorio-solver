@@ -56,6 +56,9 @@ pub struct FactorioApp {
     /// Number of entities rendered in the last frame (updated by render_viewport).
     /// Used by the bottom status bar to confirm culling is working.
     visible_entities: usize,
+    /// When true, `render_viewport` re-fits the camera to the grid using the real
+    /// painter size on the next frame (set after a successful blueprint load).
+    needs_fit: bool,
 }
 
 impl FactorioApp {
@@ -66,6 +69,7 @@ impl FactorioApp {
             viewport: ViewportTransform::new(),
             show_grid_lines: true,
             visible_entities: 0,
+            needs_fit: false,
         }
     }
 
@@ -101,15 +105,9 @@ impl FactorioApp {
         let label = blueprint.label.clone();
         let result = from_blueprint(&blueprint);
 
-        // Auto-fit viewport to the loaded grid.
-        if let Some((min, max)) = result.grid.bounding_box() {
-            self.viewport.fit_to_bounds(
-                (min.x as f32, min.y as f32),
-                (max.x as f32, max.y as f32),
-                (1280.0, 800.0), // initial estimate; re-fitted on first paint if needed
-                2.0,
-            );
-        }
+        // Defer fit until `render_viewport` has the real painter size — a hardcoded
+        // estimate (e.g. 1280×800) mis-zooms when the window differs in size/aspect.
+        self.needs_fit = result.grid.bounding_box().is_some();
 
         self.state = AppState::Loaded {
             grid: result.grid,
@@ -145,6 +143,22 @@ impl FactorioApp {
             ui.allocate_painter(ui.available_size(), egui::Sense::click_and_drag());
         let rect = response.rect;
         let screen_size = (rect.width(), rect.height());
+
+        // ── Deferred fit after load (real painter size, not a hardcoded estimate) ──
+        if self.needs_fit
+            && screen_size.0 > 0.0
+            && screen_size.1 > 0.0
+            && let AppState::Loaded { ref grid, .. } = self.state
+            && let Some((min, max)) = grid.bounding_box()
+        {
+            self.viewport.fit_to_bounds(
+                (min.x as f32, min.y as f32),
+                (max.x as f32, max.y as f32),
+                screen_size,
+                2.0,
+            );
+            self.needs_fit = false;
+        }
 
         // ── Pan: drag with primary or middle button ────────────────────
         if response.dragged() {

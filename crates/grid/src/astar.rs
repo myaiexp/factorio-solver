@@ -130,6 +130,23 @@ pub fn find_path(
             if !walkable(neighbor) {
                 continue;
             }
+            // Reject diagonal corner-cutting: both adjacent orthogonal cells must
+            // be walkable, otherwise the path squeezes between two blocked tiles.
+            let dx = neighbor.x - pos.x;
+            let dy = neighbor.y - pos.y;
+            if dx != 0 && dy != 0 {
+                let orth_a = GridPos {
+                    x: pos.x + dx,
+                    y: pos.y,
+                };
+                let orth_b = GridPos {
+                    x: pos.x,
+                    y: pos.y + dy,
+                };
+                if !walkable(orth_a) || !walkable(orth_b) {
+                    continue;
+                }
+            }
             if next_cost < *g_score.get(&neighbor).unwrap_or(&i64::MAX) {
                 came_from.insert(neighbor, pos);
                 g_score.insert(neighbor, next_cost);
@@ -298,6 +315,94 @@ mod tests {
             let dy = pair[1].y - pair[0].y;
             assert_eq!((dx, dy), (1, 1), "step {pair:?} is not a monotone diagonal move");
         }
+    }
+
+    #[test]
+    fn test_diagonal_rejects_corner_cutting() {
+        // Walls on both corner-adjacent cells between (0,0) and (1,1). Without
+        // the anti-corner-cut check, a single diagonal hop would slip through
+        // the blocked corner. With the check, that hop is illegal and any path
+        // must detour (path length > 2 cells inclusive).
+        let mut grid = Grid::new();
+        for (x, y) in [(1, 0), (0, 1)] {
+            grid.place(
+                "transport-belt",
+                &pos(x as f64 + 0.5, y as f64 + 0.5),
+                Direction::North,
+                None,
+                None,
+            )
+            .unwrap();
+        }
+
+        let from = GridPos { x: 0, y: 0 };
+        let to = GridPos { x: 1, y: 1 };
+        let diag_cfg = AStarConfig {
+            allow_diagonal: true,
+            ..Default::default()
+        };
+
+        let path = find_path(&grid, from, to, &diag_cfg).expect("detour around corner walls");
+        assert_eq!(path.first(), Some(&from));
+        assert_eq!(path.last(), Some(&to));
+        assert!(
+            path.len() > 2,
+            "must not take a single diagonal hop through the blocked corner; got {path:?}"
+        );
+
+        // Every diagonal step on the path must have had both orthogonal sides
+        // clear (the walls are only at (1,0) and (0,1) — never step across them).
+        for pair in path.windows(2) {
+            let dx = pair[1].x - pair[0].x;
+            let dy = pair[1].y - pair[0].y;
+            if dx != 0 && dy != 0 {
+                let orth_a = GridPos {
+                    x: pair[0].x + dx,
+                    y: pair[0].y,
+                };
+                let orth_b = GridPos {
+                    x: pair[0].x,
+                    y: pair[0].y + dy,
+                };
+                assert!(
+                    !(orth_a.x == 1 && orth_a.y == 0) && !(orth_b.x == 1 && orth_b.y == 0),
+                    "diagonal step {pair:?} grazes wall at (1,0)"
+                );
+                assert!(
+                    !(orth_a.x == 0 && orth_a.y == 1) && !(orth_b.x == 0 && orth_b.y == 1),
+                    "diagonal step {pair:?} grazes wall at (0,1)"
+                );
+            }
+            // Path interior must not land on the wall cells either.
+            if pair[1] != to {
+                assert!(
+                    !(pair[1].x == 1 && pair[1].y == 0) && !(pair[1].x == 0 && pair[1].y == 1),
+                    "path stepped onto wall at {:?}",
+                    pair[1]
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_diagonal_open_corner_still_allowed() {
+        // Empty grid: (0,0)→(1,1) remains a single diagonal hop when both
+        // orthogonal sides are free (sanity check that the guard is not over-strict).
+        let grid = Grid::new();
+        let path = find_path(
+            &grid,
+            GridPos { x: 0, y: 0 },
+            GridPos { x: 1, y: 1 },
+            &AStarConfig {
+                allow_diagonal: true,
+                ..Default::default()
+            },
+        )
+        .expect("open diagonal hop");
+        assert_eq!(
+            path,
+            vec![GridPos { x: 0, y: 0 }, GridPos { x: 1, y: 1 }]
+        );
     }
 
     #[test]
