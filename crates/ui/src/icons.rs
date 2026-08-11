@@ -115,6 +115,7 @@ mod tests {
             underground_max_distance: None,
             pickup_position: None,
             insert_position: None,
+            supply_area_distance: None,
         }
     }
 

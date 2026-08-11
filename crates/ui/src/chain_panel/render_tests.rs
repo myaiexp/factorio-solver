@@ -20,10 +20,10 @@ fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
 
     // Two frames: the first loads fonts and sizes the panel, and egui only
     // has real geometry to lay text into from the second onward.
-    let mut output = ctx.run(input(), |ctx| {
+    let _warmup = ctx.run(input(), |ctx| {
         egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
     });
-    output = ctx.run(input(), |ctx| {
+    let output = ctx.run(input(), |ctx| {
         egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
     });
 

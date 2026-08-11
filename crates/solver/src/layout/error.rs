@@ -28,6 +28,15 @@ pub enum LayoutError {
     #[error("`{0}` is not an inserter (no pickup/insert position in the prototype registry)")]
     InserterUnknown(String),
 
+    /// The generator builds belt-fed *item* chains. A fluid cannot ride a
+    /// belt, and pipes are a later phase — so a step that moves one has no
+    /// layout, whichever side of the machine it is on.
+    #[error(
+        "recipe `{recipe}` moves `{item}` as a fluid, and this generator only builds \
+         belt-fed item chains — declare a product that comes after the fluid instead"
+    )]
+    FluidOnBelt { recipe: String, item: String },
+
     /// One belt carries two lanes, so a machine row fed by a single belt can
     /// take at most two distinct ingredients. Three-plus needs a second input
     /// belt reached by long-handed inserters, which is not built yet.
@@ -37,6 +46,13 @@ pub enum LayoutError {
         .items.len(), .items.join(", ")
     )]
     TooManyIngredients { recipe: String, items: Vec<String> },
+
+    /// The mirror of the above on the output edge: one output belt, two lanes.
+    #[error(
+        "recipe `{recipe}` yields {} products ({}) but one output belt carries only two lanes",
+        .items.len(), .items.join(", ")
+    )]
+    TooManyOutputs { recipe: String, items: Vec<String> },
 
     /// Every ingredient gets its own inserter along the machine's input edge,
     /// so the machine has to be at least that wide.

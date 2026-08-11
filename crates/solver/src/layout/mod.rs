@@ -8,15 +8,19 @@
 // calculator knows nothing about geometry. `ProductionPlan` is the whole
 // interface between them.
 use factorio_grid::prototype::{self, EntityPrototype};
-use factorio_grid::Grid;
+use factorio_grid::{Grid, GridPos};
 
 use crate::chain::{ProductionPlan, ProductionStep};
 
 pub mod error;
 pub mod lanes;
+pub mod power;
+pub mod rows;
 
 pub use error::LayoutError;
 pub use lanes::{lane_throughput, lanes_needed, pack_lanes, BeltAssignment};
+pub use power::{coverage_gaps, place_poles};
+pub use rows::{place_step, StepExtent};
 
 /// One tile of clear space between steps, so a step's output belt never sits
 /// flush against the next step's input belt and poles have somewhere to go.
@@ -88,8 +92,21 @@ pub fn generate(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, Layou
         reject_if_cyclic(step)?;
     }
 
-    let grid = Grid::new();
-    let _ = resolved; // placement lands in the following tasks
+    // Steps arrive topologically ordered, producers first, so stacking them
+    // downward in plan order puts each step's output belt above the step that
+    // consumes it. Wiring the two together is still the player's job — belt
+    // routing between steps is a later phase.
+    let mut grid = Grid::new();
+    let mut y = 0;
+    for step in &plan.steps {
+        let extent = rows::place_step(&mut grid, step, &resolved, GridPos { x: 0, y })?;
+        y += extent.height as i32 + STEP_GAP;
+    }
+
+    // Poles last: they fill the gaps the machine rows left, so they need the
+    // finished geometry to aim at.
+    power::place_poles(&mut grid, &resolved)?;
+
     Ok(grid)
 }
 
