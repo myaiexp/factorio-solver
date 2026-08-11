@@ -7,6 +7,8 @@ use factorio_solver::chain::{solve, ChainError, ChainGoal, MachinePolicy, Produc
 
 mod controls;
 mod logic;
+#[cfg(test)]
+mod render_tests;
 mod results;
 
 pub use logic::display_name;
