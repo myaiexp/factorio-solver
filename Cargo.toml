@@ -6,6 +6,7 @@ members = [
     "crates/templates",
     "crates/solver",
     "crates/ui",
+    "crates/dump-ingest",
 ]
 
 [workspace.package]

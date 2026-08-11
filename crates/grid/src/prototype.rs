@@ -5,7 +5,7 @@ use factorio_blueprint::Direction;
 
 // ── Fluid connection types ────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FluidConnectionType {
     Input,
@@ -13,7 +13,7 @@ pub enum FluidConnectionType {
     InputOutput,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct FluidConnection {
     pub dx: f64,
     pub dy: f64,
@@ -22,21 +22,51 @@ pub struct FluidConnection {
 
 // ── Entity prototype ─────────────────────────────────────────────────
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct EntityPrototype {
     pub name: String,
     pub tile_width: u32,
     pub tile_height: u32,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crafting_speed: Option<f64>,
-    #[serde(default)]
+    /// Power *consumption*, from the dump's `energy_usage`. Generators have
+    /// none — their output lives in three different fields depending on
+    /// prototype type and is not derived yet. Do not read this as "power
+    /// produced"; the old hand-written table did, which would make a solver
+    /// summing loads count a solar panel as a 60 kW draw.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub power_kw: Option<f64>,
     #[serde(default)]
     pub module_slots: u8,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fluid_connections: Vec<FluidConnection>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub belt_throughput: Option<f64>,
+
+    // ── Dump-derived fields ───────────────────────────────────────────
+    // Every one is `default`: the registry file predates them, and a
+    // hand-written fixture may omit any of them.
+    /// Localised name from `entity-locale.json`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// Mod-relative icon path, e.g. `__base__/graphics/icons/x.png`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_path: Option<String>,
+    /// Edge length of the icon's first mip level. Absent → callers use 64.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_size: Option<u32>,
+    /// Recipe categories this machine can craft (empty for non-crafters).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub crafting_categories: Vec<String>,
+    /// Underground belt / pipe span, in tiles.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub underground_max_distance: Option<u32>,
+    /// Inserter pickup offset relative to the entity centre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pickup_position: Option<(f64, f64)>,
+    /// Inserter drop-off offset relative to the entity centre.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub insert_position: Option<(f64, f64)>,
 }
 
 /// Effective (width, height) after rotation. Non-square entities swap
@@ -151,6 +181,9 @@ mod tests {
         assert_eq!(ins.belt_throughput, None);
     }
 
+    // Fuller pins on the dump-derived data — footprints, throughput tiers, the
+    // storage-tank 1 -> 4 connection correction — live in
+    // `tests/prototype_regression.rs`.
     #[test]
     fn test_fluid_connections_chemical_plant() {
         let proto = lookup("chemical-plant").unwrap();
@@ -161,5 +194,46 @@ mod tests {
     fn test_no_fluid_connections_belt() {
         let proto = lookup("transport-belt").unwrap();
         assert!(proto.fluid_connections.is_empty());
+    }
+
+    #[test]
+    fn existing_prototypes_json_still_loads() {
+        // The committed registry predates every dump-derived field.
+        let p = lookup("transport-belt").expect("transport-belt present");
+        assert_eq!(p.belt_throughput, Some(15.0));
+    }
+
+    #[test]
+    fn new_fields_default_when_absent() {
+        let p: EntityPrototype =
+            serde_json::from_str(r#"{"name":"x","tile_width":1,"tile_height":1}"#).unwrap();
+        assert_eq!(p.display_name, None);
+        assert_eq!(p.icon_path, None);
+        assert_eq!(p.icon_size, None);
+        assert!(p.crafting_categories.is_empty());
+        assert_eq!(p.underground_max_distance, None);
+        assert_eq!(p.pickup_position, None);
+        assert_eq!(p.insert_position, None);
+    }
+
+    #[test]
+    fn new_fields_parse_when_present() {
+        let p: EntityPrototype = serde_json::from_str(
+            r#"{"name":"inserter","tile_width":1,"tile_height":1,
+                "display_name":"Inserter",
+                "icon_path":"__base__/graphics/icons/inserter.png",
+                "icon_size":64,
+                "crafting_categories":["crafting"],
+                "underground_max_distance":5,
+                "pickup_position":[0.0,-1.0],
+                "insert_position":[0.0,1.2]}"#,
+        )
+        .unwrap();
+        assert_eq!(p.display_name.as_deref(), Some("Inserter"));
+        assert_eq!(p.icon_size, Some(64));
+        assert_eq!(p.crafting_categories, vec!["crafting".to_string()]);
+        assert_eq!(p.underground_max_distance, Some(5));
+        assert_eq!(p.pickup_position, Some((0.0, -1.0)));
+        assert_eq!(p.insert_position, Some((0.0, 1.2)));
     }
 }

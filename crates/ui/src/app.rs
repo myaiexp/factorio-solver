@@ -1,9 +1,10 @@
-use egui::{Color32, FontId, Pos2, Rect, Stroke, StrokeKind, Vec2};
+use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use factorio_blueprint::{decode, Direction};
-use factorio_grid::{from_blueprint, EntityCategory, Grid, SkippedEntity};
+use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
-use crate::colors::CategoryStyle;
-use crate::lod::{lod_for_zoom, LodLevel};
+use crate::entity_draw::EntityPainter;
+use crate::icons::{IconCache, IconStatus};
+use crate::lod::lod_for_zoom;
 use crate::viewport::ViewportTransform;
 
 fn direction_name(dir: Direction) -> &'static str {
@@ -59,6 +60,10 @@ pub struct FactorioApp {
     /// When true, `render_viewport` re-fits the camera to the grid using the real
     /// painter size on the next frame (set after a successful blueprint load).
     needs_fit: bool,
+    /// Entity icons read from the player's Factorio install. Best-effort: with
+    /// no install found this stays empty and the viewport falls back to label
+    /// characters, which is what it drew before icons existed.
+    icons: IconCache,
 }
 
 impl FactorioApp {
@@ -70,6 +75,8 @@ impl FactorioApp {
             show_grid_lines: true,
             visible_entities: 0,
             needs_fit: false,
+            // Detection runs once, here — not per frame and not per entity.
+            icons: IconCache::new(None),
         }
     }
 
@@ -248,6 +255,15 @@ impl FactorioApp {
             let visible = grid.query_rect(query_min_x, query_min_y, query_max_x, query_max_y);
             visible_count = visible.len();
 
+            let mut entity_painter = EntityPainter {
+                painter: &painter,
+                ctx: ui.ctx(),
+                icons: &mut self.icons,
+                lod,
+                zoom,
+                border_stroke,
+            };
+
             for entity in &visible {
                 let top_left_world = (entity.top_left.x as f32, entity.top_left.y as f32);
                 let top_left_screen =
@@ -263,43 +279,7 @@ impl FactorioApp {
                     Vec2::new(entity_w, entity_h),
                 );
 
-                let category = EntityCategory::from_prototype_name(entity.prototype_name);
-
-                match lod {
-                    // Full detail (zoom ≥ 16 px/cell): colored rect + dark border + label char.
-                    LodLevel::Full => {
-                        painter.rect_filled(entity_rect, 0.0, category.color());
-                        painter.rect_stroke(
-                            entity_rect,
-                            0.0,
-                            border_stroke,
-                            StrokeKind::Outside,
-                        );
-                        let font_size = (zoom * 0.5).clamp(8.0, 40.0);
-                        let label = category.label_char().to_string();
-                        painter.text(
-                            entity_rect.center(),
-                            egui::Align2::CENTER_CENTER,
-                            label,
-                            FontId::monospace(font_size),
-                            Color32::WHITE,
-                        );
-                    }
-                    // Medium detail (4 ≤ zoom < 16): colored rect only — no border, no label.
-                    // Skips two draw calls (stroke + text layout) per entity vs Full.
-                    LodLevel::Medium => {
-                        painter.rect_filled(entity_rect, 0.0, category.color());
-                    }
-                    // Minimal detail (zoom < 4): single muted filled rect, no border, no label.
-                    // At this zoom level entities are < 4 px wide; individual colour
-                    // accuracy is imperceptible, so we halve each channel to blend
-                    // quietly into the dark background and cut per-entity overdraw.
-                    LodLevel::Minimal => {
-                        let c = category.color();
-                        let muted = Color32::from_rgb(c.r() / 2, c.g() / 2, c.b() / 2);
-                        painter.rect_filled(entity_rect, 0.0, muted);
-                    }
-                }
+                entity_painter.draw(entity_rect, entity.prototype_name);
             }
         }
         // Store visible count for the status bar (shown next frame — imperceptible lag).
@@ -441,6 +421,17 @@ impl eframe::App for FactorioApp {
                 AppState::Error(msg) => {
                     ui.colored_label(Color32::RED, msg);
                 }
+            }
+
+            // Icon loading is best-effort, but a silent fallback to label
+            // characters looks like a bug rather than a missing install — so
+            // say so, and name the way to fix it.
+            if self.icons.status() == IconStatus::NoInstall {
+                ui.colored_label(
+                    Color32::from_rgb(180, 180, 180),
+                    "Entity icons unavailable — no Factorio install found. \
+                     Set FACTORIO_INSTALL_DIR to enable them.",
+                );
             }
         });
 

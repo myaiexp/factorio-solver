@@ -1,5 +1,7 @@
 mod app;
 mod colors;
+mod entity_draw;
+mod icons;
 mod lod;
 mod viewport;
 

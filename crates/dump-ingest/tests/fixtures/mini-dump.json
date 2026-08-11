@@ -1,0 +1,137 @@
+{
+  "transport-belt": {
+    "transport-belt": {
+      "flags": ["placeable-neutral", "player-creation"],
+      "selection_box": [[-0.5, -0.5], [0.5, 0.5]],
+      "collision_box": [[-0.4, -0.4], [0.4, 0.4]],
+      "speed": 0.03125,
+      "icon": "__base__/graphics/icons/transport-belt.png",
+      "icon_size": 64
+    }
+  },
+  "assembling-machine": {
+    "chemical-plant": {
+      "flags": ["placeable-neutral", "player-creation"],
+      "selection_box": [[-1.5, -1.5], [1.5, 1.5]],
+      "collision_box": [[-1.5, -1.5], [1.5, 1.5]],
+      "crafting_speed": 1.25,
+      "energy_usage": "210kW",
+      "module_slots": 4,
+      "crafting_categories": ["chemistry"],
+      "icon": "__base__/graphics/icons/chemical-plant.png",
+      "fluid_boxes": [
+        {
+          "production_type": "input",
+          "pipe_connections": [
+            { "flow_direction": "input", "direction": 0, "position": [-1, -1] }
+          ]
+        },
+        {
+          "production_type": "output",
+          "pipe_connections": [
+            { "flow_direction": "output", "direction": 8, "position": [1, 1] }
+          ]
+        }
+      ]
+    }
+  },
+  "inserter": {
+    "inserter": {
+      "flags": ["placeable-neutral", "placeable-player", "player-creation"],
+      "selection_box": [[-0.4, -0.35], [0.4, 0.45]],
+      "collision_box": [[-0.15, -0.15], [0.15, 0.15]],
+      "pickup_position": [0, -1],
+      "insert_position": [0, 1.2],
+      "icon": "__base__/graphics/icons/inserter.png"
+    }
+  },
+  "logistic-robot": {
+    "logistic-robot": {
+      "flags": ["placeable-player", "player-creation", "placeable-off-grid", "not-on-map"],
+      "selection_box": [[-0.4, -0.4], [0.4, 0.4]],
+      "collision_box": [[-0.15, -0.15], [0.15, 0.15]],
+      "speed": 0.06,
+      "icon": "__base__/graphics/icons/logistic-robot.png"
+    }
+  },
+  "character": {
+    "character": {
+      "flags": ["placeable-player", "not-repairable"],
+      "selection_box": [[-0.3, -0.3], [0.3, 0.3]],
+      "collision_box": [[-0.3, -0.3], [0.3, 0.3]],
+      "icon": "__base__/graphics/icons/character.png"
+    }
+  },
+  "resource": {
+    "iron-ore": {
+      "flags": ["player-creation"],
+      "selection_box": null,
+      "collision_box": [[-0.5, -0.5], [0.5, 0.5]]
+    }
+  },
+  "recipe": {
+    "iron-plate": {
+      "type": "recipe",
+      "name": "iron-plate",
+      "ingredients": [
+        { "type": "item", "name": "iron-ore", "amount": 1 }
+      ],
+      "results": [
+        { "type": "item", "name": "iron-plate", "amount": 1 }
+      ]
+    },
+    "electronic-circuit": {
+      "type": "recipe",
+      "name": "electronic-circuit",
+      "category": "electronics",
+      "energy_required": 0.5,
+      "enabled": false,
+      "ingredients": [
+        { "type": "item", "name": "iron-plate", "amount": 1 },
+        { "type": "item", "name": "copper-cable", "amount": 3 }
+      ],
+      "results": [
+        { "type": "item", "name": "electronic-circuit", "amount": 1 }
+      ]
+    },
+    "biter-egg": {
+      "type": "recipe",
+      "name": "biter-egg",
+      "category": "captive-spawner-process",
+      "energy_required": 10,
+      "ingredients": {},
+      "results": [
+        { "type": "item", "name": "biter-egg", "amount": 5 }
+      ]
+    },
+    "scrap-recycling": {
+      "type": "recipe",
+      "name": "scrap-recycling",
+      "category": "recycling",
+      "hidden": true,
+      "ingredients": [
+        { "type": "item", "name": "scrap", "amount": 1 }
+      ],
+      "results": [
+        { "type": "item", "name": "iron-plate", "amount": 0.1 }
+      ]
+    },
+    "sulfur": {
+      "type": "recipe",
+      "name": "sulfur",
+      "category": "chemistry",
+      "ingredients": [
+        { "type": "fluid", "name": "water", "amount": 30 },
+        { "type": "fluid", "name": "petroleum-gas", "amount": 30 }
+      ],
+      "results": [
+        { "type": "item", "name": "sulfur", "amount": 2 }
+      ]
+    },
+    "parameter-0": {
+      "type": "recipe",
+      "name": "parameter-0",
+      "parameter": true
+    }
+  }
+}
