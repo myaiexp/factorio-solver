@@ -18,7 +18,7 @@ factorio-solver/
 │   ├── blueprint/          # Blueprint string parsing/encoding + CLI
 │   ├── grid/               # 2D spatial engine: placement, collision, spatial index, A*, import/export
 │   ├── templates/          # Template extraction from grid regions + IoPoint model + JSON persistence
-│   ├── solver/             # Recipe registry + layout composition (calculator not yet built)
+│   ├── solver/             # Recipe registry + chain calculator + block generator
 │   ├── dump-ingest/        # Dev tool: Factorio data dump -> prototypes.json + recipes.json
 │   └── ui/                 # egui frontend — viewport, culling, LOD, colors, tooltips
 ```

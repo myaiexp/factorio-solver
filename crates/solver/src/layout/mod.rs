@@ -16,15 +16,26 @@ pub mod error;
 pub mod lanes;
 pub mod power;
 pub mod rows;
+pub mod validate;
 
 pub use error::LayoutError;
 pub use lanes::{lane_throughput, lanes_needed, pack_lanes, BeltAssignment};
 pub use power::{coverage_gaps, place_poles};
 pub use rows::{place_step, StepExtent};
+pub use validate::{validate, Validation};
 
 /// One tile of clear space between steps, so a step's output belt never sits
 /// flush against the next step's input belt and poles have somewhere to go.
 pub const STEP_GAP: i32 = 1;
+
+/// The Factorio version stamped into generated blueprints, matching the dump
+/// the registries were built from (2.0.77).
+///
+/// Factorio packs a version as `major << 48 | minor << 32 | patch << 16 | dev`.
+/// It matters beyond cosmetics: `from_blueprint` reads the major version to
+/// decide whether a blueprint's directions are 1.x-encoded, so stamping a
+/// too-low version would have our own 2.0 directions rewritten on re-import.
+pub const BLUEPRINT_VERSION: u64 = (2 << 48) | (77 << 16);
 
 /// The entities the generator builds a block out of. Everything else is
 /// derived from the plan.
@@ -82,7 +93,25 @@ pub struct ResolvedConfig {
 }
 
 /// Turn a plan into a placed grid, ready for `factorio_grid::to_blueprint`.
+///
+/// Discards the validation report. Use `generate_with_report` where the
+/// warnings matter — they name real problems with a block that still emits,
+/// like a belt segment over its rating.
 pub fn generate(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
+    generate_with_report(plan, cfg).map(|(grid, _)| grid)
+}
+
+/// `generate`, plus the soft findings from the pre-emit checks.
+pub fn generate_with_report(
+    plan: &ProductionPlan,
+    cfg: &LayoutConfig,
+) -> Result<(Grid, Validation), LayoutError> {
+    let grid = build(plan, cfg)?;
+    let report = validate::validate(&grid, plan, cfg)?;
+    Ok((grid, report))
+}
+
+fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
     let resolved = cfg.resolve()?;
 
     if plan.steps.is_empty() {

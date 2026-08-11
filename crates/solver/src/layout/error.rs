@@ -71,6 +71,20 @@ pub enum LayoutError {
     #[error("the plan has no steps to build — everything asked for is already on the bus")]
     EmptyPlan,
 
+    // ── Pre-emit validation ───────────────────────────────────────────
+    // These describe a generator bug rather than user input: the row and
+    // pole passes are supposed to make all three impossible. They are hard
+    // errors so a broken block is never handed to the player as a blueprint
+    // string that merely looks plausible.
+    #[error("the `{recipe}` machine at ({x}, {y}) has no {missing} inserter")]
+    MachineNotConnected { recipe: String, x: i32, y: i32, missing: String },
+
+    #[error("two entities claim cell ({x}, {y})")]
+    Overlap { x: i32, y: i32 },
+
+    #[error("the `{recipe}` machine at ({x}, {y}) is outside every pole's supply area")]
+    Unpowered { recipe: String, x: i32, y: i32 },
+
     #[error("placement failed: {0}")]
     Placement(#[from] GridError),
 }
