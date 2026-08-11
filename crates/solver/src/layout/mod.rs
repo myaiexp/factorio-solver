@@ -13,8 +13,10 @@ use factorio_grid::Grid;
 use crate::chain::{ProductionPlan, ProductionStep};
 
 pub mod error;
+pub mod lanes;
 
 pub use error::LayoutError;
+pub use lanes::{lane_throughput, lanes_needed, pack_lanes, BeltAssignment};
 
 /// One tile of clear space between steps, so a step's output belt never sits
 /// flush against the next step's input belt and poles have somewhere to go.
