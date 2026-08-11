@@ -1,0 +1,18 @@
+[package]
+name = "factorio-dump-ingest"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "dump-ingest"
+path = "src/main.rs"
+
+[dependencies]
+factorio-grid = { path = "../grid" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+clap = { version = "4", features = ["derive"] }
+thiserror = "2"
+
+[dev-dependencies]
+tempfile = "3.27.0"

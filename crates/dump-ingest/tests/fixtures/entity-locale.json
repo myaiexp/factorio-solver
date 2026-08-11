@@ -1,0 +1,11 @@
+{
+  "names": {
+    "transport-belt": "Transport belt",
+    "chemical-plant": "Chemical plant",
+    "inserter": "Inserter",
+    "logistic-robot": "Logistic robot",
+    "character": "Character",
+    "iron-ore": "Iron ore"
+  },
+  "descriptions": {}
+}

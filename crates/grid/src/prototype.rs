@@ -5,7 +5,7 @@ use factorio_blueprint::Direction;
 
 // ── Fluid connection types ────────────────────────────────────────────
 
-#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FluidConnectionType {
     Input,
@@ -13,7 +13,7 @@ pub enum FluidConnectionType {
     InputOutput,
 }
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct FluidConnection {
     pub dx: f64,
     pub dy: f64,
@@ -22,45 +22,45 @@ pub struct FluidConnection {
 
 // ── Entity prototype ─────────────────────────────────────────────────
 
-#[derive(Debug, Clone, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
 pub struct EntityPrototype {
     pub name: String,
     pub tile_width: u32,
     pub tile_height: u32,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crafting_speed: Option<f64>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub power_kw: Option<f64>,
     #[serde(default)]
     pub module_slots: u8,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub fluid_connections: Vec<FluidConnection>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub belt_throughput: Option<f64>,
 
     // ── Dump-derived fields ───────────────────────────────────────────
     // Every one is `default`: the registry file predates them, and a
     // hand-written fixture may omit any of them.
     /// Localised name from `entity-locale.json`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     /// Mod-relative icon path, e.g. `__base__/graphics/icons/x.png`.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon_path: Option<String>,
     /// Edge length of the icon's first mip level. Absent → callers use 64.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon_size: Option<u32>,
     /// Recipe categories this machine can craft (empty for non-crafters).
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub crafting_categories: Vec<String>,
     /// Underground belt / pipe span, in tiles.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub underground_max_distance: Option<u32>,
     /// Inserter pickup offset relative to the entity centre.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pickup_position: Option<(f64, f64)>,
     /// Inserter drop-off offset relative to the entity centre.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub insert_position: Option<(f64, f64)>,
 }
 
