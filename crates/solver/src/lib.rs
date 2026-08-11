@@ -1,8 +1,11 @@
-// Production-chain calculator and layout composition.
+// Production-chain calculator and block generator.
 //
-// Re-exports the template library it builds on. Spatial layout
-// (`ProductionPlan` -> `Grid`) is the next phase and not here yet.
+// Re-exports the template library it builds on.
 pub use factorio_templates;
 
 pub mod chain;
+pub mod layout;
 pub mod recipe;
+
+#[cfg(any(test, feature = "testsupport"))]
+pub mod testsupport;

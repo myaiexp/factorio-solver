@@ -9,6 +9,19 @@ factorio-templates = { path = "../templates" }
 # &'static EntityPrototype, and a type in a public signature needs its
 # defining crate nameable here.
 factorio-grid = { path = "../grid" }
+# The generated Grid goes out as a blueprint string, so the layout phase names
+# BlueprintData/encode directly rather than through grid's re-export.
+factorio-blueprint = { path = "../blueprint" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[features]
+# Layout fixtures shared by inline unit tests and tests/layout_output.rs.
+testsupport = []
+
+[dev-dependencies]
+# Self dev-dependency: the only way to switch `testsupport` on for the library
+# that the integration tests link against. Without it `cargo test` builds the
+# lib with the feature off and `factorio_solver::testsupport` does not exist.
+factorio-solver = { path = ".", features = ["testsupport"] }
