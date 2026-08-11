@@ -1,8 +1,8 @@
-// Layout composition crate (stub). Re-exports the template library it builds on.
+// Production-chain calculator and layout composition.
 //
-// The production-chain calculator is not yet implemented — its module was
-// declared before any code existed and has been removed so the workspace
-// compiles. See the backlog for the planned solver phases.
+// Re-exports the template library it builds on. Spatial layout
+// (`ProductionPlan` -> `Grid`) is the next phase and not here yet.
 pub use factorio_templates;
 
+pub mod chain;
 pub mod recipe;

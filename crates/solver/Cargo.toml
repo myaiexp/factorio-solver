@@ -5,6 +5,10 @@ edition.workspace = true
 
 [dependencies]
 factorio-templates = { path = "../templates" }
+# Direct, not via templates' re-export: ProductionStep holds a
+# &'static EntityPrototype, and a type in a public signature needs its
+# defining crate nameable here.
+factorio-grid = { path = "../grid" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
