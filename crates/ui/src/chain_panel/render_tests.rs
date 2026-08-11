@@ -12,10 +12,19 @@ use factorio_blueprint::decode;
 use super::{ChainPanel, MachineChoice, RateUnit};
 
 /// Lays out one frame of the panel and returns every string it painted.
-fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
+/// `pub(super)` so `topology_tests.rs`, a sibling test module split out to
+/// keep this file under the project's line cap, can drive the same real
+/// render path rather than reimplementing it.
+pub(super) fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
     let ctx = Context::default();
+    // Tall enough that a solved-and-generated panel's full content — steps
+    // table, block-generator controls, and the generated block's own stats —
+    // stays inside the `SidePanel`'s clip rect. egui's `Label` skips painting
+    // (and so skips adding a `Shape::Text`) for a rect outside the clip rect
+    // as a layout-cost optimization, so anything shorter here silently drops
+    // the tail of the panel from `output.shapes` with no panic to flag it.
     let input = || RawInput {
-        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 800.0))),
+        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 2400.0))),
         ..Default::default()
     };
 
@@ -56,7 +65,9 @@ fn green_circuit_panel() -> ChainPanel {
 /// The green-circuit goal, with the `copper-cable` override in place so it
 /// actually solves instead of stopping at `AmbiguousRecipe` — what the
 /// generator tests need, since generation only ever runs against `Ok(plan)`.
-fn solved_green_circuit_panel() -> ChainPanel {
+/// `pub(super)` for the same reason as `painted_text`: `topology_tests.rs`
+/// reuses this fixture rather than duplicating it.
+pub(super) fn solved_green_circuit_panel() -> ChainPanel {
     let mut panel = green_circuit_panel();
     panel.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
     panel.solve();

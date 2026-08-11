@@ -30,6 +30,16 @@ use runs::run_anchor;
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Validation {
     pub warnings: Vec<String>,
+    /// Per step, the stream that capped how many machines fit in one cell —
+    /// the knob-turning hint `CellPlan::bound_by` computes. `(recipe, bound_by)`.
+    ///
+    /// `validate` itself never sizes a step (that's `cell::size_step`, run
+    /// once per step inside `tile::place_step` during `build`), so this is
+    /// always empty on a `Validation` returned directly from `validate` —
+    /// `generate_with_report` fills it in from what `build` actually placed,
+    /// rather than this function re-deriving a second, possibly-disagreeing
+    /// answer to the same sizing question.
+    pub bindings: Vec<(String, String)>,
 }
 
 pub fn validate(
@@ -44,7 +54,7 @@ pub fn validate(
     check_pole_coverage(grid)?;
     check_delivered_rate(grid, plan, &resolved)?;
 
-    Ok(Validation { warnings: plan.warnings.iter().cloned().collect() })
+    Ok(Validation { warnings: plan.warnings.iter().cloned().collect(), bindings: Vec::new() })
 }
 
 // ── Hard errors ─────────────────────────────────────────────────────

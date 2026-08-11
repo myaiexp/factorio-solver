@@ -21,6 +21,11 @@ pub(super) struct GeneratedBlock {
     pub(super) height: i32,
     pub(super) blueprint_string: String,
     pub(super) warnings: Vec<String>,
+    /// `(recipe, bound_by)` from `Validation::bindings` — the stream that
+    /// capped how many machines fit in one cell, per step. The knob-turning
+    /// hint, not an error: it tells the player which stream to widen a
+    /// topology or belt tier for if they want fewer, bigger cells.
+    pub(super) bindings: Vec<(String, String)>,
 }
 
 impl ChainPanel {
@@ -38,7 +43,9 @@ impl ChainPanel {
     /// here means a stale `self.result` can never produce a stale block.
     pub(super) fn generate_block(&mut self) {
         let Some(Ok(plan)) = &self.result else { return };
-        let cfg = LayoutConfig::new(&self.layout_belt, &self.layout_pole, &self.layout_inserter);
+        let cfg = LayoutConfig::new(&self.layout_belt, &self.layout_pole, &self.layout_inserter)
+            .with_long_inserter(&self.layout_long_inserter)
+            .with_topology(self.layout_topology.clone());
 
         let (grid, validation) = match generate_with_report(plan, &cfg) {
             Ok(pair) => pair,
@@ -72,6 +79,7 @@ impl ChainPanel {
             height,
             blueprint_string,
             warnings: validation.warnings,
+            bindings: validation.bindings,
         }));
         self.pending_grid = Some(grid);
     }
@@ -107,6 +115,15 @@ fn show_block(ui: &mut egui::Ui, mut block: GeneratedBlock) {
         ui.heading("Warnings");
         for warning in &block.warnings {
             ui.colored_label(egui::Color32::YELLOW, warning);
+        }
+    }
+
+    // Not an error — the knob-turning hint: which stream to widen a topology
+    // or belt tier for if the player wants fewer, bigger cells out of this step.
+    if !block.bindings.is_empty() {
+        ui.heading("Cell sizing");
+        for (recipe, bound_by) in &block.bindings {
+            ui.label(format!("{recipe} step limited by {bound_by}"));
         }
     }
 

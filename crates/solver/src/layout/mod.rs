@@ -160,12 +160,16 @@ pub fn generate_with_report(
     plan: &ProductionPlan,
     cfg: &LayoutConfig,
 ) -> Result<(Grid, Validation), LayoutError> {
-    let grid = build(plan, cfg)?;
-    let report = validate::validate(&grid, plan, cfg)?;
+    let (grid, bindings) = build(plan, cfg)?;
+    let mut report = validate::validate(&grid, plan, cfg)?;
+    report.bindings = bindings;
     Ok((grid, report))
 }
 
-fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
+/// Builds the grid, plus each step's `(recipe, bound_by)` binding — collected
+/// here rather than recomputed by a caller, since `tile::place_step` (via
+/// `cell::size_step`) is the only place that sizes a step at all.
+fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String, String)>), LayoutError> {
     let resolved = cfg.resolve()?;
 
     if plan.steps.is_empty() {
@@ -181,8 +185,14 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError>
     // routing between steps is a later phase.
     let mut grid = Grid::new();
     let mut y = 0;
+    let mut bindings = Vec::new();
     for step in &plan.steps {
-        let extent = tile::place_step(&mut grid, step, &resolved, &cfg.topology, GridPos { x: 0, y })?;
+        let (extent, bound_by) =
+            tile::place_step(&mut grid, step, &resolved, &cfg.topology, GridPos { x: 0, y })?;
+        // A step with no ingredients and no products has nothing binding it.
+        if !bound_by.is_empty() {
+            bindings.push((step.recipe.name.clone(), bound_by));
+        }
         y += extent.height as i32 + STEP_GAP;
     }
 
@@ -190,7 +200,7 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError>
     // finished geometry to aim at.
     power::place_poles(&mut grid, &resolved)?;
 
-    Ok(grid)
+    Ok((grid, bindings))
 }
 
 /// A step whose recipe both consumes and produces the same item has no

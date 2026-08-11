@@ -22,13 +22,18 @@ pub struct StepExtent {
 /// machine count across cells and columns and tiles the cells from `origin`,
 /// wrapping into a new band below whenever the next cell would push the
 /// current one past `topo.target_width`.
+///
+/// Returns the binding stream(s) alongside the extent — `size_step` is
+/// called exactly once here, so this is the single place that knows the
+/// answer; a second caller re-deriving it (e.g. for display) could disagree
+/// with what was actually placed.
 pub fn place_step(
     grid: &mut Grid,
     step: &ProductionStep,
     cfg: &ResolvedConfig,
     topo: &CellTopology,
     origin: GridPos,
-) -> Result<StepExtent, LayoutError> {
+) -> Result<(StepExtent, String), LayoutError> {
     let sized = size_step(step, cfg.belt, topo)?;
     let machines = step.machines_needed.max(1);
 
@@ -70,5 +75,5 @@ pub fn place_step(
 
     total_width = total_width.max(band_width);
     total_height += band_height;
-    Ok(StepExtent { width: total_width, height: total_height })
+    Ok((StepExtent { width: total_width, height: total_height }, sized.bound_by))
 }

@@ -1,8 +1,10 @@
-// Belt/pole/inserter pickers for the block generator's `LayoutConfig`,
-// sourced live from the prototype registry so a game update picks up a new
-// tier for free rather than needing a hardcoded list edited by hand.
+// Belt/pole/inserter/topology pickers for the block generator's
+// `LayoutConfig`, sourced live from the prototype registry so a game update
+// picks up a new tier for free rather than needing a hardcoded list edited
+// by hand.
 use factorio_grid::prototype::{self, EntityPrototype};
 use factorio_grid::EntityCategory;
+use factorio_solver::layout::{self, Side, LONG_INSERTER_REACH};
 
 use super::{display_name, ChainPanel};
 
@@ -48,6 +50,22 @@ pub(super) fn inserter_options() -> Vec<&'static EntityPrototype> {
     inserters
 }
 
+/// Inserters that can reach the outer belt of a topology's two-belt side —
+/// the same reach check `LayoutConfig::resolve` runs on `long_inserter`
+/// before it will place one (`layout::reach(p) >= LONG_INSERTER_REACH`), so
+/// nothing offered here can fail generation with `LongInserterUnknown`.
+pub(super) fn long_inserter_options() -> Vec<&'static EntityPrototype> {
+    let mut inserters: Vec<&'static EntityPrototype> = prototype::all_names()
+        .into_iter()
+        .filter(|n| EntityCategory::from_prototype_name(n) == EntityCategory::Inserter)
+        .filter_map(prototype::lookup)
+        .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
+        .filter(|p| layout::reach(p) >= LONG_INSERTER_REACH)
+        .collect();
+    inserters.sort_by(|a, b| a.name.cmp(&b.name));
+    inserters
+}
+
 /// One labelled dropdown: shows the display name, stores the internal name
 /// (`LayoutConfig` takes internal names, not what's shown on screen).
 fn combo(ui: &mut egui::Ui, id: &str, label: &str, current: &mut String, options: &[&'static EntityPrototype]) {
@@ -63,12 +81,71 @@ fn combo(ui: &mut egui::Ui, id: &str, label: &str, current: &mut String, options
     });
 }
 
-/// The three controls the block generator reads: belt tier, pole, inserter.
+/// Two 1-or-2 buttons and a label — `CellTopology::spine_belts`/`edge_belts`
+/// have no other valid values (`CellTopology::validate` rejects anything
+/// else), so this is a closed choice rather than a `DragValue`.
+fn belt_count(ui: &mut egui::Ui, label: &str, value: &mut u8) {
+    ui.horizontal(|ui| {
+        ui.label(label);
+        ui.selectable_value(value, 1, "1");
+        ui.selectable_value(value, 2, "2");
+    });
+}
+
+/// Which side of a cell carries ingredients; the other always carries
+/// products (`CellTopology::ingredients_on`).
+fn ingredients_on(ui: &mut egui::Ui, value: &mut Side) {
+    ui.horizontal(|ui| {
+        ui.label("Ingredients on");
+        ui.selectable_value(value, Side::Spine, "Spine");
+        ui.selectable_value(value, Side::Edge, "Edge");
+    });
+}
+
+/// A checkbox gating a `DragValue` for `CellTopology::target_width`.
+/// Unchecked is `None`; the last number entered survives being unchecked
+/// (kept in egui's own per-widget memory, not a `ChainPanel` field — the
+/// panel's own state is only ever `Option<u32>`, matching `CellTopology`
+/// exactly) so toggling the box off and back on does not reset it.
+fn target_width(ui: &mut egui::Ui, value: &mut Option<u32>) {
+    let remember_id = egui::Id::new("layout_target_width_last");
+    ui.horizontal(|ui| {
+        let mut enabled = value.is_some();
+        if ui.checkbox(&mut enabled, "Target width").changed() {
+            *value = if enabled {
+                Some(ui.data(|d| d.get_temp::<u32>(remember_id)).unwrap_or(60))
+            } else {
+                None
+            };
+        }
+        if let Some(width) = value {
+            ui.add(egui::DragValue::new(width).range(20..=400));
+            ui.data_mut(|d| d.insert_temp(remember_id, *width));
+        }
+    });
+}
+
+/// The block generator's own controls: belt tier, pole, inserter, long
+/// inserter, and the columnar cell topology (belt counts per side, which
+/// side carries ingredients, and the optional band-width cap).
 pub(super) fn show(panel: &mut ChainPanel, ui: &mut egui::Ui) {
     ui.label(egui::RichText::new("Block generator").strong());
     combo(ui, "layout_belt_tier", "Belt tier", &mut panel.layout_belt, &belt_options());
     combo(ui, "layout_pole", "Pole", &mut panel.layout_pole, &pole_options());
     combo(ui, "layout_inserter", "Inserter", &mut panel.layout_inserter, &inserter_options());
+    combo(
+        ui,
+        "layout_long_inserter",
+        "Long inserter",
+        &mut panel.layout_long_inserter,
+        &long_inserter_options(),
+    );
+
+    ui.label(egui::RichText::new("Cell topology").strong());
+    belt_count(ui, "Spine belts", &mut panel.layout_topology.spine_belts);
+    belt_count(ui, "Edge belts", &mut panel.layout_topology.edge_belts);
+    ingredients_on(ui, &mut panel.layout_topology.ingredients_on);
+    target_width(ui, &mut panel.layout_topology.target_width);
 }
 
 #[cfg(test)]
@@ -109,6 +186,18 @@ mod tests {
         assert!(names.contains(&"inserter"));
         assert!(names.contains(&"fast-inserter"));
         assert!(!names.contains(&"transport-belt"));
+
+        let mut sorted = names.clone();
+        sorted.sort_unstable();
+        assert_eq!(names, sorted);
+    }
+
+    #[test]
+    fn long_inserter_options_are_reach_filtered_not_name_matched() {
+        let names: Vec<&str> = long_inserter_options().iter().map(|p| p.name.as_str()).collect();
+        assert!(names.contains(&"long-handed-inserter"));
+        assert!(!names.contains(&"inserter"), "one-tile reach must not qualify");
+        assert!(!names.contains(&"fast-inserter"), "one-tile reach must not qualify");
 
         let mut sorted = names.clone();
         sorted.sort_unstable();

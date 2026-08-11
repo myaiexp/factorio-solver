@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 use factorio_grid::Grid;
 use factorio_solver::chain::{solve, ChainError, ChainGoal, MachinePolicy, ProductionPlan, Rate};
-use factorio_solver::layout::LayoutConfig;
+use factorio_solver::layout::{CellTopology, LayoutConfig};
 
 mod controls;
 mod generate;
@@ -14,6 +14,8 @@ mod logic;
 #[cfg(test)]
 mod render_tests;
 mod results;
+#[cfg(test)]
+mod topology_tests;
 
 use generate::GeneratedBlock;
 pub use logic::display_name;
@@ -65,6 +67,8 @@ pub struct ChainPanel {
     layout_belt: String,
     layout_pole: String,
     layout_inserter: String,
+    layout_long_inserter: String,
+    layout_topology: CellTopology,
     /// The last call to `generate_block`, if any: stats and a blueprint
     /// string on success, the layout error's message on failure.
     generated: Option<Result<GeneratedBlock, String>>,
@@ -99,6 +103,8 @@ impl ChainPanel {
             layout_belt: default_layout.belt_tier,
             layout_pole: default_layout.pole,
             layout_inserter: default_layout.inserter,
+            layout_long_inserter: default_layout.long_inserter,
+            layout_topology: default_layout.topology,
             generated: None,
             pending_grid: None,
         }
