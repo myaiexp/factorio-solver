@@ -3,14 +3,19 @@
 // machines each recipe in the chain needs.
 use std::collections::HashMap;
 
+use factorio_grid::Grid;
 use factorio_solver::chain::{solve, ChainError, ChainGoal, MachinePolicy, ProductionPlan, Rate};
+use factorio_solver::layout::LayoutConfig;
 
 mod controls;
+mod generate;
+mod layout_controls;
 mod logic;
 #[cfg(test)]
 mod render_tests;
 mod results;
 
+use generate::GeneratedBlock;
 pub use logic::display_name;
 
 /// Rate unit picked in the UI; converted to a `Rate` at solve time.
@@ -54,6 +59,18 @@ pub struct ChainPanel {
     /// well as any future manual override control.
     overrides: HashMap<String, String>,
     result: Option<Result<ProductionPlan, ChainError>>,
+    /// The block generator's `LayoutConfig`, as internal prototype names —
+    /// distinct from `belt_tier` above, which is only ever the "belts" rate
+    /// unit's tier and has no bearing on how a block gets built.
+    layout_belt: String,
+    layout_pole: String,
+    layout_inserter: String,
+    /// The last call to `generate_block`, if any: stats and a blueprint
+    /// string on success, the layout error's message on failure.
+    generated: Option<Result<GeneratedBlock, String>>,
+    /// The grid `generate_block` just built, waiting for `FactorioApp` to
+    /// collect it via `take_generated_grid` and load it into the viewport.
+    pending_grid: Option<Grid>,
 }
 
 impl Default for ChainPanel {
@@ -64,6 +81,10 @@ impl Default for ChainPanel {
 
 impl ChainPanel {
     pub fn new() -> Self {
+        // Seeded from `LayoutConfig::default()` rather than repeating its
+        // three literals here, so the panel can never drift out of sync with
+        // what the generator itself considers the baseline tier.
+        let default_layout = LayoutConfig::default();
         Self {
             product: String::new(),
             rate_value: 1.0,
@@ -75,6 +96,11 @@ impl ChainPanel {
             show_hidden_recycling: false,
             overrides: HashMap::new(),
             result: None,
+            layout_belt: default_layout.belt_tier,
+            layout_pole: default_layout.pole,
+            layout_inserter: default_layout.inserter,
+            generated: None,
+            pending_grid: None,
         }
     }
 
@@ -127,6 +153,10 @@ impl ChainPanel {
         }
         ui.separator();
         results::show(self, ui);
+        ui.separator();
+        layout_controls::show(self, ui);
+        ui.separator();
+        generate::show(self, ui);
     }
 }
 

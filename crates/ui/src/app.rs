@@ -444,6 +444,18 @@ impl eframe::App for FactorioApp {
         // panels first and gives the remainder to CentralPanel.
         egui::SidePanel::right("chain_panel").show(ctx, |ui| self.chain.ui(ui));
 
+        // A freshly generated block replaces whatever blueprint was loaded
+        // before it — same load path a pasted string takes, so the viewport,
+        // status bar, and Home-key re-fit all keep working unmodified.
+        if let Some(grid) = self.chain.take_generated_grid() {
+            self.needs_fit = grid.bounding_box().is_some();
+            self.state = AppState::Loaded {
+                grid,
+                label: Some("Generated block".to_string()),
+                skipped: vec![],
+            };
+        }
+
         // ── Central panel: viewport ────────────────────────────────────
         egui::CentralPanel::default().show(ctx, |ui| {
             self.render_viewport(ui);
