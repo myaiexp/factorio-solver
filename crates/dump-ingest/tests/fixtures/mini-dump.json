@@ -68,5 +68,70 @@
       "selection_box": null,
       "collision_box": [[-0.5, -0.5], [0.5, 0.5]]
     }
+  },
+  "recipe": {
+    "iron-plate": {
+      "type": "recipe",
+      "name": "iron-plate",
+      "ingredients": [
+        { "type": "item", "name": "iron-ore", "amount": 1 }
+      ],
+      "results": [
+        { "type": "item", "name": "iron-plate", "amount": 1 }
+      ]
+    },
+    "electronic-circuit": {
+      "type": "recipe",
+      "name": "electronic-circuit",
+      "category": "electronics",
+      "energy_required": 0.5,
+      "enabled": false,
+      "ingredients": [
+        { "type": "item", "name": "iron-plate", "amount": 1 },
+        { "type": "item", "name": "copper-cable", "amount": 3 }
+      ],
+      "results": [
+        { "type": "item", "name": "electronic-circuit", "amount": 1 }
+      ]
+    },
+    "biter-egg": {
+      "type": "recipe",
+      "name": "biter-egg",
+      "category": "captive-spawner-process",
+      "energy_required": 10,
+      "ingredients": {},
+      "results": [
+        { "type": "item", "name": "biter-egg", "amount": 5 }
+      ]
+    },
+    "scrap-recycling": {
+      "type": "recipe",
+      "name": "scrap-recycling",
+      "category": "recycling",
+      "hidden": true,
+      "ingredients": [
+        { "type": "item", "name": "scrap", "amount": 1 }
+      ],
+      "results": [
+        { "type": "item", "name": "iron-plate", "amount": 0.1 }
+      ]
+    },
+    "sulfur": {
+      "type": "recipe",
+      "name": "sulfur",
+      "category": "chemistry",
+      "ingredients": [
+        { "type": "fluid", "name": "water", "amount": 30 },
+        { "type": "fluid", "name": "petroleum-gas", "amount": 30 }
+      ],
+      "results": [
+        { "type": "item", "name": "sulfur", "amount": 2 }
+      ]
+    },
+    "parameter-0": {
+      "type": "recipe",
+      "name": "parameter-0",
+      "parameter": true
+    }
   }
 }

@@ -21,6 +21,18 @@ pub enum IngestError {
     #[error("entity '{name}' has an unparseable energy_usage value '{value}'")]
     UnparseablePower { name: String, value: String },
 
+    #[error("recipe '{name}' is missing required field '{field}'")]
+    MissingRecipeField { name: String, field: String },
+
+    #[error("recipe '{name}' has an ingredient/result with an unrecognised type '{value}' (expected \"item\" or \"fluid\")")]
+    UnknownItemType { name: String, value: String },
+
+    #[error("recipe '{name}' has an unrecognised '{field}' shape (expected an array, an empty object, or null)")]
+    UnexpectedIngredientShape { name: String, field: String },
+
+    #[error("recipe '{name}' has field '{field}' with an unexpected JSON type: {value}")]
+    UnexpectedRecipeFieldType { name: String, field: String, value: String },
+
     #[error("failed to serialize prototypes to JSON: {0}")]
     Serialize(#[source] serde_json::Error),
 
@@ -45,5 +57,27 @@ mod tests {
         let source = std::io::Error::new(std::io::ErrorKind::NotFound, "not found");
         let err = IngestError::ReadDump { path: "/tmp/missing-dump.json".into(), source };
         assert!(err.to_string().contains("/tmp/missing-dump.json"));
+    }
+
+    #[test]
+    fn missing_recipe_field_error_names_recipe_and_field() {
+        let err = IngestError::MissingRecipeField { name: "widget-recipe".into(), field: "ingredients[].amount".into() };
+        let msg = err.to_string();
+        assert!(msg.contains("widget-recipe"), "message should name the recipe: {msg}");
+        assert!(msg.contains("ingredients[].amount"), "message should name the field: {msg}");
+    }
+
+    #[test]
+    fn unknown_item_type_error_names_recipe_and_value() {
+        let err = IngestError::UnknownItemType { name: "odd-recipe".into(), value: "virtual".into() };
+        let msg = err.to_string();
+        assert!(msg.contains("odd-recipe") && msg.contains("virtual"), "got: {msg}");
+    }
+
+    #[test]
+    fn unexpected_ingredient_shape_error_names_recipe_and_field() {
+        let err = IngestError::UnexpectedIngredientShape { name: "weird-recipe".into(), field: "ingredients".into() };
+        let msg = err.to_string();
+        assert!(msg.contains("weird-recipe") && msg.contains("ingredients"), "got: {msg}");
     }
 }
