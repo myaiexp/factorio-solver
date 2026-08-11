@@ -14,3 +14,7 @@ factorio-grid = { path = "../grid" }
 factorio-blueprint = { path = "../blueprint" }
 eframe = "0.33"
 egui = "0.33"
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+[dev-dependencies]
+tempfile = "3.27.0"

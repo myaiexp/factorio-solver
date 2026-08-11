@@ -1,5 +1,6 @@
 mod app;
 mod colors;
+mod icons;
 mod lod;
 mod viewport;
 
