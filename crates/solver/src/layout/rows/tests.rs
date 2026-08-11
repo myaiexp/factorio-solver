@@ -231,11 +231,12 @@ fn too_many_ingredients_from_a_real_recipe() {
     let cfg = default_cfg().resolve().unwrap();
     let mut grid = Grid::new();
     match place_step(&mut grid, &plan.steps[0], &cfg, GridPos { x: 0, y: 0 }) {
-        Err(LayoutError::TooManyIngredients { recipe, items }) => {
+        Err(LayoutError::TooManyIngredientsForLanes { recipe, ingredients, lanes }) => {
             assert_eq!(recipe, "advanced-circuit");
-            assert_eq!(items.len(), 3);
+            assert_eq!(ingredients.len(), 3);
+            assert_eq!(lanes, 2);
         }
-        other => panic!("expected TooManyIngredients, got {other:?}"),
+        other => panic!("expected TooManyIngredientsForLanes, got {other:?}"),
     }
 }
 
@@ -258,11 +259,11 @@ fn too_many_outputs_from_a_real_recipe() {
     let cfg = default_cfg().resolve().unwrap();
     let mut grid = Grid::new();
     match place_step(&mut grid, step, &cfg, GridPos { x: 0, y: 0 }) {
-        Err(LayoutError::TooManyOutputs { recipe, items }) => {
+        Err(LayoutError::MultipleProducts { recipe, products }) => {
             assert_eq!(recipe, "carbonic-asteroid-reprocessing");
-            assert_eq!(items.len(), 3);
+            assert_eq!(products.len(), 3);
         }
-        other => panic!("expected TooManyOutputs, got {other:?}"),
+        other => panic!("expected MultipleProducts, got {other:?}"),
     }
 }
 

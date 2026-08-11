@@ -12,6 +12,7 @@ use factorio_grid::{Grid, GridPos};
 
 use crate::chain::{ProductionPlan, ProductionStep};
 
+pub mod cell;
 pub mod error;
 pub mod lane;
 pub mod lanes;
@@ -19,6 +20,7 @@ pub mod power;
 pub mod rows;
 pub mod validate;
 
+pub use cell::{size_step, CellPlan, CellTopology, Side};
 pub use error::LayoutError;
 pub use lane::{drop_lane, lane_throughput, LaneSide};
 pub use lanes::{lanes_needed, pack_lanes, BeltAssignment};
@@ -53,6 +55,9 @@ pub struct LayoutConfig {
     /// `long-handed-inserter`. Only placed where a topology puts two belts on
     /// one side of a machine column; a one-belt side never uses it.
     pub long_inserter: String,
+    /// The columnar cell shape `cell::size_step` sizes against. Defaults to
+    /// [`CellTopology::default`]; override with [`LayoutConfig::with_topology`].
+    pub topology: CellTopology,
 }
 
 /// The reach a `long_inserter` must have, in tiles. Anything shorter cannot
@@ -71,11 +76,17 @@ impl LayoutConfig {
             pole: pole.to_string(),
             inserter: inserter.to_string(),
             long_inserter: "long-handed-inserter".to_string(),
+            topology: CellTopology::default(),
         }
     }
 
     pub fn with_long_inserter(mut self, long_inserter: &str) -> Self {
         self.long_inserter = long_inserter.to_string();
+        self
+    }
+
+    pub fn with_topology(mut self, topology: CellTopology) -> Self {
+        self.topology = topology;
         self
     }
 

@@ -128,15 +128,16 @@ pub fn place_step(
     }
 
     if ins.len() > 2 {
-        return Err(LayoutError::TooManyIngredients {
+        return Err(LayoutError::TooManyIngredientsForLanes {
             recipe: step.recipe.name.clone(),
-            items: ins.iter().map(|r| r.item.clone()).collect(),
+            ingredients: ins.iter().map(|r| r.item.clone()).collect(),
+            lanes: 2,
         });
     }
     if outs.len() > 2 {
-        return Err(LayoutError::TooManyOutputs {
+        return Err(LayoutError::MultipleProducts {
             recipe: step.recipe.name.clone(),
-            items: outs.iter().map(|r| r.item.clone()).collect(),
+            products: outs.iter().map(|r| r.item.clone()).collect(),
         });
     }
     if ins.len() as u32 > mw {

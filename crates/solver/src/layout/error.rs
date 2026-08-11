@@ -46,22 +46,47 @@ pub enum LayoutError {
     )]
     FluidOnBelt { recipe: String, item: String },
 
-    /// One belt carries two lanes, so a machine row fed by a single belt can
-    /// take at most two distinct ingredients. Three-plus needs a second input
-    /// belt reached by long-handed inserters, which is not built yet.
+    /// A cell's ingredient side has `lanes` lanes (two per belt on that
+    /// side) to divide among ingredients, one strictly-positive share each.
+    /// More ingredients than that has no allocation at all — unlike the old
+    /// per-belt cap this replaces, the fix is a wider topology
+    /// (`spine_belts`/`edge_belts`), not just moving an item off the bus.
     #[error(
-        "recipe `{recipe}` needs {} ingredients ({}) but one input belt carries only two \
-         lanes — declare one of them available so it comes off the bus as its own block",
-        .items.len(), .items.join(", ")
+        "recipe `{recipe}` needs {} ingredients ({}) but the ingredient side of a cell has \
+         only {lanes} lanes to divide among them — widen the topology (`spine_belts`/\
+         `edge_belts`) or declare one of them available so it comes off the bus as its own block",
+        .ingredients.len(), .ingredients.join(", ")
     )]
-    TooManyIngredients { recipe: String, items: Vec<String> },
+    TooManyIngredientsForLanes { recipe: String, ingredients: Vec<String>, lanes: u32 },
 
-    /// The mirror of the above on the output edge: one output belt, two lanes.
+    /// A cell column owns its product lanes outright — there is no shared
+    /// product belt the way ingredients share a spine — so a recipe with
+    /// more than one item result has no column to put the second one in.
     #[error(
-        "recipe `{recipe}` yields {} products ({}) but one output belt carries only two lanes",
-        .items.len(), .items.join(", ")
+        "recipe `{recipe}` yields {} products ({}) but a cell column owns its product lanes \
+         outright, with nowhere to put a second one — declare one of them available so it \
+         comes off the bus as its own block",
+        .products.len(), .products.join(", ")
     )]
-    TooManyOutputs { recipe: String, items: Vec<String> },
+    MultipleProducts { recipe: String, products: Vec<String> },
+
+    /// `rate` is the per-machine rate the chain calculator already computed;
+    /// `lane` is what a single lane of the configured belt tier carries. When
+    /// `rate` exceeds even every lane a stream could ever be allocated, no
+    /// column length feeds it — the fix is a faster belt tier, not a wider
+    /// cell.
+    #[error(
+        "recipe `{recipe}`'s `{item}` needs {rate:.3}/s per machine but one lane of this belt \
+         tier only carries {lane:.3}/s — not even every lane this stream could ever be given \
+         is enough to feed a single machine, so only a faster belt tier fixes this"
+    )]
+    StreamExceedsOneLane { recipe: String, item: String, rate: f64, lane: f64 },
+
+    /// `CellTopology.spine_belts`/`edge_belts` outside 1..=2 has no belt-fed
+    /// meaning: a cell needs at least one belt per side to exist, and every
+    /// formula downstream only ever reasons about one or two.
+    #[error("cell topology field `{field}` is {value}, but only 1 or 2 belts are supported")]
+    InvalidTopology { field: String, value: u8 },
 
     /// Every ingredient gets its own inserter along the machine's input edge,
     /// so the machine has to be at least that wide.
@@ -113,14 +138,49 @@ mod tests {
     }
 
     #[test]
-    fn too_many_ingredients_lists_them() {
-        let e = LayoutError::TooManyIngredients {
+    fn too_many_ingredients_for_lanes_names_the_lane_count() {
+        let e = LayoutError::TooManyIngredientsForLanes {
             recipe: "advanced-circuit".into(),
-            items: vec!["copper-cable".into(), "electronic-circuit".into(), "plastic-bar".into()],
+            ingredients: vec![
+                "copper-cable".into(),
+                "electronic-circuit".into(),
+                "plastic-bar".into(),
+            ],
+            lanes: 4,
         };
         let s = e.to_string();
         assert!(s.contains("advanced-circuit") && s.contains("plastic-bar"), "{s}");
-        assert!(s.contains('3'), "the count should be in the message: {s}");
+        assert!(s.contains('4'), "the lane count should be in the message: {s}");
+    }
+
+    #[test]
+    fn multiple_products_names_them() {
+        let e = LayoutError::MultipleProducts {
+            recipe: "uranium-processing".into(),
+            products: vec!["uranium-235".into(), "uranium-238".into()],
+        };
+        let s = e.to_string();
+        assert!(s.contains("uranium-processing") && s.contains("uranium-238"), "{s}");
+    }
+
+    #[test]
+    fn stream_exceeds_one_lane_names_recipe_item_and_rates() {
+        let e = LayoutError::StreamExceedsOneLane {
+            recipe: "rocket-part".into(),
+            item: "rocket-fuel".into(),
+            rate: 500.0,
+            lane: 22.5,
+        };
+        let s = e.to_string();
+        assert!(s.contains("rocket-part") && s.contains("rocket-fuel"), "{s}");
+        assert!(s.contains("500") && s.contains("22.5"), "{s}");
+    }
+
+    #[test]
+    fn invalid_topology_names_the_field() {
+        let e = LayoutError::InvalidTopology { field: "spine_belts".into(), value: 3 };
+        let s = e.to_string();
+        assert!(s.contains("spine_belts") && s.contains('3'), "{s}");
     }
 
     #[test]
