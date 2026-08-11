@@ -162,7 +162,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Big electric pole",
-    "icon_path": "__base__/graphics/icons/big-electric-pole.png"
+    "icon_path": "__base__/graphics/icons/big-electric-pole.png",
+    "supply_area_distance": 2.0
   },
   {
     "name": "big-mining-drill",
@@ -1258,7 +1259,8 @@
     "tile_height": 1,
     "module_slots": 0,
     "display_name": "Medium electric pole",
-    "icon_path": "__base__/graphics/icons/medium-electric-pole.png"
+    "icon_path": "__base__/graphics/icons/medium-electric-pole.png",
+    "supply_area_distance": 3.5
   },
   {
     "name": "nuclear-reactor",
@@ -1615,7 +1617,8 @@
     "tile_height": 1,
     "module_slots": 0,
     "display_name": "Small electric pole",
-    "icon_path": "__base__/graphics/icons/small-electric-pole.png"
+    "icon_path": "__base__/graphics/icons/small-electric-pole.png",
+    "supply_area_distance": 2.5
   },
   {
     "name": "small-lamp",
@@ -1808,7 +1811,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Substation",
-    "icon_path": "__base__/graphics/icons/substation.png"
+    "icon_path": "__base__/graphics/icons/substation.png",
+    "supply_area_distance": 9.0
   },
   {
     "name": "tank",

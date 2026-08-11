@@ -7,6 +7,7 @@
 // compositor involved.
 use egui::epaint::Shape;
 use egui::{pos2, vec2, Context, RawInput, Rect};
+use factorio_blueprint::decode;
 
 use super::{ChainPanel, MachineChoice, RateUnit};
 
@@ -20,10 +21,10 @@ fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
 
     // Two frames: the first loads fonts and sizes the panel, and egui only
     // has real geometry to lay text into from the second onward.
-    let mut output = ctx.run(input(), |ctx| {
+    let _warmup = ctx.run(input(), |ctx| {
         egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
     });
-    output = ctx.run(input(), |ctx| {
+    let output = ctx.run(input(), |ctx| {
         egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
     });
 
@@ -49,6 +50,34 @@ fn green_circuit_panel() -> ChainPanel {
     panel.rate_value = 45.0;
     panel.available = vec!["iron-plate".to_string(), "copper-plate".to_string()];
     panel.machine = MachineChoice::Named("assembling-machine-2".to_string());
+    panel
+}
+
+/// The green-circuit goal, with the `copper-cable` override in place so it
+/// actually solves instead of stopping at `AmbiguousRecipe` — what the
+/// generator tests need, since generation only ever runs against `Ok(plan)`.
+fn solved_green_circuit_panel() -> ChainPanel {
+    let mut panel = green_circuit_panel();
+    panel.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
+    panel.solve();
+    assert!(matches!(panel.result, Some(Ok(_))), "fixture must solve: {:?}", panel.result);
+    panel
+}
+
+/// The layout phase's own refusal case, built directly rather than through
+/// `factorio_solver::testsupport` (not available outside the solver crate):
+/// a self-consuming recipe (kovarex) that the chain calculator resolves fine
+/// but the generator cannot lay out.
+fn kovarex_panel() -> ChainPanel {
+    let mut panel = ChainPanel::new();
+    panel.product = "uranium-235".to_string();
+    panel.rate_unit = RateUnit::PerSec;
+    panel.rate_value = 1.0;
+    panel.available = vec!["uranium-ore".to_string()];
+    panel.overrides.insert("uranium-235".to_string(), "kovarex-enrichment-process".to_string());
+    panel.overrides.insert("uranium-238".to_string(), "uranium-processing".to_string());
+    panel.solve();
+    assert!(matches!(panel.result, Some(Ok(_))), "kovarex plan must still solve: {:?}", panel.result);
     panel
 }
 
@@ -117,4 +146,137 @@ fn a_fluid_error_paints_its_remedy() {
     let joined = painted_text(&mut panel).join(" | ");
     assert!(joined.contains("petroleum-gas"), "must name the fluid: {joined}");
     assert!(joined.contains("available"), "must state the fix: {joined}");
+}
+
+/// The block generator's own selectors must be on screen even before any
+/// plan is solved — they're independent config, not something that appears
+/// only once there's a result to act on.
+#[test]
+fn layout_controls_paint_on_a_fresh_panel() {
+    let mut panel = ChainPanel::new();
+    let joined = painted_text(&mut panel).join(" | ");
+    assert!(joined.contains("Belt tier"), "{joined}");
+    assert!(joined.contains("Pole"), "{joined}");
+    assert!(joined.contains("Inserter"), "{joined}");
+    assert!(joined.contains("Generate"), "no Generate button painted: {joined}");
+}
+
+/// End to end: solve, generate, and read the size/entity count back off the
+/// screen, with no error text anywhere in the frame.
+#[test]
+fn a_successful_generate_paints_size_and_entity_count() {
+    let mut panel = solved_green_circuit_panel();
+    panel.generate_block();
+
+    let (width, height, entity_count) = match &panel.generated {
+        Some(Ok(block)) => (block.width, block.height, block.entity_count),
+        other => panic!("expected a generated block, got {other:?}"),
+    };
+
+    let joined = painted_text(&mut panel).join(" | ");
+    assert!(joined.contains(&format!("{width} x {height}")), "block size not painted: {joined}");
+    assert!(joined.contains(&format!("{entity_count}")), "entity count not painted: {joined}");
+    assert!(!joined.contains("no belt-fed layout"), "unexpected error text: {joined}");
+}
+
+/// The number a human checks before pasting: express belts + fast inserters
+/// (the mid-game config `factorio_solver::testsupport::default_cfg` also
+/// pins its tests on) puts the green-circuit block at 46x73 tiles, 738
+/// entities. A change here is either an intentional layout-phase change or a
+/// real regression, not something this test should paper over with a looser
+/// assertion.
+#[test]
+fn the_blue_belt_config_green_circuit_block_matches_the_known_size() {
+    let mut panel = solved_green_circuit_panel();
+    panel.layout_belt = "express-transport-belt".to_string();
+    panel.layout_inserter = "fast-inserter".to_string();
+    panel.generate_block();
+
+    match &panel.generated {
+        Some(Ok(block)) => {
+            assert_eq!((block.width, block.height), (46, 73));
+            assert_eq!(block.entity_count, 738);
+        }
+        other => panic!("expected a generated block, got {other:?}"),
+    }
+}
+
+/// The blueprint string painted/stored is the one that actually round-trips
+/// — asserted on the panel's own field, not on painted text, so a bug that
+/// shows one string while copying another cannot pass.
+#[test]
+fn the_stored_blueprint_string_round_trips_to_the_same_entity_count() {
+    let mut panel = solved_green_circuit_panel();
+    panel.generate_block();
+
+    let Some(Ok(block)) = &panel.generated else {
+        panic!("expected a generated block, got {:?}", panel.generated);
+    };
+    assert!(!block.blueprint_string.is_empty());
+    assert!(block.blueprint_string.starts_with('0'), "{}", block.blueprint_string);
+
+    let data = decode(&block.blueprint_string).expect("stored string must decode");
+    let entities = data.blueprint.expect("a blueprint, not a book").entities;
+    assert_eq!(entities.len(), block.entity_count);
+}
+
+/// `take_generated_grid` is a one-shot handoff to the viewport: a second
+/// call with nothing new generated in between must come back empty.
+#[test]
+fn take_generated_grid_yields_the_grid_exactly_once() {
+    let mut panel = solved_green_circuit_panel();
+    panel.generate_block();
+
+    let expected_count = match &panel.generated {
+        Some(Ok(block)) => block.entity_count,
+        other => panic!("expected a generated block, got {other:?}"),
+    };
+
+    let grid = panel.take_generated_grid().expect("a grid was just generated");
+    assert_eq!(grid.entity_count(), expected_count);
+    assert!(panel.take_generated_grid().is_none(), "second take must be empty");
+}
+
+/// The layout phase's own refusal (a self-looping kovarex step) must reach
+/// the screen naming both the recipe and the item, with no blueprint string
+/// offered in its place.
+#[test]
+fn a_layout_failure_paints_the_error_and_no_blueprint_string() {
+    let mut panel = kovarex_panel();
+    panel.generate_block();
+
+    assert!(matches!(panel.generated, Some(Err(_))), "expected a layout error, got {:?}", panel.generated);
+
+    let joined = painted_text(&mut panel).join(" | ");
+    assert!(joined.contains("kovarex-enrichment-process"), "{joined}");
+    assert!(joined.contains("uranium-235"), "{joined}");
+    assert!(!joined.contains("tiles,"), "no block stats should be painted on failure: {joined}");
+}
+
+/// Proves the belt-tier selector actually reaches `LayoutConfig` rather than
+/// being decorative: a slower belt needs more parallel sub-rows to carry the
+/// same rate, so the default (slowest) tier must place more entities than a
+/// faster one for the identical plan.
+#[test]
+fn changing_belt_tier_changes_the_generated_entity_count() {
+    let mut panel = solved_green_circuit_panel();
+    panel.generate_block();
+    let default_count = match &panel.generated {
+        Some(Ok(block)) => block.entity_count,
+        other => panic!("expected a generated block, got {other:?}"),
+    };
+
+    panel.layout_belt = "express-transport-belt".to_string();
+    panel.generate_block();
+    let express_count = match &panel.generated {
+        Some(Ok(block)) => block.entity_count,
+        other => panic!("expected a generated block, got {other:?}"),
+    };
+
+    assert_ne!(default_count, express_count, "belt tier must change the generated block");
+    assert!(
+        default_count > express_count,
+        "the slowest tier (default) should need at least as many entities as a faster one: \
+         default={default_count} express={express_count}"
+    );
 }

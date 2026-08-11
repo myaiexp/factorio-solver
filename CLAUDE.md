@@ -18,7 +18,7 @@ factorio-solver/
 │   ├── blueprint/          # Blueprint string parsing/encoding + CLI
 │   ├── grid/               # 2D spatial engine: placement, collision, spatial index, A*, import/export
 │   ├── templates/          # Template extraction from grid regions + IoPoint model + JSON persistence
-│   ├── solver/             # Recipe registry + layout composition (calculator not yet built)
+│   ├── solver/             # Recipe registry + chain calculator + block generator
 │   ├── dump-ingest/        # Dev tool: Factorio data dump -> prototypes.json + recipes.json
 │   └── ui/                 # egui frontend — viewport, culling, LOD, colors, tooltips
 ```
@@ -50,20 +50,22 @@ Each crate is independently testable. UI is the thinnest layer — all logic liv
 
 ## Current Phase
 
-**Phase 5 — Production Chain Calculator** (complete; see
-`.claude/plans/2026-08-11-chain-calculator-and-block-generator-design.md`).
-What exists today:
+**Phase 6 — Block Generator** (complete; see
+`.claude/plans/2026-08-11-chain-calculator-and-block-generator-design.md` and
+`phases/006-block-generator.md`). The app now goes goal → plan → grid →
+pasteable blueprint string end to end. What exists today:
 
 - **blueprint** — Factorio blueprint string codec (version byte + base64 + zlib + JSON) with round-trip fidelity, plus a CLI.
 - **grid** — 2D spatial engine: placement/collision, chunk-based spatial index, A* routing (`find_path`), ASCII render, blueprint `import`/`export`, entity classification (`EntityCategory`), and the dump-derived prototype registry (169 entities).
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
-- **solver** — the dump-derived recipe registry (649 recipes) plus `chain`: `solve(&ChainGoal) -> ProductionPlan` with recipe/machine selection (`chain::select`) and the rate solver (`chain::solve`). Spatial layout (`ProductionPlan` → `Grid`) is Phase 6 and does **not** exist.
+- **solver** — the dump-derived recipe registry (649 recipes), `chain` (`solve(&ChainGoal) -> ProductionPlan`, recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`, belt-lane maths, machine rows, poles, pre-emit validation).
 - **dump-ingest** — the manual ingest tool that generates both data files.
-- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`).
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with Generate + copy-to-clipboard.
 
-Next logical step: Phase 6, the block generator — `ProductionPlan` → `Grid` →
-the existing `to_blueprint`, with computed (not A*-searched) belt-fed rows. See
-`.claude/plans/2026-08-11-phase6-block-generator-plan.md`.
+Next logical step: belt routing *between* steps (idea #3362) — the generator
+stacks a producer directly above its consumer but does not connect them, so the
+player wires the block by hand. `crates/grid/src/astar.rs` already has
+`find_path`. See `phases/current.md` for the other candidates.
 
 > **Note (2026-07):** A code audit found the committed HEAD referenced ~10 phantom module/data files (`spatial`, `astar`, `lod`, `recipe`, `calculator`, `control_behavior`, `wire_extraction`, `prototypes.json`, `to_blueprint`) that were documented as complete but had never been committed to any branch — the workspace did not compile. The engine pieces the tests actually exercise (spatial index, A*, LOD, prototypes registry, grid→blueprint export, `EntityCategory` declaration) were reconstructed; the unconsumed recipe/calculator/wire modules were stripped and backlogged.
 
@@ -97,6 +99,14 @@ the existing `to_blueprint`, with computed (not A*-searched) belt-fed rows. See
 - **The rate solver nets a recipe's own item against itself before dividing** (`chain::solve::net_yield`). That single subtraction is what makes a self-consuming recipe (kovarex: 40 U-235 in, 41 out) resolve in one division instead of iterating toward a limit. Cross-recipe cycles have no closed form and hit the iteration cap as `DidNotConverge` — never a silent partial plan
 - **`enabled` is not a selection filter**: research-locked recipes (`uranium-processing`) are legitimate goals
 - **Ingest is strict and loud**: a missing required field, an unparseable `energy_usage`, or a present-but-wrong-typed field aborts naming the entity/recipe. A silent partial write from a rarely-run tool would poison every downstream phase
+- **`supply_area_distance` is gated on the `electric-pole` prototype type**, not on the key being present: `beacon` declares the same key for its module *effect* radius, and ungated a layout reads a beacon as a 6×6 power pole and emits an unpowered block. Same trap as `belt_throughput` vs. robot `.speed`. It is the supply half-width, never the wire reach (medium pole: 3.5 supply, 9 wire)
+- **A belt is a sub-row**: a machine row's inserters reach only the belt beside them, so every belt of a step must carry that step's whole ingredient set. A shared pair costs `max(lanes)` belts, not `ceil(total_lanes / 2)` — 45/s iron plate beside 135/s copper cable is 6 belts; cable alone takes both lanes of 3. This is why `pack_lanes` is not a bin-pack
+- **Inserter orientation is derived from `pickup_position`/`insert_position`**, searched across the four cardinals, never written down. Factorio's unrotated inserter picks from the **north** and drops to the **south**, so an inserter's `direction` points at what it takes *from* — the opposite of most intuitions, and the reason this is derived
+- **Pole coverage uses the game's rule — footprint *overlaps* the supply rectangle, not containment.** Requiring containment would make a 3-wide machine impossible to cover with a small pole (reach 2.5 clears 2 cells past the pole's column) and retire small poles for no safety gain. Each pole is scored by its own prototype's reach, not the config's
+- **The layout refuses fluids itself**: `chain::solve` only rejects a fluid *ingredient* that is off the bus, so a fluid the user declared available — or any fluid a recipe *produces* — reaches the layout looking like an ordinary item rate and would be belted
+- **Two item ingredients per step maximum** (one belt, two lanes). Three needs a second belt reached by long-handed inserters — idea #3359, and the reason `pack_lanes` chunks items in pairs
+- **`BLUEPRINT_VERSION` stamps 2.0.77 into every generated blueprint**: `from_blueprint` reads the major version to decide whether directions are 1.x-encoded, so a too-low stamp gets our own 2.0 directions rewritten on re-import
+- **Layout validation re-derives rather than trusts**: the connectivity check recomputes each inserter's reach from prototype data and deliberately does not share `rows`' rotation helper — a bug in a shared helper would pass both the placement and the check meant to catch it
 
 ---
 
@@ -109,8 +119,8 @@ This project splits documentation to minimize context usage. Follow these rules:
 | File                           | Purpose                                                        | When to read                                                  |
 | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
 | `CLAUDE.md` (this file)        | Project identity, structure, patterns, current phase pointer   | Auto-loaded every session                                     |
-| `phases/current.md`    | Symlink → active phase file                                    | Read when starting phase work                                 |
-| `phases/NNN-name.md`   | Phase files (active via symlink, completed ones local-only)    | Only if you need historical context                           |
+| `phases/current.md`    | Index: which phase is active, what is done, what is next       | Read when starting phase work                                 |
+| `phases/NNN-name.md`   | One file per phase, kept after completion                      | Only if you need historical context                           |
 | `ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning next phase or brainstorming                     |
 | `.claude/plans/`               | Design docs and implementation plans from brainstorming        | When implementing or reviewing designs                        |
 | `.claude/references/`          | Domain reference material (specs, external docs, data sources) | When you need domain knowledge                                |
@@ -122,8 +132,8 @@ This project splits documentation to minimize context usage. Follow these rules:
 When a phase is completed:
 
 1. **Condense** — extract lasting decisions from the active phase file and add to "Decisions from previous phases". Keep each to 1-2 lines.
-2. **Archive** — remove the `current.md` symlink. The completed phase file stays but is no longer committed.
-3. **Start fresh** — create a new numbered phase file from `~/.claude/phase-template.md`, then symlink `current.md` → it.
+2. **Archive** — move the phase out of `current.md`'s "Next up" into its "Completed phases" list. The phase file stays.
+3. **Start fresh** — create the next numbered phase file and point `current.md` at it.
 4. **Update this file** — update the "Current Phase" section above.
 5. **Prune** — remove anything from this file that was phase-specific and no longer applies.
 

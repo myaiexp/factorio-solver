@@ -67,6 +67,31 @@ pub struct EntityPrototype {
     /// Inserter drop-off offset relative to the entity centre.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub insert_position: Option<(f64, f64)>,
+    /// Electric pole supply-area *half-width*, in tiles: the area reaches
+    /// `± this` from the pole's centre, so a medium pole's 3.5 covers 7 tiles.
+    /// Not the wire reach — `maximum_wire_distance` is a different, larger
+    /// number (medium pole: 3.5 supply vs 9 wire) and the two are easy to
+    /// confuse into a layout that looks connected but is unpowered.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supply_area_distance: Option<f64>,
+}
+
+impl EntityPrototype {
+    /// The rectangle this pole energises when placed with its footprint's
+    /// top-left at `top_left`, as inclusive tile bounds
+    /// `(min_x, min_y, max_x, max_y)`. `None` for anything that is not a pole.
+    ///
+    /// Factorio powers an entity whose own footprint *overlaps* this area — it
+    /// does not require containment — so callers test intersection, not
+    /// enclosure.
+    pub fn supply_area(&self, top_left: (i32, i32)) -> Option<(f64, f64, f64, f64)> {
+        let d = self.supply_area_distance?;
+        let (cx, cy) = (
+            top_left.0 as f64 + self.tile_width as f64 / 2.0,
+            top_left.1 as f64 + self.tile_height as f64 / 2.0,
+        );
+        Some((cx - d, cy - d, cx + d, cy + d))
+    }
 }
 
 /// Effective (width, height) after rotation. Non-square entities swap
@@ -214,6 +239,33 @@ mod tests {
         assert_eq!(p.underground_max_distance, None);
         assert_eq!(p.pickup_position, None);
         assert_eq!(p.insert_position, None);
+        assert_eq!(p.supply_area_distance, None);
+    }
+
+    #[test]
+    fn poles_carry_their_supply_area_distance() {
+        // The four real poles, and the reason the field cannot be guessed from
+        // the pole's "size": big-electric-pole is the 2x2 long-*wire* pole with
+        // the *smallest* supply area of the four.
+        assert_eq!(lookup("small-electric-pole").unwrap().supply_area_distance, Some(2.5));
+        assert_eq!(lookup("medium-electric-pole").unwrap().supply_area_distance, Some(3.5));
+        assert_eq!(lookup("big-electric-pole").unwrap().supply_area_distance, Some(2.0));
+        assert_eq!(lookup("substation").unwrap().supply_area_distance, Some(9.0));
+        assert_eq!(lookup("assembling-machine-2").unwrap().supply_area_distance, None);
+    }
+
+    #[test]
+    fn supply_area_is_centred_on_the_pole_footprint() {
+        // 1x1 medium pole at (10, 10): centre (10.5, 10.5), ±3.5.
+        let medium = lookup("medium-electric-pole").unwrap();
+        assert_eq!(medium.supply_area((10, 10)), Some((7.0, 7.0, 14.0, 14.0)));
+
+        // 2x2 substation at (0, 0): centre (1, 1), ±9 — the footprint size is
+        // part of the maths, not just the distance.
+        let sub = lookup("substation").unwrap();
+        assert_eq!(sub.supply_area((0, 0)), Some((-8.0, -8.0, 10.0, 10.0)));
+
+        assert_eq!(lookup("transport-belt").unwrap().supply_area((0, 0)), None);
     }
 
     #[test]

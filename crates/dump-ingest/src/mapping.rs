@@ -53,6 +53,17 @@ fn power_kw(name: &str, entity: &Value) -> Result<Option<f64>, IngestError> {
     })
 }
 
+/// Pole supply area, gated on the prototype type rather than on the key being
+/// present — `beacon` declares `supply_area_distance` too, where it means the
+/// module *effect* radius and nothing to do with power. Ungated, a layout would
+/// read a beacon as a 6x6 power pole and emit an unpowered block. Same trap as
+/// `belt_throughput` vs. robot `.speed` above.
+fn supply_area_distance(prototype_type: &str, entity: &Value) -> Option<f64> {
+    (prototype_type == "electric-pole")
+        .then(|| entity.get("supply_area_distance").and_then(Value::as_f64))
+        .flatten()
+}
+
 fn require(name: &str, field: &str, value: Option<String>) -> Result<String, IngestError> {
     value.ok_or_else(|| IngestError::MissingField { name: name.to_string(), field: field.to_string() })
 }
@@ -106,6 +117,7 @@ pub fn to_prototype(
         underground_max_distance: entity.get("max_distance").and_then(Value::as_u64).map(|v| v as u32),
         pickup_position: xy_pair(entity, "pickup_position"),
         insert_position: xy_pair(entity, "insert_position"),
+        supply_area_distance: supply_area_distance(prototype_type, entity),
     })
 }
 
@@ -237,5 +249,43 @@ mod tests {
         let proto = to_prototype("inserter", "inserter", &e, &locale).unwrap();
         assert_eq!(proto.pickup_position, Some((0.0, -1.0)));
         assert_eq!(proto.insert_position, Some((0.0, 1.2)));
+    }
+
+    #[test]
+    fn supply_area_distance_is_read_for_poles_and_absent_elsewhere() {
+        let locale = locale_with("medium-electric-pole", "Medium electric pole");
+        let e = json!({
+            "flags": ["player-creation"], "selection_box": [[-0.4,-0.4],[0.4,0.4]],
+            "collision_box": [[-0.15,-0.15],[0.15,0.15]],
+            "icon": "__base__/graphics/icons/medium-electric-pole.png",
+            // The dump carries both; only the supply area belongs here.
+            "supply_area_distance": 3.5, "maximum_wire_distance": 9
+        });
+        let proto = to_prototype("electric-pole", "medium-electric-pole", &e, &locale).unwrap();
+        assert_eq!(proto.supply_area_distance, Some(3.5));
+
+        let locale = locale_with("transport-belt", "Transport belt");
+        let e = json!({
+            "flags": ["player-creation"], "selection_box": [[-0.5,-0.5],[0.5,0.5]],
+            "collision_box": [[-0.4,-0.4],[0.4,0.4]],
+            "icon": "__base__/graphics/icons/transport-belt.png"
+        });
+        let proto = to_prototype("transport-belt", "transport-belt", &e, &locale).unwrap();
+        assert_eq!(proto.supply_area_distance, None);
+    }
+
+    #[test]
+    fn beacon_supply_area_distance_is_not_a_power_supply_area() {
+        // The beacon declares the same key for its module effect radius. Taking
+        // it at face value would make every beacon look like a power pole.
+        let locale = locale_with("beacon", "Beacon");
+        let e = json!({
+            "flags": ["player-creation"], "selection_box": [[-1.5,-1.5],[1.5,1.5]],
+            "collision_box": [[-1.2,-1.2],[1.2,1.2]],
+            "icon": "__base__/graphics/icons/beacon.png",
+            "supply_area_distance": 3
+        });
+        let proto = to_prototype("beacon", "beacon", &e, &locale).unwrap();
+        assert_eq!(proto.supply_area_distance, None);
     }
 }
