@@ -11,8 +11,10 @@ use crate::recipe::Recipe;
 
 pub mod error;
 pub mod select;
+pub mod solve;
 
 pub use error::ChainError;
+pub use solve::solve;
 
 // ── Goal ──────────────────────────────────────────────────────────────
 
