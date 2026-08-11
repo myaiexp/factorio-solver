@@ -1,120 +1,1929 @@
 [
-  { "name": "transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 15.0 },
-  { "name": "fast-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 30.0 },
-  { "name": "express-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 45.0 },
-  { "name": "turbo-transport-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 60.0 },
-  { "name": "underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 15.0 },
-  { "name": "fast-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 30.0 },
-  { "name": "express-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 45.0 },
-  { "name": "turbo-underground-belt", "tile_width": 1, "tile_height": 1, "belt_throughput": 60.0 },
-  { "name": "splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 15.0 },
-  { "name": "fast-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 30.0 },
-  { "name": "express-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 45.0 },
-  { "name": "turbo-splitter", "tile_width": 2, "tile_height": 1, "belt_throughput": 60.0 },
-
-  { "name": "burner-inserter", "tile_width": 1, "tile_height": 1 },
-  { "name": "inserter", "tile_width": 1, "tile_height": 1 },
-  { "name": "long-handed-inserter", "tile_width": 1, "tile_height": 1 },
-  { "name": "fast-inserter", "tile_width": 1, "tile_height": 1 },
-  { "name": "bulk-inserter", "tile_width": 1, "tile_height": 1 },
-  { "name": "stack-inserter", "tile_width": 1, "tile_height": 1 },
-
-  { "name": "assembling-machine-1", "tile_width": 3, "tile_height": 3, "crafting_speed": 0.5, "power_kw": 75.0, "module_slots": 0 },
-  { "name": "assembling-machine-2", "tile_width": 3, "tile_height": 3, "crafting_speed": 0.75, "power_kw": 150.0, "module_slots": 2 },
-  { "name": "assembling-machine-3", "tile_width": 3, "tile_height": 3, "crafting_speed": 1.25, "power_kw": 375.0, "module_slots": 4 },
-
-  { "name": "stone-furnace", "tile_width": 2, "tile_height": 2 },
-  { "name": "steel-furnace", "tile_width": 2, "tile_height": 2 },
-  { "name": "electric-furnace", "tile_width": 3, "tile_height": 3, "crafting_speed": 2.0, "power_kw": 180.0, "module_slots": 2 },
-
-  { "name": "chemical-plant", "tile_width": 3, "tile_height": 3, "crafting_speed": 1.0, "power_kw": 210.0, "module_slots": 3,
+  {
+    "name": "accumulator",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Accumulator",
+    "icon_path": "__base__/graphics/icons/accumulator.png"
+  },
+  {
+    "name": "active-provider-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Active provider chest",
+    "icon_path": "__base__/graphics/icons/active-provider-chest.png"
+  },
+  {
+    "name": "agricultural-tower",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 100.0,
+    "module_slots": 0,
+    "display_name": "Agricultural tower",
+    "icon_path": "__space-age__/graphics/icons/agricultural-tower.png"
+  },
+  {
+    "name": "arithmetic-combinator",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Arithmetic combinator",
+    "icon_path": "__base__/graphics/icons/arithmetic-combinator.png"
+  },
+  {
+    "name": "artillery-turret",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Artillery turret",
+    "icon_path": "__base__/graphics/icons/artillery-turret.png"
+  },
+  {
+    "name": "artillery-wagon",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Artillery wagon",
+    "icon_path": "__base__/graphics/icons/artillery-wagon.png"
+  },
+  {
+    "name": "assembling-machine-1",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 0.5,
+    "power_kw": 75.0,
+    "module_slots": 0,
+    "display_name": "Assembling machine 1",
+    "icon_path": "__base__/graphics/icons/assembling-machine-1.png",
+    "crafting_categories": [
+      "crafting",
+      "basic-crafting",
+      "advanced-crafting",
+      "electronics",
+      "pressing"
+    ]
+  },
+  {
+    "name": "assembling-machine-2",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 0.75,
+    "power_kw": 150.0,
+    "module_slots": 2,
     "fluid_connections": [
-      { "dx": 0.0, "dy": -1.5, "connection_type": "input" },
-      { "dx": 2.0, "dy": -1.5, "connection_type": "input" },
-      { "dx": 0.0, "dy": 1.5, "connection_type": "output" },
-      { "dx": 2.0, "dy": 1.5, "connection_type": "output" }
-    ] },
-  { "name": "oil-refinery", "tile_width": 5, "tile_height": 5, "crafting_speed": 1.0, "power_kw": 420.0, "module_slots": 3,
+      {
+        "dx": 0.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 0.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Assembling machine 2",
+    "icon_path": "__base__/graphics/icons/assembling-machine-2.png",
+    "crafting_categories": [
+      "basic-crafting",
+      "crafting",
+      "advanced-crafting",
+      "crafting-with-fluid",
+      "electronics",
+      "electronics-with-fluid",
+      "pressing",
+      "metallurgy-or-assembling",
+      "organic-or-hand-crafting",
+      "organic-or-assembling",
+      "electronics-or-assembling",
+      "cryogenics-or-assembling",
+      "crafting-with-fluid-or-metallurgy"
+    ]
+  },
+  {
+    "name": "assembling-machine-3",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 1.25,
+    "power_kw": 375.0,
+    "module_slots": 4,
     "fluid_connections": [
-      { "dx": -1.0, "dy": 2.5, "connection_type": "input" },
-      { "dx": 1.0, "dy": 2.5, "connection_type": "input" },
-      { "dx": -2.0, "dy": -2.5, "connection_type": "output" },
-      { "dx": 0.0, "dy": -2.5, "connection_type": "output" },
-      { "dx": 2.0, "dy": -2.5, "connection_type": "output" }
-    ] },
-  { "name": "pipe", "tile_width": 1, "tile_height": 1 },
-  { "name": "pipe-to-ground", "tile_width": 1, "tile_height": 1 },
-  { "name": "pump", "tile_width": 1, "tile_height": 2,
+      {
+        "dx": 0.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 0.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Assembling machine 3",
+    "icon_path": "__base__/graphics/icons/assembling-machine-3.png",
+    "crafting_categories": [
+      "basic-crafting",
+      "crafting",
+      "advanced-crafting",
+      "crafting-with-fluid",
+      "electronics",
+      "electronics-with-fluid",
+      "pressing",
+      "metallurgy-or-assembling",
+      "organic-or-hand-crafting",
+      "organic-or-assembling",
+      "electronics-or-assembling",
+      "cryogenics-or-assembling",
+      "crafting-with-fluid-or-metallurgy"
+    ]
+  },
+  {
+    "name": "asteroid-collector",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Asteroid collector",
+    "icon_path": "__space-age__/graphics/icons/asteroid-collector.png"
+  },
+  {
+    "name": "beacon",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 480.0,
+    "module_slots": 2,
+    "display_name": "Beacon",
+    "icon_path": "__base__/graphics/icons/beacon.png"
+  },
+  {
+    "name": "big-electric-pole",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Big electric pole",
+    "icon_path": "__base__/graphics/icons/big-electric-pole.png"
+  },
+  {
+    "name": "big-mining-drill",
+    "tile_width": 5,
+    "tile_height": 5,
+    "power_kw": 300.0,
+    "module_slots": 4,
+    "display_name": "Big mining drill",
+    "icon_path": "__space-age__/graphics/icons/big-mining-drill.png"
+  },
+  {
+    "name": "biochamber",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 2.0,
+    "power_kw": 500.0,
+    "module_slots": 4,
     "fluid_connections": [
-      { "dx": 0.0, "dy": -1.0, "connection_type": "input" },
-      { "dx": 0.0, "dy": 1.0, "connection_type": "output" }
-    ] },
-  { "name": "storage-tank", "tile_width": 3, "tile_height": 3,
+      {
+        "dx": -1.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 1.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 1.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": -1.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Biochamber",
+    "icon_path": "__space-age__/graphics/icons/biochamber.png",
+    "crafting_categories": [
+      "organic",
+      "organic-or-hand-crafting",
+      "organic-or-assembling",
+      "organic-or-chemistry"
+    ]
+  },
+  {
+    "name": "biolab",
+    "tile_width": 5,
+    "tile_height": 5,
+    "power_kw": 300.0,
+    "module_slots": 4,
+    "display_name": "Biolab",
+    "icon_path": "__space-age__/graphics/icons/biolab.png"
+  },
+  {
+    "name": "blue-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Blue chest",
+    "icon_path": "__base__/graphics/icons/requester-chest.png"
+  },
+  {
+    "name": "boiler",
+    "tile_width": 3,
+    "tile_height": 2,
+    "module_slots": 0,
     "fluid_connections": [
-      { "dx": 1.0, "dy": 1.0, "connection_type": "input_output" }
-    ] },
-  { "name": "offshore-pump", "tile_width": 1, "tile_height": 1 },
-
-  { "name": "burner-mining-drill", "tile_width": 2, "tile_height": 2 },
-  { "name": "electric-mining-drill", "tile_width": 3, "tile_height": 3, "module_slots": 3 },
-  { "name": "big-mining-drill", "tile_width": 3, "tile_height": 3, "module_slots": 4 },
-  { "name": "pumpjack", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
-
-  { "name": "boiler", "tile_width": 3, "tile_height": 2 },
-  { "name": "steam-engine", "tile_width": 3, "tile_height": 5, "power_kw": 900.0 },
-  { "name": "solar-panel", "tile_width": 3, "tile_height": 3, "power_kw": 60.0 },
-  { "name": "accumulator", "tile_width": 2, "tile_height": 2 },
-  { "name": "nuclear-reactor", "tile_width": 5, "tile_height": 5 },
-  { "name": "heat-pipe", "tile_width": 1, "tile_height": 1 },
-  { "name": "heat-exchanger", "tile_width": 3, "tile_height": 2 },
-  { "name": "steam-turbine", "tile_width": 3, "tile_height": 5, "power_kw": 5820.0 },
-
-  { "name": "small-electric-pole", "tile_width": 1, "tile_height": 1 },
-  { "name": "medium-electric-pole", "tile_width": 1, "tile_height": 1 },
-  { "name": "big-electric-pole", "tile_width": 2, "tile_height": 2 },
-  { "name": "substation", "tile_width": 2, "tile_height": 2 },
-
-  { "name": "wooden-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "iron-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "steel-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "storage-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "passive-provider-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "active-provider-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "buffer-chest", "tile_width": 1, "tile_height": 1 },
-  { "name": "requester-chest", "tile_width": 1, "tile_height": 1 },
-
-  { "name": "arithmetic-combinator", "tile_width": 1, "tile_height": 2 },
-  { "name": "decider-combinator", "tile_width": 1, "tile_height": 2 },
-  { "name": "constant-combinator", "tile_width": 1, "tile_height": 1 },
-  { "name": "power-switch", "tile_width": 2, "tile_height": 2 },
-  { "name": "programmable-speaker", "tile_width": 1, "tile_height": 1 },
-  { "name": "small-lamp", "tile_width": 1, "tile_height": 1 },
-
-  { "name": "gun-turret", "tile_width": 2, "tile_height": 2 },
-  { "name": "laser-turret", "tile_width": 2, "tile_height": 2 },
-  { "name": "flamethrower-turret", "tile_width": 2, "tile_height": 3 },
-  { "name": "artillery-turret", "tile_width": 3, "tile_height": 3 },
-  { "name": "radar", "tile_width": 3, "tile_height": 3 },
-  { "name": "stone-wall", "tile_width": 1, "tile_height": 1 },
-  { "name": "gate", "tile_width": 1, "tile_height": 1 },
-  { "name": "rocket-turret", "tile_width": 2, "tile_height": 2 },
-
-  { "name": "train-stop", "tile_width": 2, "tile_height": 2 },
-  { "name": "rail-signal", "tile_width": 1, "tile_height": 1 },
-  { "name": "rail-chain-signal", "tile_width": 1, "tile_height": 1 },
-
-  { "name": "beacon", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
-  { "name": "roboport", "tile_width": 4, "tile_height": 4 },
-  { "name": "lab", "tile_width": 3, "tile_height": 3, "module_slots": 2 },
-  { "name": "rocket-silo", "tile_width": 9, "tile_height": 9, "module_slots": 4 },
-
-  { "name": "biochamber", "tile_width": 3, "tile_height": 3, "crafting_speed": 2.0, "power_kw": 400.0, "module_slots": 4 },
-  { "name": "recycler", "tile_width": 2, "tile_height": 2, "module_slots": 4 },
-  { "name": "foundry", "tile_width": 4, "tile_height": 4, "crafting_speed": 4.0, "power_kw": 500.0, "module_slots": 4 },
-  { "name": "electromagnetic-plant", "tile_width": 4, "tile_height": 4, "crafting_speed": 2.0, "power_kw": 500.0, "module_slots": 5 },
-  { "name": "cryogenic-plant", "tile_width": 5, "tile_height": 5, "crafting_speed": 2.0, "power_kw": 500.0, "module_slots": 8 },
-  { "name": "heating-tower", "tile_width": 3, "tile_height": 3 },
-  { "name": "biolab", "tile_width": 4, "tile_height": 4, "module_slots": 4 },
-  { "name": "agricultural-tower", "tile_width": 3, "tile_height": 3 },
-  { "name": "lightning-rod", "tile_width": 1, "tile_height": 1 }
+      {
+        "dx": -1.0,
+        "dy": 0.5,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 1.0,
+        "dy": 0.5,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Boiler",
+    "icon_path": "__base__/graphics/icons/boiler.png"
+  },
+  {
+    "name": "bottomless-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Bottomless chest",
+    "icon_path": "__base__/graphics/icons/steel-chest.png"
+  },
+  {
+    "name": "buffer-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Buffer chest",
+    "icon_path": "__base__/graphics/icons/buffer-chest.png"
+  },
+  {
+    "name": "bulk-inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Bulk inserter",
+    "icon_path": "__base__/graphics/icons/bulk-inserter.png",
+    "pickup_position": [
+      0.0,
+      -1.0
+    ],
+    "insert_position": [
+      0.0,
+      1.2
+    ]
+  },
+  {
+    "name": "burner-generator",
+    "tile_width": 3,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Burner generator",
+    "icon_path": "__base__/graphics/icons/steam-engine.png"
+  },
+  {
+    "name": "burner-inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Burner inserter",
+    "icon_path": "__base__/graphics/icons/burner-inserter.png",
+    "pickup_position": [
+      0.0,
+      -1.0
+    ],
+    "insert_position": [
+      0.0,
+      1.2
+    ]
+  },
+  {
+    "name": "burner-mining-drill",
+    "tile_width": 2,
+    "tile_height": 2,
+    "power_kw": 150.0,
+    "module_slots": 0,
+    "display_name": "Burner mining drill",
+    "icon_path": "__base__/graphics/icons/burner-mining-drill.png"
+  },
+  {
+    "name": "captive-biter-spawner",
+    "tile_width": 5,
+    "tile_height": 5,
+    "crafting_speed": 1.0,
+    "power_kw": 100.0,
+    "module_slots": 0,
+    "display_name": "Captive biter spawner",
+    "icon_path": "__space-age__/graphics/icons/captive-biter-spawner.png",
+    "crafting_categories": [
+      "captive-spawner-process"
+    ]
+  },
+  {
+    "name": "capture-robot",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Capture bot",
+    "icon_path": "__space-age__/graphics/icons/capture-bot.png"
+  },
+  {
+    "name": "car",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Car",
+    "icon_path": "__base__/graphics/icons/car.png"
+  },
+  {
+    "name": "cargo-bay",
+    "tile_width": 4,
+    "tile_height": 4,
+    "module_slots": 0,
+    "display_name": "Cargo bay",
+    "icon_path": "__space-age__/graphics/icons/cargo-bay.png"
+  },
+  {
+    "name": "cargo-landing-pad",
+    "tile_width": 8,
+    "tile_height": 8,
+    "module_slots": 0,
+    "display_name": "Cargo landing pad",
+    "icon_path": "__base__/graphics/icons/cargo-landing-pad.png"
+  },
+  {
+    "name": "cargo-pod-container",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Landed cargo pod",
+    "icon_path": "__base__/graphics/icons/landed-cargo-pod.png"
+  },
+  {
+    "name": "cargo-wagon",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Cargo wagon",
+    "icon_path": "__base__/graphics/icons/cargo-wagon.png"
+  },
+  {
+    "name": "centrifuge",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 1.0,
+    "power_kw": 350.0,
+    "module_slots": 2,
+    "display_name": "Centrifuge",
+    "icon_path": "__base__/graphics/icons/centrifuge.png",
+    "crafting_categories": [
+      "centrifuging"
+    ]
+  },
+  {
+    "name": "chemical-plant",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 1.0,
+    "power_kw": 210.0,
+    "module_slots": 3,
+    "fluid_connections": [
+      {
+        "dx": -1.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 1.0,
+        "dy": -1.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": -1.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 1.0,
+        "dy": 1.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Chemical plant",
+    "icon_path": "__base__/graphics/icons/chemical-plant.png",
+    "crafting_categories": [
+      "chemistry",
+      "chemistry-or-cryogenics",
+      "organic-or-chemistry"
+    ]
+  },
+  {
+    "name": "constant-combinator",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Constant combinator",
+    "icon_path": "__base__/graphics/icons/constant-combinator.png"
+  },
+  {
+    "name": "construction-robot",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Construction robot",
+    "icon_path": "__base__/graphics/icons/construction-robot.png"
+  },
+  {
+    "name": "crash-site-chest-1",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Chest capsule",
+    "icon_path": "__base__/graphics/icons/crash-site-chest.png"
+  },
+  {
+    "name": "crash-site-chest-2",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Chest capsule",
+    "icon_path": "__base__/graphics/icons/crash-site-chest.png"
+  },
+  {
+    "name": "crash-site-spaceship",
+    "tile_width": 16,
+    "tile_height": 8,
+    "module_slots": 0,
+    "display_name": "Spaceship",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-big-1",
+    "tile_width": 3,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Big spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-big-1.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-big-2",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Big spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-big-2.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-medium-1",
+    "tile_width": 3,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Medium spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-medium-1.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-medium-2",
+    "tile_width": 3,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Medium spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-medium-2.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-medium-3",
+    "tile_width": 2,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Medium spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-medium-3.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-1",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-1.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-2",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-2.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-3",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-3.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-4",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-4.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-5",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-5.png"
+  },
+  {
+    "name": "crash-site-spaceship-wreck-small-6",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Small spaceship wreck",
+    "icon_path": "__base__/graphics/icons/crash-site-spaceship-wreck-small-6.png"
+  },
+  {
+    "name": "crusher",
+    "tile_width": 2,
+    "tile_height": 3,
+    "crafting_speed": 1.0,
+    "power_kw": 540.0,
+    "module_slots": 2,
+    "display_name": "Crusher",
+    "icon_path": "__space-age__/graphics/icons/crusher.png",
+    "crafting_categories": [
+      "crushing"
+    ]
+  },
+  {
+    "name": "cryogenic-plant",
+    "tile_width": 5,
+    "tile_height": 5,
+    "crafting_speed": 2.0,
+    "power_kw": 1500.0,
+    "module_slots": 8,
+    "fluid_connections": [
+      {
+        "dx": -2.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 0.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 2.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": -2.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 2.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Cryogenic plant",
+    "icon_path": "__space-age__/graphics/icons/cryogenic-plant.png",
+    "crafting_categories": [
+      "cryogenics",
+      "chemistry-or-cryogenics",
+      "cryogenics-or-assembling"
+    ]
+  },
+  {
+    "name": "curved-rail-a",
+    "tile_width": 2,
+    "tile_height": 6,
+    "module_slots": 0,
+    "display_name": "Curved rail",
+    "icon_path": "__base__/graphics/icons/curved-rail.png"
+  },
+  {
+    "name": "curved-rail-b",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Curved rail",
+    "icon_path": "__base__/graphics/icons/curved-rail-b.png"
+  },
+  {
+    "name": "decider-combinator",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Decider combinator",
+    "icon_path": "__base__/graphics/icons/decider-combinator.png"
+  },
+  {
+    "name": "defender",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Defender",
+    "icon_path": "__base__/graphics/icons/defender.png"
+  },
+  {
+    "name": "destroyer",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Destroyer",
+    "icon_path": "__base__/graphics/icons/destroyer.png"
+  },
+  {
+    "name": "display-panel",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Display panel",
+    "icon_path": "__base__/graphics/icons/display-panel.png",
+    "icon_size": 64
+  },
+  {
+    "name": "distractor",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Distractor",
+    "icon_path": "__base__/graphics/icons/distractor.png"
+  },
+  {
+    "name": "dummy-rail-support",
+    "tile_width": 4,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "dummy",
+    "icon_path": "__base__/graphics/icons/curved-rail.png"
+  },
+  {
+    "name": "electric-energy-interface",
+    "tile_width": 2,
+    "tile_height": 2,
+    "power_kw": 0.0,
+    "module_slots": 0,
+    "display_name": "Electric energy interface",
+    "icon_path": "__base__/graphics/icons/accumulator.png"
+  },
+  {
+    "name": "electric-furnace",
+    "tile_width": 3,
+    "tile_height": 3,
+    "crafting_speed": 2.0,
+    "power_kw": 180.0,
+    "module_slots": 2,
+    "display_name": "Electric furnace",
+    "icon_path": "__base__/graphics/icons/electric-furnace.png",
+    "crafting_categories": [
+      "smelting"
+    ]
+  },
+  {
+    "name": "electric-mining-drill",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 90.0,
+    "module_slots": 3,
+    "display_name": "Electric mining drill",
+    "icon_path": "__base__/graphics/icons/electric-mining-drill.png"
+  },
+  {
+    "name": "electromagnetic-plant",
+    "tile_width": 4,
+    "tile_height": 4,
+    "crafting_speed": 2.0,
+    "power_kw": 2000.0,
+    "module_slots": 5,
+    "fluid_connections": [
+      {
+        "dx": -1.5,
+        "dy": 0.5,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 1.5,
+        "dy": -0.5,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.5,
+        "dy": 1.5,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": -0.5,
+        "dy": -1.5,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Electromagnetic plant",
+    "icon_path": "__space-age__/graphics/icons/electromagnetic-plant.png",
+    "crafting_categories": [
+      "electromagnetics",
+      "electronics",
+      "electronics-with-fluid",
+      "electronics-or-assembling"
+    ]
+  },
+  {
+    "name": "elevated-curved-rail-a",
+    "tile_width": 2,
+    "tile_height": 6,
+    "module_slots": 0,
+    "display_name": "Elevated curved rail",
+    "icon_path": "__elevated-rails__/graphics/icons/elevated-curved-rail.png"
+  },
+  {
+    "name": "elevated-curved-rail-b",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Elevated curved rail",
+    "icon_path": "__elevated-rails__/graphics/icons/elevated-curved-rail-b.png"
+  },
+  {
+    "name": "elevated-half-diagonal-rail",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Elevated half diagonal rail",
+    "icon_path": "__elevated-rails__/graphics/icons/elevated-half-diagonal-rail.png"
+  },
+  {
+    "name": "elevated-straight-rail",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Elevated straight rail",
+    "icon_path": "__elevated-rails__/graphics/icons/elevated-rail.png"
+  },
+  {
+    "name": "express-loader",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "belt_throughput": 45.0,
+    "display_name": "Express loader",
+    "icon_path": "__base__/graphics/icons/express-loader.png"
+  },
+  {
+    "name": "express-splitter",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 45.0,
+    "display_name": "Express splitter",
+    "icon_path": "__base__/graphics/icons/express-splitter.png"
+  },
+  {
+    "name": "express-transport-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 45.0,
+    "display_name": "Express transport belt",
+    "icon_path": "__base__/graphics/icons/express-transport-belt.png"
+  },
+  {
+    "name": "express-underground-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 45.0,
+    "display_name": "Express underground belt",
+    "icon_path": "__base__/graphics/icons/express-underground-belt.png",
+    "underground_max_distance": 9
+  },
+  {
+    "name": "factorio-logo-11tiles",
+    "tile_width": 11,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Factorio logo 11 tiles",
+    "icon_path": "__space-age__/graphics/icons/factorio-space-age-logo-11tiles.png"
+  },
+  {
+    "name": "factorio-logo-16tiles",
+    "tile_width": 16,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Factorio logo 16 tiles",
+    "icon_path": "__base__/graphics/icons/factorio-logo-16tiles.png"
+  },
+  {
+    "name": "factorio-logo-22tiles",
+    "tile_width": 22,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Factorio logo 22 tiles",
+    "icon_path": "__base__/graphics/icons/factorio-logo-22tiles.png"
+  },
+  {
+    "name": "fast-inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Fast inserter",
+    "icon_path": "__base__/graphics/icons/fast-inserter.png",
+    "pickup_position": [
+      0.0,
+      -1.0
+    ],
+    "insert_position": [
+      0.0,
+      1.2
+    ]
+  },
+  {
+    "name": "fast-loader",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "belt_throughput": 30.0,
+    "display_name": "Fast loader",
+    "icon_path": "__base__/graphics/icons/fast-loader.png"
+  },
+  {
+    "name": "fast-splitter",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 30.0,
+    "display_name": "Fast splitter",
+    "icon_path": "__base__/graphics/icons/fast-splitter.png"
+  },
+  {
+    "name": "fast-transport-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 30.0,
+    "display_name": "Fast transport belt",
+    "icon_path": "__base__/graphics/icons/fast-transport-belt.png"
+  },
+  {
+    "name": "fast-underground-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 30.0,
+    "display_name": "Fast underground belt",
+    "icon_path": "__base__/graphics/icons/fast-underground-belt.png",
+    "underground_max_distance": 7
+  },
+  {
+    "name": "flamethrower-turret",
+    "tile_width": 2,
+    "tile_height": 3,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": -0.5,
+        "dy": 1.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.5,
+        "dy": 1.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Flamethrower turret",
+    "icon_path": "__base__/graphics/icons/flamethrower-turret.png"
+  },
+  {
+    "name": "fluid-wagon",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Fluid wagon",
+    "icon_path": "__base__/graphics/icons/fluid-wagon.png"
+  },
+  {
+    "name": "foundry",
+    "tile_width": 5,
+    "tile_height": 5,
+    "crafting_speed": 4.0,
+    "power_kw": 2500.0,
+    "module_slots": 4,
+    "fluid_connections": [
+      {
+        "dx": -1.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 1.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": -1.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 1.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Foundry",
+    "icon_path": "__space-age__/graphics/icons/foundry.png",
+    "crafting_categories": [
+      "metallurgy",
+      "pressing",
+      "crafting-with-fluid-or-metallurgy",
+      "metallurgy-or-assembling"
+    ]
+  },
+  {
+    "name": "fulgoran-ruin-attractor",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Fulgoran lightning attractor",
+    "icon_path": "__space-age__/graphics/icons/fulgoran-ruin-attractor.png"
+  },
+  {
+    "name": "fusion-generator",
+    "tile_width": 3,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Fusion generator",
+    "icon_path": "__space-age__/graphics/icons/fusion-generator.png"
+  },
+  {
+    "name": "fusion-reactor",
+    "tile_width": 6,
+    "tile_height": 6,
+    "module_slots": 0,
+    "display_name": "Fusion reactor",
+    "icon_path": "__space-age__/graphics/icons/fusion-reactor.png"
+  },
+  {
+    "name": "gate",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Gate",
+    "icon_path": "__base__/graphics/icons/gate.png"
+  },
+  {
+    "name": "gun-turret",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Gun turret",
+    "icon_path": "__base__/graphics/icons/gun-turret.png"
+  },
+  {
+    "name": "half-diagonal-rail",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Half diagonal rail",
+    "icon_path": "__base__/graphics/icons/half-diagonal-rail.png"
+  },
+  {
+    "name": "heat-exchanger",
+    "tile_width": 3,
+    "tile_height": 2,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": -1.0,
+        "dy": 0.5,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 1.0,
+        "dy": 0.5,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Heat exchanger",
+    "icon_path": "__base__/graphics/icons/heat-boiler.png"
+  },
+  {
+    "name": "heat-interface",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Heat interface",
+    "icon_path": "__base__/graphics/icons/heat-interface.png"
+  },
+  {
+    "name": "heat-pipe",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Heat pipe",
+    "icon_path": "__base__/graphics/icons/heat-pipe.png"
+  },
+  {
+    "name": "heating-tower",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Heating tower",
+    "icon_path": "__space-age__/graphics/icons/heating-tower.png"
+  },
+  {
+    "name": "infinity-cargo-wagon",
+    "tile_width": 2,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Infinity cargo wagon",
+    "icon_path": "__base__/graphics/icons/cargo-wagon.png"
+  },
+  {
+    "name": "infinity-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Infinity chest",
+    "icon_path": "__base__/graphics/icons/infinity-chest.png"
+  },
+  {
+    "name": "infinity-pipe",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Infinity pipe",
+    "icon_path": "__base__/graphics/icons/pipe.png"
+  },
+  {
+    "name": "inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Inserter",
+    "icon_path": "__base__/graphics/icons/inserter.png",
+    "pickup_position": [
+      0.0,
+      -1.0
+    ],
+    "insert_position": [
+      0.0,
+      1.2
+    ]
+  },
+  {
+    "name": "iron-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Iron chest",
+    "icon_path": "__base__/graphics/icons/iron-chest.png"
+  },
+  {
+    "name": "lab",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 60.0,
+    "module_slots": 2,
+    "display_name": "Lab",
+    "icon_path": "__base__/graphics/icons/lab.png"
+  },
+  {
+    "name": "land-mine",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Land mine",
+    "icon_path": "__base__/graphics/icons/land-mine.png"
+  },
+  {
+    "name": "lane-splitter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Lane splitter",
+    "icon_path": "__base__/graphics/icons/splitter.png"
+  },
+  {
+    "name": "laser-turret",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Laser turret",
+    "icon_path": "__base__/graphics/icons/laser-turret.png"
+  },
+  {
+    "name": "legacy-curved-rail",
+    "tile_width": 4,
+    "tile_height": 4,
+    "module_slots": 0,
+    "display_name": "Legacy curved rail",
+    "icon_path": "__base__/graphics/icons/legacy-curved-rail.png"
+  },
+  {
+    "name": "legacy-straight-rail",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Legacy straight rail",
+    "icon_path": "__base__/graphics/icons/legacy-rail.png"
+  },
+  {
+    "name": "lightning-collector",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Lightning collector",
+    "icon_path": "__space-age__/graphics/icons/lightning-collector.png"
+  },
+  {
+    "name": "lightning-rod",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Lightning rod",
+    "icon_path": "__space-age__/graphics/icons/lightning-rod.png"
+  },
+  {
+    "name": "linked-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Linked belt",
+    "icon_path": "__base__/graphics/icons/linked-belt.png"
+  },
+  {
+    "name": "linked-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Linked chest",
+    "icon_path": "__base__/graphics/icons/linked-chest-icon.png"
+  },
+  {
+    "name": "loader",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Loader",
+    "icon_path": "__base__/graphics/icons/loader.png"
+  },
+  {
+    "name": "locomotive",
+    "tile_width": 2,
+    "tile_height": 6,
+    "module_slots": 0,
+    "display_name": "Locomotive",
+    "icon_path": "__base__/graphics/icons/locomotive.png"
+  },
+  {
+    "name": "logistic-robot",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Logistic robot",
+    "icon_path": "__base__/graphics/icons/logistic-robot.png"
+  },
+  {
+    "name": "long-handed-inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Long-handed inserter",
+    "icon_path": "__base__/graphics/icons/long-handed-inserter.png",
+    "pickup_position": [
+      0.0,
+      -2.0
+    ],
+    "insert_position": [
+      0.0,
+      2.2
+    ]
+  },
+  {
+    "name": "market",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Market",
+    "icon_path": "__base__/graphics/icons/market.png"
+  },
+  {
+    "name": "medium-electric-pole",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Medium electric pole",
+    "icon_path": "__base__/graphics/icons/medium-electric-pole.png"
+  },
+  {
+    "name": "nuclear-reactor",
+    "tile_width": 5,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Nuclear reactor",
+    "icon_path": "__base__/graphics/icons/nuclear-reactor.png"
+  },
+  {
+    "name": "offshore-pump",
+    "tile_width": 1,
+    "tile_height": 1,
+    "power_kw": 60.0,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Offshore pump",
+    "icon_path": "__base__/graphics/icons/offshore-pump.png"
+  },
+  {
+    "name": "oil-refinery",
+    "tile_width": 5,
+    "tile_height": 5,
+    "crafting_speed": 1.0,
+    "power_kw": 420.0,
+    "module_slots": 3,
+    "fluid_connections": [
+      {
+        "dx": -1.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": 1.0,
+        "dy": 2.0,
+        "connection_type": "input"
+      },
+      {
+        "dx": -2.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 2.0,
+        "dy": -2.0,
+        "connection_type": "output"
+      }
+    ],
+    "display_name": "Oil refinery",
+    "icon_path": "__base__/graphics/icons/oil-refinery.png",
+    "crafting_categories": [
+      "oil-processing"
+    ]
+  },
+  {
+    "name": "one-way-valve",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "One-way valve",
+    "icon_path": "__base__/graphics/entity/one-way-valve/one-way-valve-east.png"
+  },
+  {
+    "name": "overflow-valve",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Overflow valve",
+    "icon_path": "__base__/graphics/entity/overflow-valve/overflow-valve-east.png"
+  },
+  {
+    "name": "passive-provider-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Passive provider chest",
+    "icon_path": "__base__/graphics/icons/passive-provider-chest.png"
+  },
+  {
+    "name": "pipe",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Pipe",
+    "icon_path": "__base__/graphics/icons/pipe.png"
+  },
+  {
+    "name": "pipe-to-ground",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Pipe to ground",
+    "icon_path": "__base__/graphics/icons/pipe-to-ground.png"
+  },
+  {
+    "name": "power-switch",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Power switch",
+    "icon_path": "__base__/graphics/icons/power-switch.png"
+  },
+  {
+    "name": "programmable-speaker",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Programmable speaker",
+    "icon_path": "__base__/graphics/icons/programmable-speaker.png"
+  },
+  {
+    "name": "proxy-container",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Proxy container",
+    "icon_path": "__base__/graphics/icons/linked-chest-icon.png"
+  },
+  {
+    "name": "pump",
+    "tile_width": 1,
+    "tile_height": 2,
+    "power_kw": 29.0,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": -0.5,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.5,
+        "connection_type": "input"
+      }
+    ],
+    "display_name": "Pump",
+    "icon_path": "__base__/graphics/icons/pump.png"
+  },
+  {
+    "name": "pumpjack",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 90.0,
+    "module_slots": 2,
+    "display_name": "Pumpjack",
+    "icon_path": "__base__/graphics/icons/pumpjack.png"
+  },
+  {
+    "name": "radar",
+    "tile_width": 3,
+    "tile_height": 3,
+    "power_kw": 300.0,
+    "module_slots": 0,
+    "display_name": "Radar",
+    "icon_path": "__base__/graphics/icons/radar.png"
+  },
+  {
+    "name": "rail-chain-signal",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Rail chain signal",
+    "icon_path": "__base__/graphics/icons/rail-chain-signal.png"
+  },
+  {
+    "name": "rail-ramp",
+    "tile_width": 4,
+    "tile_height": 16,
+    "module_slots": 0,
+    "display_name": "Rail ramp",
+    "icon_path": "__elevated-rails__/graphics/icons/rail-ramp.png"
+  },
+  {
+    "name": "rail-signal",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Rail signal",
+    "icon_path": "__base__/graphics/icons/rail-signal.png"
+  },
+  {
+    "name": "rail-support",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Rail support",
+    "icon_path": "__elevated-rails__/graphics/icons/rail-support.png"
+  },
+  {
+    "name": "railgun-turret",
+    "tile_width": 3,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Railgun turret",
+    "icon_path": "__space-age__/graphics/icons/railgun-turret.png"
+  },
+  {
+    "name": "recycler",
+    "tile_width": 2,
+    "tile_height": 4,
+    "crafting_speed": 0.5,
+    "power_kw": 180.0,
+    "module_slots": 4,
+    "display_name": "Recycler",
+    "icon_path": "__quality__/graphics/icons/recycler.png",
+    "crafting_categories": [
+      "recycling",
+      "recycling-or-hand-crafting"
+    ]
+  },
+  {
+    "name": "red-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Red chest",
+    "icon_path": "__base__/graphics/icons/passive-provider-chest.png"
+  },
+  {
+    "name": "requester-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Requester chest",
+    "icon_path": "__base__/graphics/icons/requester-chest.png"
+  },
+  {
+    "name": "roboport",
+    "tile_width": 4,
+    "tile_height": 4,
+    "power_kw": 50.0,
+    "module_slots": 0,
+    "display_name": "Roboport",
+    "icon_path": "__base__/graphics/icons/roboport.png"
+  },
+  {
+    "name": "rocket-silo",
+    "tile_width": 9,
+    "tile_height": 9,
+    "crafting_speed": 1.0,
+    "power_kw": 250.0,
+    "module_slots": 4,
+    "display_name": "Rocket silo",
+    "icon_path": "__base__/graphics/icons/rocket-silo.png",
+    "crafting_categories": [
+      "rocket-building"
+    ]
+  },
+  {
+    "name": "rocket-turret",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Rocket turret",
+    "icon_path": "__space-age__/graphics/icons/rocket-turret.png"
+  },
+  {
+    "name": "selector-combinator",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Selector combinator",
+    "icon_path": "__base__/graphics/icons/selector-combinator.png"
+  },
+  {
+    "name": "simple-entity-with-force",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Simple entity with force",
+    "icon_path": "__base__/graphics/icons/steel-chest.png"
+  },
+  {
+    "name": "simple-entity-with-owner",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Simple entity with owner",
+    "icon_path": "__base__/graphics/icons/wooden-chest.png"
+  },
+  {
+    "name": "small-electric-pole",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Small electric pole",
+    "icon_path": "__base__/graphics/icons/small-electric-pole.png"
+  },
+  {
+    "name": "small-lamp",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Lamp",
+    "icon_path": "__base__/graphics/icons/small-lamp.png"
+  },
+  {
+    "name": "solar-panel",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Solar panel",
+    "icon_path": "__base__/graphics/icons/solar-panel.png"
+  },
+  {
+    "name": "space-platform-hub",
+    "tile_width": 8,
+    "tile_height": 8,
+    "module_slots": 0,
+    "display_name": "Space platform hub",
+    "icon_path": "__space-age__/graphics/icons/space-platform-hub.png"
+  },
+  {
+    "name": "spidertron",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Spidertron",
+    "icon_path": "__base__/graphics/icons/spidertron.png"
+  },
+  {
+    "name": "splitter",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Splitter",
+    "icon_path": "__base__/graphics/icons/splitter.png"
+  },
+  {
+    "name": "stack-inserter",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Stack inserter",
+    "icon_path": "__space-age__/graphics/icons/stack-inserter.png",
+    "pickup_position": [
+      0.0,
+      -1.0
+    ],
+    "insert_position": [
+      0.0,
+      1.2
+    ]
+  },
+  {
+    "name": "steam-engine",
+    "tile_width": 3,
+    "tile_height": 5,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 2.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": -2.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Steam engine",
+    "icon_path": "__base__/graphics/icons/steam-engine.png"
+  },
+  {
+    "name": "steam-turbine",
+    "tile_width": 3,
+    "tile_height": 5,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 2.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 0.0,
+        "dy": -2.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Steam turbine",
+    "icon_path": "__base__/graphics/icons/steam-turbine.png"
+  },
+  {
+    "name": "steel-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Steel chest",
+    "icon_path": "__base__/graphics/icons/steel-chest.png"
+  },
+  {
+    "name": "steel-furnace",
+    "tile_width": 2,
+    "tile_height": 2,
+    "crafting_speed": 2.0,
+    "power_kw": 90.0,
+    "module_slots": 0,
+    "display_name": "Steel furnace",
+    "icon_path": "__base__/graphics/icons/steel-furnace.png",
+    "crafting_categories": [
+      "smelting"
+    ]
+  },
+  {
+    "name": "stone-furnace",
+    "tile_width": 2,
+    "tile_height": 2,
+    "crafting_speed": 1.0,
+    "power_kw": 90.0,
+    "module_slots": 0,
+    "display_name": "Stone furnace",
+    "icon_path": "__base__/graphics/icons/stone-furnace.png",
+    "crafting_categories": [
+      "smelting"
+    ]
+  },
+  {
+    "name": "stone-wall",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Wall",
+    "icon_path": "__base__/graphics/icons/wall.png"
+  },
+  {
+    "name": "storage-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Storage chest",
+    "icon_path": "__base__/graphics/icons/storage-chest.png"
+  },
+  {
+    "name": "storage-tank",
+    "tile_width": 3,
+    "tile_height": 3,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": -1.0,
+        "dy": -1.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 1.0,
+        "dy": 1.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": 1.0,
+        "dy": 1.0,
+        "connection_type": "input_output"
+      },
+      {
+        "dx": -1.0,
+        "dy": -1.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Storage tank",
+    "icon_path": "__base__/graphics/icons/storage-tank.png"
+  },
+  {
+    "name": "straight-rail",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Straight rail",
+    "icon_path": "__base__/graphics/icons/rail.png"
+  },
+  {
+    "name": "substation",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Substation",
+    "icon_path": "__base__/graphics/icons/substation.png"
+  },
+  {
+    "name": "tank",
+    "tile_width": 2,
+    "tile_height": 3,
+    "module_slots": 0,
+    "display_name": "Tank",
+    "icon_path": "__base__/graphics/icons/tank.png"
+  },
+  {
+    "name": "tesla-turret",
+    "tile_width": 4,
+    "tile_height": 4,
+    "module_slots": 0,
+    "display_name": "Tesla turret",
+    "icon_path": "__space-age__/graphics/icons/tesla-turret.png"
+  },
+  {
+    "name": "thruster",
+    "tile_width": 4,
+    "tile_height": 5,
+    "module_slots": 0,
+    "display_name": "Thruster",
+    "icon_path": "__space-age__/graphics/icons/thruster.png"
+  },
+  {
+    "name": "top-up-valve",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "fluid_connections": [
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "output"
+      },
+      {
+        "dx": 0.0,
+        "dy": 0.0,
+        "connection_type": "input_output"
+      }
+    ],
+    "display_name": "Top-up valve",
+    "icon_path": "__base__/graphics/entity/top-up-valve/top-up-valve-east.png"
+  },
+  {
+    "name": "train-stop",
+    "tile_width": 2,
+    "tile_height": 2,
+    "module_slots": 0,
+    "display_name": "Train stop",
+    "icon_path": "__base__/graphics/icons/train-stop.png"
+  },
+  {
+    "name": "transport-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Transport belt",
+    "icon_path": "__base__/graphics/icons/transport-belt.png"
+  },
+  {
+    "name": "turbo-loader",
+    "tile_width": 1,
+    "tile_height": 2,
+    "module_slots": 0,
+    "belt_throughput": 60.0,
+    "display_name": "Turbo loader",
+    "icon_path": "__space-age__/graphics/icons/turbo-loader.png"
+  },
+  {
+    "name": "turbo-splitter",
+    "tile_width": 2,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 60.0,
+    "display_name": "Turbo splitter",
+    "icon_path": "__space-age__/graphics/icons/turbo-splitter.png"
+  },
+  {
+    "name": "turbo-transport-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 60.0,
+    "display_name": "Turbo transport belt",
+    "icon_path": "__space-age__/graphics/icons/turbo-transport-belt.png"
+  },
+  {
+    "name": "turbo-underground-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 60.0,
+    "display_name": "Turbo underground belt",
+    "icon_path": "__space-age__/graphics/icons/turbo-underground-belt.png",
+    "underground_max_distance": 11
+  },
+  {
+    "name": "underground-belt",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "belt_throughput": 15.0,
+    "display_name": "Underground belt",
+    "icon_path": "__base__/graphics/icons/underground-belt.png",
+    "underground_max_distance": 5
+  },
+  {
+    "name": "wooden-chest",
+    "tile_width": 1,
+    "tile_height": 1,
+    "module_slots": 0,
+    "display_name": "Wooden chest",
+    "icon_path": "__base__/graphics/icons/wooden-chest.png"
+  }
 ]

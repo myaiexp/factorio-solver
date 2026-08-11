@@ -29,6 +29,11 @@ pub struct EntityPrototype {
     pub tile_height: u32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub crafting_speed: Option<f64>,
+    /// Power *consumption*, from the dump's `energy_usage`. Generators have
+    /// none — their output lives in three different fields depending on
+    /// prototype type and is not derived yet. Do not read this as "power
+    /// produced"; the old hand-written table did, which would make a solver
+    /// summing loads count a solar panel as a 60 kW draw.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub power_kw: Option<f64>,
     #[serde(default)]
@@ -176,6 +181,9 @@ mod tests {
         assert_eq!(ins.belt_throughput, None);
     }
 
+    // Fuller pins on the dump-derived data — footprints, throughput tiers, the
+    // storage-tank 1 -> 4 connection correction — live in
+    // `tests/prototype_regression.rs`.
     #[test]
     fn test_fluid_connections_chemical_plant() {
         let proto = lookup("chemical-plant").unwrap();
