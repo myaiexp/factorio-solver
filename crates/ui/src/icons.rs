@@ -187,6 +187,57 @@ mod tests {
         assert!(tex == tex2, "second get() should return the cached handle");
     }
 
+    /// Sweeps every committed prototype's icon against a real Factorio install.
+    /// Ignored by default because it needs the game present — run it on the
+    /// gaming machine after a game update with:
+    ///     cargo test -p factorio-ui -- --ignored --nocapture
+    /// This is the only check that can catch an install-layout change; the
+    /// tests above all run against synthetic images.
+    #[test]
+    #[ignore = "requires a real Factorio install"]
+    fn every_committed_icon_resolves_and_decodes_against_a_live_install() {
+        let install = detect_install(None).expect("no Factorio install detected");
+        println!("install: {}", install.display());
+
+        let mut decoded = 0usize;
+        let mut failures: Vec<String> = Vec::new();
+
+        for name in factorio_grid::prototype::all_names() {
+            let proto = factorio_grid::prototype::lookup(name).unwrap();
+            let Some(mod_relative) = proto.icon_path.as_deref() else {
+                failures.push(format!("{name}: no icon_path in the committed data"));
+                continue;
+            };
+            let Some(file_path) = resolve_icon_path(&install, mod_relative) else {
+                failures.push(format!("{name}: unresolvable icon path {mod_relative}"));
+                continue;
+            };
+            if !file_path.exists() {
+                failures.push(format!("{name}: missing file {}", file_path.display()));
+                continue;
+            }
+            match load_icon_rgba(&install, proto) {
+                Some(rgba) => {
+                    let expected = proto.icon_size.unwrap_or(64);
+                    let (w, h) = rgba.dimensions();
+                    if w != expected || h != expected {
+                        failures.push(format!("{name}: cropped to {w}x{h}, expected {expected} square"));
+                    }
+                    // A fully transparent icon would render as nothing at all.
+                    if rgba.pixels().all(|p| p.0[3] == 0) {
+                        failures.push(format!("{name}: decoded to a fully transparent image"));
+                    }
+                    decoded += 1;
+                }
+                None => failures.push(format!("{name}: decode failed for {}", file_path.display())),
+            }
+        }
+
+        println!("decoded {decoded} icons, {} failures", failures.len());
+        assert!(failures.is_empty(), "icon failures:\n  {}", failures.join("\n  "));
+        assert_eq!(decoded, 169, "every committed prototype should yield an icon");
+    }
+
     #[test]
     fn get_caches_misses_so_a_missing_file_is_read_only_once() {
         let dir = tempfile::tempdir().unwrap();
