@@ -13,7 +13,7 @@
 // produces.
 use factorio_grid::prototype::{self, EntityPrototype};
 
-use crate::chain::{self, ChainGoal, ItemRate, MachinePolicy, ProductionPlan, Rate};
+use crate::chain::{self, ChainGoal, ItemRate, MachinePolicy, ProductionPlan, ProductionStep, Rate};
 use crate::layout::LayoutConfig;
 
 /// Blue belt: 45/s, so 22.5/s per lane. The tier the lane maths is pinned on.
@@ -56,6 +56,39 @@ pub fn plan_containing_kovarex() -> ProductionPlan {
         .with_override("uranium-238", "uranium-processing");
 
     chain::solve(&goal).expect("a self-consuming recipe still resolves as ratios")
+}
+
+/// Find a step by its recipe name, for tests that only care about one step
+/// out of a multi-step plan.
+pub fn step<'a>(plan: &'a ProductionPlan, recipe: &str) -> &'a ProductionStep {
+    plan.steps.iter().find(|s| s.recipe.name == recipe).unwrap_or_else(|| {
+        panic!(
+            "no step for recipe `{recipe}` in this plan (have: {:?})",
+            plan.steps.iter().map(|s| s.recipe.name.as_str()).collect::<Vec<_>>()
+        )
+    })
+}
+
+/// A hand-built step for exercising sizing/geometry the design's own
+/// fixtures don't happen to hit (an absurd rate, an uneven split). `recipe`
+/// is a stand-in looked up in the real registry so `step.recipe.ingredients`
+/// still exists for the fluid check — only its name and category show up in
+/// error messages, the `inputs`/`outputs` rates need not match it for real.
+pub fn hand_step(
+    recipe: &str,
+    machines_needed: u32,
+    inputs: Vec<ItemRate>,
+    outputs: Vec<ItemRate>,
+) -> ProductionStep {
+    ProductionStep {
+        recipe: crate::recipe::get(recipe).expect("recipe exists in the registry"),
+        machine: prototype::lookup("assembling-machine-2").expect("assembling-machine-2 exists"),
+        exact_count: machines_needed as f64,
+        machines_needed,
+        crafts_per_sec: 1.0,
+        inputs,
+        outputs,
+    }
 }
 
 #[cfg(test)]

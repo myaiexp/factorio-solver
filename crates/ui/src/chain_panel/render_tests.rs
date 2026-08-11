@@ -12,10 +12,19 @@ use factorio_blueprint::decode;
 use super::{ChainPanel, MachineChoice, RateUnit};
 
 /// Lays out one frame of the panel and returns every string it painted.
-fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
+/// `pub(super)` so `topology_tests.rs`, a sibling test module split out to
+/// keep this file under the project's line cap, can drive the same real
+/// render path rather than reimplementing it.
+pub(super) fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
     let ctx = Context::default();
+    // Tall enough that a solved-and-generated panel's full content — steps
+    // table, block-generator controls, and the generated block's own stats —
+    // stays inside the `SidePanel`'s clip rect. egui's `Label` skips painting
+    // (and so skips adding a `Shape::Text`) for a rect outside the clip rect
+    // as a layout-cost optimization, so anything shorter here silently drops
+    // the tail of the panel from `output.shapes` with no panic to flag it.
     let input = || RawInput {
-        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 800.0))),
+        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 2400.0))),
         ..Default::default()
     };
 
@@ -56,7 +65,9 @@ fn green_circuit_panel() -> ChainPanel {
 /// The green-circuit goal, with the `copper-cable` override in place so it
 /// actually solves instead of stopping at `AmbiguousRecipe` — what the
 /// generator tests need, since generation only ever runs against `Ok(plan)`.
-fn solved_green_circuit_panel() -> ChainPanel {
+/// `pub(super)` for the same reason as `painted_text`: `topology_tests.rs`
+/// reuses this fixture rather than duplicating it.
+pub(super) fn solved_green_circuit_panel() -> ChainPanel {
     let mut panel = green_circuit_panel();
     panel.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
     panel.solve();
@@ -181,7 +192,7 @@ fn a_successful_generate_paints_size_and_entity_count() {
 
 /// The number a human checks before pasting: express belts + fast inserters
 /// (the mid-game config `factorio_solver::testsupport::default_cfg` also
-/// pins its tests on) puts the green-circuit block at 46x73 tiles, 738
+/// pins its tests on) puts the green-circuit block at 53x57 tiles, 843
 /// entities. A change here is either an intentional layout-phase change or a
 /// real regression, not something this test should paper over with a looser
 /// assertion.
@@ -194,8 +205,8 @@ fn the_blue_belt_config_green_circuit_block_matches_the_known_size() {
 
     match &panel.generated {
         Some(Ok(block)) => {
-            assert_eq!((block.width, block.height), (46, 73));
-            assert_eq!(block.entity_count, 738);
+            assert_eq!((block.width, block.height), (53, 57));
+            assert_eq!(block.entity_count, 843);
         }
         other => panic!("expected a generated block, got {other:?}"),
     }
@@ -254,9 +265,16 @@ fn a_layout_failure_paints_the_error_and_no_blueprint_string() {
 }
 
 /// Proves the belt-tier selector actually reaches `LayoutConfig` rather than
-/// being decorative: a slower belt needs more parallel sub-rows to carry the
-/// same rate, so the default (slowest) tier must place more entities than a
-/// faster one for the identical plan.
+/// being decorative. In the columnar topology a slower belt does not simply
+/// add more entities the way the old row topology's "more parallel sub-rows"
+/// did: it packs fewer machines into each cell, which trades a taller band
+/// of a few big cells (fewer repeated spine/edge belt columns, but each
+/// column taller — more of `place.rs`'s reserved pole rows baked into it)
+/// for a wider band of many small ones (more repeated columns, each
+/// shorter). Which trade wins on total entity count depends on the plan's
+/// own machine counts and cell-boundary rounding, not on belt speed alone —
+/// so this only asserts that the tier reaches the generator at all, not
+/// which direction the count moves.
 #[test]
 fn changing_belt_tier_changes_the_generated_entity_count() {
     let mut panel = solved_green_circuit_panel();
@@ -274,9 +292,4 @@ fn changing_belt_tier_changes_the_generated_entity_count() {
     };
 
     assert_ne!(default_count, express_count, "belt tier must change the generated block");
-    assert!(
-        default_count > express_count,
-        "the slowest tier (default) should need at least as many entities as a faster one: \
-         default={default_count} express={express_count}"
-    );
 }

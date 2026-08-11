@@ -1,21 +1,19 @@
 // Unit tests for the individual checks. Hand-built grids exercise the hard
 // errors directly (through the private per-check functions, via `super::*`)
-// rather than only through `generate`, since `generate`'s own row/pole
+// rather than only through `generate`, since `generate`'s own cell/pole
 // passes are supposed to make every one of these impossible — the point of
 // this module is to prove that independently. The mandatory end-to-end
-// coverage (a real generated block, the round-trip, the reachable throughput
-// warning) lives in `tests/layout_output.rs` instead.
+// coverage (a real generated block, the round-trip) lives in
+// `tests/layout_output.rs` instead.
 use super::*;
+use crate::testsupport::{default_cfg, hand_step, rate};
 use factorio_blueprint::{Direction, Position};
 
-use crate::testsupport::{blue_belt, rate};
-
-/// A bare 3x3 machine with `recipe` set, top-left at (0, 0). Callers add
-/// whatever inserters the case under test needs.
-fn place_machine(grid: &mut Grid, recipe: &str) {
+/// A 3x3 machine with `recipe` set, top-left at `(x, y)`.
+fn place_machine_at(grid: &mut Grid, recipe: &str, x: i32, y: i32) {
     grid.place(
         "assembling-machine-2",
-        &Position { x: 1.5, y: 1.5 },
+        &Position { x: x as f64 + 1.5, y: y as f64 + 1.5 },
         Direction::North,
         Some(recipe.to_string()),
         None,
@@ -23,9 +21,15 @@ fn place_machine(grid: &mut Grid, recipe: &str) {
     .unwrap();
 }
 
+/// A bare 3x3 machine with `recipe` set, top-left at (0, 0). Callers add
+/// whatever inserters the case under test needs.
+fn place_machine(grid: &mut Grid, recipe: &str) {
+    place_machine_at(grid, recipe, 0, 0);
+}
+
 /// A single 1x1 inserter at `(x, y)` facing `dir`. `fast-inserter` matches
 /// what `default_cfg()` resolves to, so its pickup/insert positions are the
-/// same (0, -1) / (0, 1) `rows.rs` relies on.
+/// same (0, -1) / (0, 1) the placement code relies on.
 fn place_inserter(grid: &mut Grid, x: i32, y: i32, dir: Direction) {
     grid.place(
         "fast-inserter",
@@ -37,12 +41,33 @@ fn place_inserter(grid: &mut Grid, x: i32, y: i32, dir: Direction) {
     .unwrap();
 }
 
+/// A single 1x1 belt tile at `(x, y)`, facing `dir`. `express-transport-belt`
+/// matches what `default_cfg()` resolves to (22.5/s per lane).
+fn place_belt(grid: &mut Grid, x: i32, y: i32, dir: Direction) {
+    grid.place(
+        "express-transport-belt",
+        &Position { x: x as f64 + 0.5, y: y as f64 + 0.5 },
+        dir,
+        None,
+        None,
+    )
+    .unwrap();
+}
+
+/// A one-step plan whose only step wants `per_sec` of `recipe`'s product —
+/// enough to drive `check_delivered_rate` in isolation, without going
+/// through `chain::solve`.
+fn plan_wanting(recipe: &str, per_sec: f64) -> ProductionPlan {
+    let step = hand_step(recipe, 5, vec![], vec![rate(recipe, per_sec)]);
+    ProductionPlan { steps: vec![step], inputs: vec![], byproducts: vec![], warnings: vec![] }
+}
+
 // ── rotate / to_delta ───────────────────────────────────────────────
 
 #[test]
 fn rotate_matches_the_documented_check() {
-    // Same worked example `rows::rotate` documents itself against: North's
-    // (0, -1) becomes East's (1, 0) after one quarter turn.
+    // Same worked example `place::helpers::rotate` documents itself against:
+    // North's (0, -1) becomes East's (1, 0) after one quarter turn.
     assert_eq!(rotate((0.0, -1.0), 1), (1.0, 0.0));
     assert_eq!(rotate((0.0, -1.0), 0), (0.0, -1.0));
     assert_eq!(rotate((0.0, -1.0), 4), (0.0, -1.0), "four turns is a no-op");
@@ -163,44 +188,62 @@ fn a_pole_in_reach_covers_the_machine() {
     assert!(check_pole_coverage(&grid).is_ok());
 }
 
-// ── belt-lane bookkeeping ───────────────────────────────────────────
+// ── delivered rate ──────────────────────────────────────────────────
 
+/// Five machines, five output inserters, one twenty-tile belt run — all
+/// landing on the same `(run, lane)` pair (a `West`-facing inserter picks up
+/// from the machine to its west and drops onto the belt to its east). A
+/// per-tile or per-inserter bug would report five, or twenty, times a single
+/// lane's throughput; the real check caps it at one claimed lane, proving
+/// the check measures the run rather than restating placement.
 #[test]
-fn lanes_for_item_matches_pack_lanes_own_split() {
-    let alone = [rate("copper-cable", 135.0)];
-    assert_eq!(lanes_for_item(&alone, "copper-cable"), 2);
-    assert_eq!(pack_lanes(&alone, blue_belt())[0].lanes_for("copper-cable"), 2);
+fn delivered_rate_counts_one_lane_once_no_matter_how_many_inserters_or_tiles_reach_it() {
+    let mut grid = Grid::new();
+    for i in 0..5 {
+        let y = 4 * i;
+        place_machine_at(&mut grid, "iron-gear-wheel", 0, y);
+        place_inserter(&mut grid, 3, y + 1, Direction::West);
+    }
+    for y in 0..20 {
+        place_belt(&mut grid, 4, y, Direction::South);
+    }
+    let cfg = default_cfg().resolve().unwrap();
+    let lane = lane_throughput(cfg.belt);
 
-    let paired = [rate("iron-plate", 45.0), rate("copper-cable", 135.0)];
-    assert_eq!(lanes_for_item(&paired, "iron-plate"), 1);
-    assert_eq!(lanes_for_item(&paired, "copper-cable"), 1);
-    for belt in pack_lanes(&paired, blue_belt()) {
-        assert_eq!(belt.lanes_for("iron-plate") + belt.lanes_for("copper-cable"), 2);
+    check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", lane - 2.0), &cfg)
+        .expect("one claimed lane comfortably covers a rate under it");
+
+    match check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", lane + 2.0), &cfg) {
+        Err(LayoutError::UnderDelivers { delivered, .. }) => assert_eq!(
+            delivered, lane,
+            "five inserters on one twenty-tile run must still count as exactly one lane"
+        ),
+        other => panic!("expected UnderDelivers, got {other:?}"),
     }
 }
 
-// ── fixing-tier lookup ──────────────────────────────────────────────
-
 #[test]
-fn fixing_tier_names_the_slowest_sufficient_mainline_belt() {
-    // Two lanes: express-transport-belt tops out at 45/s, turbo at 60/s.
-    assert_eq!(fixing_tier(50.0, 2), Some("turbo-transport-belt".to_string()));
-    // One lane: transport-belt's 7.5/s is not enough, fast's 15/s is.
-    assert_eq!(fixing_tier(10.0, 1), Some("fast-transport-belt".to_string()));
-    // Exactly at a tier's capacity is sufficient, not just strictly under.
-    assert_eq!(fixing_tier(45.0, 2), Some("express-transport-belt".to_string()));
+fn a_machine_with_no_output_inserter_delivers_nothing() {
+    let mut grid = Grid::new();
+    place_machine(&mut grid, "iron-gear-wheel");
+    let cfg = default_cfg().resolve().unwrap();
+
+    match check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", 1.0), &cfg) {
+        Err(LayoutError::UnderDelivers { recipe, item, delivered, wanted }) => {
+            assert_eq!(recipe, "iron-gear-wheel");
+            assert_eq!(item, "iron-gear-wheel");
+            assert_eq!(delivered, 0.0);
+            assert_eq!(wanted, 1.0);
+        }
+        other => panic!("expected UnderDelivers, got {other:?}"),
+    }
 }
 
+/// A step with nothing left to deliver (netted to zero, or ingredient-only)
+/// is skipped, not required to prove it delivers zero of nothing.
 #[test]
-fn fixing_tier_is_none_when_nothing_registered_is_fast_enough() {
-    assert_eq!(fixing_tier(10_000.0, 2), None);
-}
-
-/// Sanity check on the category filter itself: a loader shares its
-/// throughput with a mainline belt tier, and must not be the name that
-/// comes back.
-#[test]
-fn fixing_tier_never_names_a_loader_or_splitter() {
-    let tier = fixing_tier(1.0, 2).expect("something this slow is always coverable");
-    assert_eq!(EntityCategory::from_prototype_name(&tier), EntityCategory::Belt);
+fn a_step_with_no_positive_output_rate_is_skipped() {
+    let grid = Grid::new();
+    let cfg = default_cfg().resolve().unwrap();
+    assert!(check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", 0.0), &cfg).is_ok());
 }

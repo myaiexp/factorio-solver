@@ -1,23 +1,45 @@
 // Pre-emit checks on a generated block.
 //
-// The row and pole passes are *supposed* to make every hard error below
+// The cell and pole passes are *supposed* to make every hard error below
 // impossible. Running the same guarantee again here, independently, is what
 // actually proves that rather than trusting it — in particular the
 // connectivity check re-derives each inserter's reach from its own
-// prototype data and placed direction, rather than asking `rows` what it
-// intended to place.
-use std::collections::HashSet;
+// prototype data and placed direction, rather than asking `place_cell` what
+// it intended to place.
+//
+// There is no belt-capacity warning here: sizing a cell from the belt's own
+// throughput (`cell::size_step`) makes an over-rating segment structurally
+// impossible, unlike the old row topology's fixed-lane-count belts. Instead
+// `check_delivered_rate` measures the *other* direction — not "is a belt
+// over-rated" but "does the placed grid actually deliver what the plan
+// asked for" — counted from placed inserters and belt runs, never restated
+// from `cell::size_step`'s own arithmetic, which is what makes it capable of
+// catching that arithmetic being wrong (#3364).
+use std::collections::{HashMap, HashSet};
 
-use factorio_grid::prototype::{self, EntityPrototype};
+use factorio_grid::prototype;
 use factorio_grid::{EntityCategory, Grid, GridPos, PlacedEntity};
 
-use crate::chain::{ItemRate, ProductionPlan};
-use crate::layout::{lane_throughput, pack_lanes, LayoutConfig, LayoutError};
+use crate::chain::ProductionPlan;
+use crate::layout::{drop_lane, lane_throughput, LaneSide, LayoutConfig, LayoutError, ResolvedConfig};
+
+mod runs;
+use runs::run_anchor;
 
 /// Soft findings. Warnings never block emission; errors always do.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Validation {
     pub warnings: Vec<String>,
+    /// Per step, the stream that capped how many machines fit in one cell —
+    /// the knob-turning hint `CellPlan::bound_by` computes. `(recipe, bound_by)`.
+    ///
+    /// `validate` itself never sizes a step (that's `cell::size_step`, run
+    /// once per step inside `tile::place_step` during `build`), so this is
+    /// always empty on a `Validation` returned directly from `validate` —
+    /// `generate_with_report` fills it in from what `build` actually placed,
+    /// rather than this function re-deriving a second, possibly-disagreeing
+    /// answer to the same sizing question.
+    pub bindings: Vec<(String, String)>,
 }
 
 pub fn validate(
@@ -30,10 +52,9 @@ pub fn validate(
     check_machine_connectivity(grid)?;
     check_no_overlaps(grid)?;
     check_pole_coverage(grid)?;
+    check_delivered_rate(grid, plan, &resolved)?;
 
-    let mut warnings = belt_capacity_warnings(plan, resolved.belt);
-    warnings.extend(plan.warnings.iter().cloned());
-    Ok(Validation { warnings })
+    Ok(Validation { warnings: plan.warnings.iter().cloned().collect(), bindings: Vec::new() })
 }
 
 // ── Hard errors ─────────────────────────────────────────────────────
@@ -62,9 +83,9 @@ fn recipe_needs(machine: &PlacedEntity) -> (bool, bool) {
 }
 
 /// Rotate a centre-relative offset clockwise by `turns` quarter turns.
-/// Reimplemented rather than imported from `rows`: sharing the helper would
-/// mean a bug in it passes both the placement and the check that is
-/// supposed to catch placement bugs.
+/// Reimplemented rather than imported from `place::helpers`: sharing the
+/// helper would mean a bug in it passes both the placement and the check
+/// that is supposed to catch placement bugs.
 fn rotate(offset: (f64, f64), turns: u8) -> (f64, f64) {
     (0..turns).fold(offset, |(x, y), _| (-y, x))
 }
@@ -157,100 +178,60 @@ fn check_pole_coverage(grid: &Grid) -> Result<(), LayoutError> {
     Err(LayoutError::Unpowered { recipe, x, y })
 }
 
-// ── Warnings ────────────────────────────────────────────────────────
-
-/// How many of a belt's two lanes `item` gets under `pack_lanes`'s own rule:
-/// alone in its pair it takes both, sharing a pair it takes one. Mirrors
-/// that rule directly rather than building `BeltAssignment`s, since only the
-/// lane *count* is needed here.
-fn lanes_for_item(rates: &[ItemRate], item: &str) -> u32 {
-    rates
-        .chunks(2)
-        .find(|chunk| chunk.iter().any(|r| r.item == item))
-        .map_or(0, |chunk| if chunk.len() == 1 { 2 } else { 1 })
-}
-
-/// The slowest belt in the registry whose throughput at `lanes` lanes covers
-/// `rate`, or `None` if nothing registered is fast enough.
+/// An inserter is an *output* inserter for a step when its pickup cell holds
+/// a machine and its insert cell holds a belt — the machine's own `recipe`
+/// names the step. Its far lane (`lane::drop_lane`) on that belt's run
+/// (`runs::run_anchor`) is one claim on that run's capacity; two inserters
+/// claiming the same `(run, lane)` share it rather than doubling it, which is
+/// why this collects a `HashSet` per recipe instead of a running total.
 ///
-/// Restricted to `EntityCategory::Belt`: loaders, splitters and underground
-/// belts also carry a `belt_throughput`, but every mainline speed has one of
-/// each sharing its exact number, which would make "the slowest sufficient
-/// one" an arbitrary pick among ties — and none of those is a tier a player
-/// actually swaps a straight belt run into.
-fn fixing_tier(rate: f64, lanes: u32) -> Option<String> {
-    let mut belts: Vec<&'static EntityPrototype> = prototype::all_names()
-        .into_iter()
-        .filter_map(prototype::lookup)
-        .filter(|p| EntityCategory::from_prototype_name(&p.name) == EntityCategory::Belt)
-        .filter(|p| lane_throughput(p) * f64::from(lanes) >= rate)
-        .collect();
-    belts.sort_by(|a, b| a.belt_throughput.partial_cmp(&b.belt_throughput).unwrap());
-    belts.first().map(|p| p.name.clone())
-}
+/// Sums each step's claimed lanes against `lane_throughput(cfg.belt)` and
+/// fails the step whose product rate exceeds what its claimed lanes can
+/// carry. A step with no positive output rate (nothing left after netting,
+/// or an ingredient-only step) is skipped rather than required to deliver
+/// zero of nothing.
+fn check_delivered_rate(
+    grid: &Grid,
+    plan: &ProductionPlan,
+    cfg: &ResolvedConfig,
+) -> Result<(), LayoutError> {
+    let mut claimed: HashMap<String, HashSet<(GridPos, LaneSide)>> = HashMap::new();
 
-fn over_capacity_warning(
-    recipe: &str,
-    item: &str,
-    actual: f64,
-    available: f64,
-    belt: &str,
-    lanes: u32,
-) -> String {
-    match fixing_tier(actual, lanes) {
-        Some(tier) => format!(
-            "recipe `{recipe}`: `{item}` needs {actual:.2}/s but one `{belt}` segment here \
-             carries only {available:.2}/s — `{tier}` would be enough"
-        ),
-        None => format!(
-            "recipe `{recipe}`: `{item}` needs {actual:.2}/s but one `{belt}` segment here \
-             carries only {available:.2}/s — no belt tier in the registry is fast enough"
-        ),
+    for inserter in grid
+        .entities()
+        .filter(|e| EntityCategory::from_prototype_name(e.prototype_name) == EntityCategory::Inserter)
+    {
+        let Some((pickup, insert)) = inserter_cells(inserter) else { continue };
+        let Some(machine) = grid.get_at(pickup.0, pickup.1) else { continue };
+        if !is_machine(EntityCategory::from_prototype_name(machine.prototype_name)) {
+            continue;
+        }
+        let Some(belt) = grid.get_at(insert.0, insert.1) else { continue };
+        if EntityCategory::from_prototype_name(belt.prototype_name) != EntityCategory::Belt {
+            continue;
+        }
+        let Some(recipe) = machine.recipe.clone() else { continue };
+        let inserter_cell = GridPos { x: inserter.top_left.x, y: inserter.top_left.y };
+        let insert_cell = GridPos { x: insert.0, y: insert.1 };
+        let Some(lane) = drop_lane(inserter_cell, insert_cell) else { continue };
+
+        claimed.entry(recipe).or_default().insert((run_anchor(grid, belt), lane));
     }
-}
 
-/// One warning per ingredient/product rate whose share of a step's belts
-/// exceeds what those belts carry.
-///
-/// The sub-row count a step will actually place is clamped to
-/// `machines_needed` (`rows::place_step`), which is exactly why this is
-/// reachable rather than theoretical: a step needing many belts but few
-/// machines cannot spread its load across as many belts as `pack_lanes`
-/// alone would suggest.
-fn belt_capacity_warnings(plan: &ProductionPlan, belt: &EntityPrototype) -> Vec<String> {
-    let mut warnings = Vec::new();
     for step in &plan.steps {
-        let ins: Vec<ItemRate> = step.inputs.iter().filter(|r| r.per_sec > 0.0).cloned().collect();
-        let outs: Vec<ItemRate> = step.outputs.iter().filter(|r| r.per_sec > 0.0).cloned().collect();
-
-        let sub_rows = pack_lanes(&ins, belt)
-            .len()
-            .max(pack_lanes(&outs, belt).len())
-            .max(1)
-            .min(step.machines_needed as usize);
-        if sub_rows == 0 {
-            continue; // degenerate step (no machines): nothing is placed to warn about
-        }
-
-        for rates in [&ins, &outs] {
-            for r in rates {
-                let lanes = lanes_for_item(rates, &r.item);
-                let available = lane_throughput(belt) * f64::from(lanes);
-                let actual = r.per_sec / sub_rows as f64;
-                if actual > available {
-                    warnings.push(over_capacity_warning(
-                        &step.recipe.name,
-                        &r.item,
-                        actual,
-                        available,
-                        &belt.name,
-                        lanes,
-                    ));
-                }
-            }
+        let Some(wanted) = step.outputs.iter().find(|r| r.per_sec > 0.0) else { continue };
+        let lanes = claimed.get(&step.recipe.name).map_or(0, HashSet::len);
+        let delivered = lanes as f64 * lane_throughput(cfg.belt);
+        if delivered < wanted.per_sec * (1.0 - 1e-9) {
+            return Err(LayoutError::UnderDelivers {
+                recipe: step.recipe.name.clone(),
+                item: wanted.item.clone(),
+                wanted: wanted.per_sec,
+                delivered,
+            });
         }
     }
-    warnings
+    Ok(())
 }
 
 #[cfg(test)]

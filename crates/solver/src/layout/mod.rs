@@ -4,6 +4,13 @@
 // lets the generator ship before a belt router exists, and it is why it
 // cannot emit the subtly-broken blueprints a half-working router would.
 //
+// The block is columnar cells, not horizontal rows: `cell::size_step` fixes
+// how many machines fit in one cell from belt throughput alone (an inserter
+// always drops on the *far* lane of the belt it serves — `lane.rs` — so a
+// belt needs a machine column on each side to use both its lanes), and
+// `tile::place_step` tiles those cells left to right, wrapping into a new
+// band when `LayoutConfig::topology.target_width` caps how wide one may run.
+//
 // Layout knows nothing about recipes beyond what a step carries; the chain
 // calculator knows nothing about geometry. `ProductionPlan` is the whole
 // interface between them.
@@ -12,16 +19,20 @@ use factorio_grid::{Grid, GridPos};
 
 use crate::chain::{ProductionPlan, ProductionStep};
 
+pub mod cell;
 pub mod error;
-pub mod lanes;
+pub mod lane;
+pub mod place;
 pub mod power;
-pub mod rows;
+pub mod tile;
 pub mod validate;
 
+pub use cell::{size_step, CellPlan, CellTopology, Side};
 pub use error::LayoutError;
-pub use lanes::{lane_throughput, lanes_needed, pack_lanes, BeltAssignment};
+pub use lane::{drop_lane, lane_throughput, LaneSide};
+pub use place::{cell_width, place_cell, CellExtent};
 pub use power::{coverage_gaps, place_poles};
-pub use rows::{place_step, StepExtent};
+pub use tile::{place_step, StepExtent};
 pub use validate::{validate, Validation};
 
 /// One tile of clear space between steps, so a step's output belt never sits
@@ -47,20 +58,47 @@ pub struct LayoutConfig {
     pub pole: String,
     /// e.g. `fast-inserter`.
     pub inserter: String,
+    /// Reaches the *outer* belt of a pair, two tiles away — e.g.
+    /// `long-handed-inserter`. Only placed where a topology puts two belts on
+    /// one side of a machine column; a one-belt side never uses it.
+    pub long_inserter: String,
+    /// The columnar cell shape `cell::size_step` sizes against. Defaults to
+    /// [`CellTopology::default`]; override with [`LayoutConfig::with_topology`].
+    pub topology: CellTopology,
 }
 
+/// The reach a `long_inserter` must have, in tiles. Anything shorter cannot
+/// touch the outer belt of a pair, and a block built with it would have
+/// inserters swinging at empty ground.
+pub const LONG_INSERTER_REACH: f64 = 2.0;
+
 impl LayoutConfig {
+    /// The long inserter defaults to `long-handed-inserter`; override it with
+    /// [`LayoutConfig::with_long_inserter`]. It is not a `new` argument
+    /// because there is exactly one vanilla answer, and every caller that
+    /// does not place two belts on a side never uses it at all.
     pub fn new(belt_tier: &str, pole: &str, inserter: &str) -> Self {
         Self {
             belt_tier: belt_tier.to_string(),
             pole: pole.to_string(),
             inserter: inserter.to_string(),
+            long_inserter: "long-handed-inserter".to_string(),
+            topology: CellTopology::default(),
         }
     }
 
-    /// Resolve all three names against the prototype registry up front, so a
-    /// typo fails before any entity is placed rather than half way through a
-    /// grid.
+    pub fn with_long_inserter(mut self, long_inserter: &str) -> Self {
+        self.long_inserter = long_inserter.to_string();
+        self
+    }
+
+    pub fn with_topology(mut self, topology: CellTopology) -> Self {
+        self.topology = topology;
+        self
+    }
+
+    /// Resolve every name against the prototype registry up front, so a typo
+    /// fails before any entity is placed rather than half way through a grid.
     pub fn resolve(&self) -> Result<ResolvedConfig, LayoutError> {
         let belt = prototype::lookup(&self.belt_tier)
             .filter(|p| p.belt_throughput.is_some())
@@ -71,8 +109,21 @@ impl LayoutConfig {
         let inserter = prototype::lookup(&self.inserter)
             .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
             .ok_or_else(|| LayoutError::InserterUnknown(self.inserter.clone()))?;
-        Ok(ResolvedConfig { belt, pole, inserter })
+        // Reach is checked, not just inserter-ness: a `fast-inserter` named
+        // here would resolve fine and then place inserters that reach the
+        // inner belt twice and the outer one never.
+        let long_inserter = prototype::lookup(&self.long_inserter)
+            .filter(|p| p.insert_position.is_some())
+            .filter(|p| reach(p) >= LONG_INSERTER_REACH)
+            .ok_or_else(|| LayoutError::LongInserterUnknown(self.long_inserter.clone()))?;
+        Ok(ResolvedConfig { belt, pole, inserter, long_inserter })
     }
+}
+
+/// How far an inserter's arm reaches to pick up, in tiles, from its own
+/// prototype data. `0.0` for anything with no pickup position.
+pub fn reach(inserter: &EntityPrototype) -> f64 {
+    inserter.pickup_position.map_or(0.0, |(x, y)| x.abs().max(y.abs()))
 }
 
 impl Default for LayoutConfig {
@@ -90,13 +141,16 @@ pub struct ResolvedConfig {
     pub belt: &'static EntityPrototype,
     pub pole: &'static EntityPrototype,
     pub inserter: &'static EntityPrototype,
+    pub long_inserter: &'static EntityPrototype,
 }
 
 /// Turn a plan into a placed grid, ready for `factorio_grid::to_blueprint`.
 ///
 /// Discards the validation report. Use `generate_with_report` where the
-/// warnings matter — they name real problems with a block that still emits,
-/// like a belt segment over its rating.
+/// warnings matter — `Validation::warnings` is the plan's own soft findings
+/// from the chain calculator, carried through unchanged; the layout phase's
+/// own findings are hard errors instead (an under-delivering block is
+/// `LayoutError::UnderDelivers`, never a warning a caller could ignore).
 pub fn generate(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
     generate_with_report(plan, cfg).map(|(grid, _)| grid)
 }
@@ -106,12 +160,16 @@ pub fn generate_with_report(
     plan: &ProductionPlan,
     cfg: &LayoutConfig,
 ) -> Result<(Grid, Validation), LayoutError> {
-    let grid = build(plan, cfg)?;
-    let report = validate::validate(&grid, plan, cfg)?;
+    let (grid, bindings) = build(plan, cfg)?;
+    let mut report = validate::validate(&grid, plan, cfg)?;
+    report.bindings = bindings;
     Ok((grid, report))
 }
 
-fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
+/// Builds the grid, plus each step's `(recipe, bound_by)` binding — collected
+/// here rather than recomputed by a caller, since `tile::place_step` (via
+/// `cell::size_step`) is the only place that sizes a step at all.
+fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String, String)>), LayoutError> {
     let resolved = cfg.resolve()?;
 
     if plan.steps.is_empty() {
@@ -127,16 +185,22 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError>
     // routing between steps is a later phase.
     let mut grid = Grid::new();
     let mut y = 0;
+    let mut bindings = Vec::new();
     for step in &plan.steps {
-        let extent = rows::place_step(&mut grid, step, &resolved, GridPos { x: 0, y })?;
+        let (extent, bound_by) =
+            tile::place_step(&mut grid, step, &resolved, &cfg.topology, GridPos { x: 0, y })?;
+        // A step with no ingredients and no products has nothing binding it.
+        if !bound_by.is_empty() {
+            bindings.push((step.recipe.name.clone(), bound_by));
+        }
         y += extent.height as i32 + STEP_GAP;
     }
 
-    // Poles last: they fill the gaps the machine rows left, so they need the
+    // Poles last: they fill the gaps the machine cells left, so they need the
     // finished geometry to aim at.
     power::place_poles(&mut grid, &resolved)?;
 
-    Ok(grid)
+    Ok((grid, bindings))
 }
 
 /// A step whose recipe both consumes and produces the same item has no
@@ -167,80 +231,4 @@ fn reject_if_cyclic(step: &ProductionStep) -> Result<(), LayoutError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::testsupport::{default_cfg, green_circuit_plan, plan_containing_kovarex};
-
-    #[test]
-    fn cyclic_step_is_rejected_by_name() {
-        let plan = plan_containing_kovarex();
-        match generate(&plan, &default_cfg()) {
-            Err(LayoutError::CyclicStep { recipe, item }) => {
-                assert_eq!(recipe, "kovarex-enrichment-process");
-                assert_eq!(item, "uranium-235");
-            }
-            other => panic!("expected CyclicStep, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn acyclic_plan_is_accepted() {
-        let plan = green_circuit_plan();
-        assert!(generate(&plan, &default_cfg()).is_ok(), "green circuits have no self-loop");
-    }
-
-    /// Multi-output is not cyclic. `uranium-processing` yields two different
-    /// items from one ore and lays out fine; only *self*-consumption has no
-    /// topology. It sits in the same plan as the kovarex step above, so a
-    /// check that confused the two would reject both.
-    #[test]
-    fn a_multi_output_step_is_not_mistaken_for_a_cycle() {
-        let plan = plan_containing_kovarex();
-        let processing = plan
-            .steps
-            .iter()
-            .find(|s| s.recipe.name == "uranium-processing")
-            .expect("uranium-processing is in the plan");
-        assert_eq!(processing.recipe.results.len(), 2, "it really is multi-output");
-        assert!(reject_if_cyclic(processing).is_ok());
-
-        let kovarex = plan
-            .steps
-            .iter()
-            .find(|s| s.recipe.name == "kovarex-enrichment-process")
-            .expect("kovarex is in the plan");
-        assert!(reject_if_cyclic(kovarex).is_err());
-    }
-
-    #[test]
-    fn config_typos_fail_before_anything_is_placed() {
-        let plan = green_circuit_plan();
-
-        let cfg = LayoutConfig::new("not-a-belt", "medium-electric-pole", "fast-inserter");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::BeltTierUnknown(_))));
-
-        // Real entities that are not the thing asked for are rejected too:
-        // being in the registry is not enough.
-        let cfg = LayoutConfig::new("express-transport-belt", "beacon", "fast-inserter");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::PoleUnknown(_))));
-
-        let cfg = LayoutConfig::new("express-transport-belt", "medium-electric-pole", "wooden-chest");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::InserterUnknown(_))));
-    }
-
-    #[test]
-    fn the_default_config_resolves() {
-        LayoutConfig::default().resolve().expect("the default names must be real entities");
-    }
-
-    #[test]
-    fn a_plan_with_nothing_to_build_is_an_error_not_an_empty_blueprint() {
-        let plan = ProductionPlan {
-            steps: vec![],
-            inputs: vec![],
-            byproducts: vec![],
-            warnings: vec![],
-        };
-        assert!(matches!(generate(&plan, &default_cfg()), Err(LayoutError::EmptyPlan)));
-    }
-}
+mod tests;

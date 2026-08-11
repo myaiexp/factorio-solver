@@ -1,9 +1,14 @@
 // End-to-end guarantees for the block generator: a real plan in, a grid and
 // a blueprint string out, and both survive the round trip a player actually
-// exercises (paste into the game, or re-import for another pass).
+// exercises (paste into the game, or re-import for another pass). Also
+// carries the delivered-rate guarantee (#3364): the plan's own goal rate,
+// measured from the entities `generate` actually placed rather than from the
+// sizing arithmetic that decided the placement.
+use factorio_grid::prototype;
+use factorio_grid::{EntityCategory, EntityId, Grid};
+
 use factorio_blueprint::{factorio_major_version, BlueprintData};
-use factorio_solver::chain::{self, ChainGoal, MachinePolicy, Rate};
-use factorio_solver::layout::{generate, validate, BLUEPRINT_VERSION};
+use factorio_solver::layout::{generate, validate, LayoutError, BLUEPRINT_VERSION};
 use factorio_solver::testsupport::{default_cfg, green_circuit_plan};
 
 #[test]
@@ -48,51 +53,163 @@ fn validate_accepts_the_green_circuit_block() {
 
     assert!(factorio_solver::layout::coverage_gaps(&grid).is_empty());
 
+    // `Validation::warnings` is just the plan's own soft findings, carried
+    // through from `chain::solve` — the layout phase has none of its own to
+    // add; its findings are hard errors instead (see `check_delivered_rate`).
     let v = validate(&grid, &plan, &cfg).unwrap();
     assert!(v.warnings.is_empty(), "the design's own worked example should not warn: {:?}", v.warnings);
 }
 
-/// The reachable throughput warning: a step whose sub-row count is clamped
-/// to `machines_needed` (see `rows::place_step`) can be asked to move more
-/// of an ingredient through one belt than that belt carries, even though
-/// `pack_lanes` alone would have spread the load across more belts.
-///
-/// `landfill` supplies the case for free — its single ingredient (50 stone
-/// per craft, 0.5s craft time) makes one `assembling-machine-2` consume
-/// 75 stone/s flat out, and even 1 stone/s of output only needs a single
-/// machine. 50 stone/s through one express-transport-belt (45/s, both lanes
-/// since it is alone) is over budget; turbo-transport-belt's 60/s covers it.
+/// The test that would have caught #3364: measured from the placed grid, not
+/// from the sizing arithmetic that decided the placement.
 #[test]
-fn over_capacity_segment_warns_with_the_fixing_tier() {
-    let goal = ChainGoal::new("landfill", Rate::ItemsPerSec(1.0), &["stone"])
-        .with_machines(MachinePolicy::all("assembling-machine-2"));
-    let plan = chain::solve(&goal).expect("landfill resolves against a flat stone bus");
-    assert_eq!(plan.steps.len(), 1);
-    assert_eq!(plan.steps[0].machines_needed, 1, "few machines is the point of this case");
-    assert_eq!(plan.steps[0].inputs[0].per_sec, 50.0);
+fn the_block_delivers_its_goal_rate() {
+    let plan = green_circuit_plan();
+    let grid = generate(&plan, &default_cfg()).unwrap();
+    validate(&grid, &plan, &default_cfg()).unwrap();
+}
 
-    let cfg = default_cfg(); // express-transport-belt: 45/s, under the 50/s demand
+#[test]
+fn a_deliberately_undersized_grid_is_caught() {
+    let plan = green_circuit_plan();
+    let cfg = default_cfg();
+    let mut grid = generate(&plan, &cfg).unwrap();
+    assert!(validate(&grid, &plan, &cfg).is_ok(), "the healthy block must validate before we break it");
+
+    // Every belt an `electronic-circuit` output inserter's far lane lands
+    // on — rebuilt from the public API rather than the private
+    // `check_delivered_rate` this is meant to test, mirroring the same
+    // independence `validate.rs` itself keeps from `place.rs`.
+    let (_, circuit_belts) = product_claims(&grid, "electronic-circuit");
+    assert!(!circuit_belts.is_empty(), "the circuit step must have at least one product belt");
+
+    // Removing BELTS (not machines or inserters) is the clean lever: it does
+    // not trip `check_machine_connectivity`, which runs first and would mask
+    // the failure — a machine still has its output inserter, that inserter
+    // just no longer reaches anything. Remove one at a time so the test
+    // works regardless of exactly how many lanes the default topology gives
+    // this step.
+    let mut result = validate(&grid, &plan, &cfg);
+    for id in circuit_belts {
+        grid.remove(id).unwrap();
+        result = validate(&grid, &plan, &cfg);
+        if result.is_err() {
+            break;
+        }
+    }
+
+    match result {
+        Err(LayoutError::UnderDelivers { recipe, item, .. }) => {
+            assert_eq!(recipe, "electronic-circuit");
+            assert_eq!(item, "electronic-circuit");
+        }
+        other => panic!("removing product belts should eventually trip UnderDelivers, got {other:?}"),
+    }
+}
+
+/// Proves the check is genuinely per-run, not per-tile: a per-tile bug would
+/// scale "delivered" with belt length (or inserter count) and pass every
+/// block trivially — precisely the failure mode that let #3364 ship. The
+/// healthy circuit step's claimed capacity is a small multiple of one lane's
+/// throughput, not a number in the hundreds.
+#[test]
+fn delivered_capacity_is_counted_per_run_not_per_tile() {
+    let plan = green_circuit_plan();
+    let cfg = default_cfg();
     let grid = generate(&plan, &cfg).unwrap();
-    let v = validate(&grid, &plan, &cfg).expect("a slow belt is a warning, never a hard error");
+    let lane = factorio_solver::layout::lane_throughput(cfg.resolve().unwrap().belt);
 
-    assert_eq!(v.warnings.len(), 1, "{:?}", v.warnings);
-    let warning = &v.warnings[0];
-    assert!(warning.contains("stone"), "{warning}");
-    assert!(warning.contains("landfill"), "{warning}");
-    assert!(warning.contains("50.00"), "{warning}");
-    assert!(warning.contains("45.00"), "{warning}");
-    // The named tier must be real and actually fast enough to fix it.
-    let named = "turbo-transport-belt";
-    assert!(warning.contains(named), "{warning}");
-    let tier = factorio_grid::prototype::lookup(named).expect("named tier must be a real prototype");
-    assert!(tier.belt_throughput.unwrap() > 45.0, "the named tier must actually be faster");
+    let (lanes, _) = product_claims(&grid, "electronic-circuit");
+    // Four product lanes (two machine columns, each landing on both lanes of
+    // its own edge belt) at 22.5/s apiece against the plan's 45/s goal.
+    assert_eq!(lanes.len(), 4, "expected four claimed product lanes, got {:?}", lanes);
+    let delivered = lanes.len() as f64 * lane;
+    assert!(
+        (10.0..=100.0).contains(&delivered),
+        "delivered ({delivered}) should be a handful of lanes' worth ({lane}/lane), not scaled \
+         by belt length or inserter count"
+    );
+}
 
-    // Never blocks: a grid and a blueprint string still come out.
-    let data = BlueprintData {
-        blueprint: Some(factorio_grid::to_blueprint(&grid, Some("landfill".into()), BLUEPRINT_VERSION)),
-        blueprint_book: None,
+/// Every distinct `(run anchor, lane)` pair an output inserter for `recipe`
+/// claims, and the ids of the belts those inserters actually land on. Rebuilt
+/// from public API only (`prototype::lookup`, `drop_lane`) rather than
+/// calling into the private `check_delivered_rate`/`run_anchor` this exists
+/// to exercise — otherwise a bug shared between the check and this helper
+/// could pass both.
+fn product_claims(
+    grid: &Grid,
+    recipe: &str,
+) -> (std::collections::HashSet<((i32, i32), factorio_solver::layout::LaneSide)>, Vec<EntityId>) {
+    let mut lanes = std::collections::HashSet::new();
+    // A `HashSet` here, not a `Vec`: two mirrored columns can drop onto
+    // opposite lanes of the very same shared edge-belt tile, so the same
+    // `belt.id` is a legitimate claim from two different inserters.
+    let mut belt_ids = std::collections::HashSet::new();
+    for inserter in grid
+        .entities()
+        .filter(|e| EntityCategory::from_prototype_name(e.prototype_name) == EntityCategory::Inserter)
+    {
+        let Some((pickup, insert)) = inserter_reach(inserter) else { continue };
+        let Some(machine) = grid.get_at(pickup.0, pickup.1) else { continue };
+        if machine.recipe.as_deref() != Some(recipe) {
+            continue;
+        }
+        let Some(belt) = grid.get_at(insert.0, insert.1) else { continue };
+        if EntityCategory::from_prototype_name(belt.prototype_name) != EntityCategory::Belt {
+            continue;
+        }
+        let inserter_cell = factorio_grid::GridPos { x: inserter.top_left.x, y: inserter.top_left.y };
+        let insert_cell = factorio_grid::GridPos { x: insert.0, y: insert.1 };
+        let Some(lane) = factorio_solver::layout::drop_lane(inserter_cell, insert_cell) else {
+            continue;
+        };
+        lanes.insert((belt_run_anchor(grid, belt), lane));
+        belt_ids.insert(belt.id);
+    }
+    (lanes, belt_ids.into_iter().collect())
+}
+
+/// `(pickup_cell, insert_cell)` for a placed inserter, from its own
+/// prototype's North-orientation offsets rotated by its placed direction —
+/// the same derivation `validate.rs::inserter_cells` uses internally, redone
+/// here so the test doesn't reach into a private module to get it.
+fn inserter_reach(inserter: &factorio_grid::PlacedEntity) -> Option<((i32, i32), (i32, i32))> {
+    let proto = prototype::lookup(inserter.prototype_name)?;
+    let pickup = proto.pickup_position?;
+    let insert = proto.insert_position?;
+    let turns = inserter.direction.as_u8() / 4;
+    let rotate = |(x, y): (f64, f64)| (0..turns).fold((x, y), |(x, y), _| (-y, x));
+    let delta = |offset: (f64, f64)| {
+        let (dx, dy) = rotate(offset);
+        (dx.round() as i32, dy.round() as i32)
     };
-    assert!(factorio_blueprint::encode(&data).is_ok());
+    let (px, py) = delta(pickup);
+    let (ix, iy) = delta(insert);
+    let (x, y) = (inserter.top_left.x, inserter.top_left.y);
+    Some(((x + px, y + py), (x + ix, y + iy)))
+}
+
+/// The canonical anchor cell of the belt run `belt` belongs to — walking
+/// backwards along its own flow axis while the neighbour matches prototype
+/// and direction. See `validate/runs.rs::run_anchor`, whose logic this
+/// mirrors independently for the same reason `inserter_reach` does.
+fn belt_run_anchor(grid: &Grid, belt: &factorio_grid::PlacedEntity) -> (i32, i32) {
+    use factorio_blueprint::Direction;
+    let (dx, dy) = match belt.direction {
+        Direction::North | Direction::South => (0, -1),
+        _ => (-1, 0),
+    };
+    let mut cur = (belt.top_left.x, belt.top_left.y);
+    loop {
+        let next = (cur.0 + dx, cur.1 + dy);
+        match grid.get_at(next.0, next.1) {
+            Some(e) if e.prototype_name == belt.prototype_name && e.direction == belt.direction => {
+                cur = next;
+            }
+            _ => return cur,
+        }
+    }
 }
 
 #[test]
