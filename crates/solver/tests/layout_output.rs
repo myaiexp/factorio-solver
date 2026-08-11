@@ -2,7 +2,6 @@
 // a blueprint string out, and both survive the round trip a player actually
 // exercises (paste into the game, or re-import for another pass).
 use factorio_blueprint::{factorio_major_version, BlueprintData};
-use factorio_solver::chain::{self, ChainGoal, MachinePolicy, Rate};
 use factorio_solver::layout::{generate, validate, BLUEPRINT_VERSION};
 use factorio_solver::testsupport::{default_cfg, green_circuit_plan};
 
@@ -50,49 +49,6 @@ fn validate_accepts_the_green_circuit_block() {
 
     let v = validate(&grid, &plan, &cfg).unwrap();
     assert!(v.warnings.is_empty(), "the design's own worked example should not warn: {:?}", v.warnings);
-}
-
-/// The reachable throughput warning: a step whose sub-row count is clamped
-/// to `machines_needed` (see `rows::place_step`) can be asked to move more
-/// of an ingredient through one belt than that belt carries, even though
-/// `pack_lanes` alone would have spread the load across more belts.
-///
-/// `landfill` supplies the case for free — its single ingredient (50 stone
-/// per craft, 0.5s craft time) makes one `assembling-machine-2` consume
-/// 75 stone/s flat out, and even 1 stone/s of output only needs a single
-/// machine. 50 stone/s through one express-transport-belt (45/s, both lanes
-/// since it is alone) is over budget; turbo-transport-belt's 60/s covers it.
-#[test]
-fn over_capacity_segment_warns_with_the_fixing_tier() {
-    let goal = ChainGoal::new("landfill", Rate::ItemsPerSec(1.0), &["stone"])
-        .with_machines(MachinePolicy::all("assembling-machine-2"));
-    let plan = chain::solve(&goal).expect("landfill resolves against a flat stone bus");
-    assert_eq!(plan.steps.len(), 1);
-    assert_eq!(plan.steps[0].machines_needed, 1, "few machines is the point of this case");
-    assert_eq!(plan.steps[0].inputs[0].per_sec, 50.0);
-
-    let cfg = default_cfg(); // express-transport-belt: 45/s, under the 50/s demand
-    let grid = generate(&plan, &cfg).unwrap();
-    let v = validate(&grid, &plan, &cfg).expect("a slow belt is a warning, never a hard error");
-
-    assert_eq!(v.warnings.len(), 1, "{:?}", v.warnings);
-    let warning = &v.warnings[0];
-    assert!(warning.contains("stone"), "{warning}");
-    assert!(warning.contains("landfill"), "{warning}");
-    assert!(warning.contains("50.00"), "{warning}");
-    assert!(warning.contains("45.00"), "{warning}");
-    // The named tier must be real and actually fast enough to fix it.
-    let named = "turbo-transport-belt";
-    assert!(warning.contains(named), "{warning}");
-    let tier = factorio_grid::prototype::lookup(named).expect("named tier must be a real prototype");
-    assert!(tier.belt_throughput.unwrap() > 45.0, "the named tier must actually be faster");
-
-    // Never blocks: a grid and a blueprint string still come out.
-    let data = BlueprintData {
-        blueprint: Some(factorio_grid::to_blueprint(&grid, Some("landfill".into()), BLUEPRINT_VERSION)),
-        blueprint_book: None,
-    };
-    assert!(factorio_blueprint::encode(&data).is_ok());
 }
 
 #[test]

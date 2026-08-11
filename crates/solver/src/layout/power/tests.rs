@@ -6,9 +6,10 @@ use crate::layout::LayoutConfig;
 use crate::testsupport::default_cfg;
 
 /// A realistic machine band: input belt/inserter, 3 rows of side-by-side
-/// assembling-machine-2 (3 wide each), output inserter/belt — the shape
-/// `layout::rows::place_step` will produce; built directly since that
-/// module doesn't exist in this worktree yet.
+/// assembling-machine-2 (3 wide each), output inserter/belt — hand-built
+/// directly rather than generated, since these tests only care about pole
+/// placement over a plausible machine footprint, not which layout pass
+/// produced it.
 fn build_band(n_machines: i32, belt: &str, inserter: &str) -> Grid {
     let mut grid = Grid::new();
     let width = n_machines * 3;

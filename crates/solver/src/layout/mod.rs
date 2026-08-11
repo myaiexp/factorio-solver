@@ -4,6 +4,13 @@
 // lets the generator ship before a belt router exists, and it is why it
 // cannot emit the subtly-broken blueprints a half-working router would.
 //
+// The block is columnar cells, not horizontal rows: `cell::size_step` fixes
+// how many machines fit in one cell from belt throughput alone (an inserter
+// always drops on the *far* lane of the belt it serves — `lane.rs` — so a
+// belt needs a machine column on each side to use both its lanes), and
+// `tile::place_step` tiles those cells left to right, wrapping into a new
+// band when `LayoutConfig::topology.target_width` caps how wide one may run.
+//
 // Layout knows nothing about recipes beyond what a step carries; the chain
 // calculator knows nothing about geometry. `ProductionPlan` is the whole
 // interface between them.
@@ -15,19 +22,17 @@ use crate::chain::{ProductionPlan, ProductionStep};
 pub mod cell;
 pub mod error;
 pub mod lane;
-pub mod lanes;
 pub mod place;
 pub mod power;
-pub mod rows;
+pub mod tile;
 pub mod validate;
 
 pub use cell::{size_step, CellPlan, CellTopology, Side};
 pub use error::LayoutError;
 pub use lane::{drop_lane, lane_throughput, LaneSide};
-pub use lanes::{lanes_needed, pack_lanes, BeltAssignment};
-pub use place::{place_cell, CellExtent};
+pub use place::{cell_width, place_cell, CellExtent};
 pub use power::{coverage_gaps, place_poles};
-pub use rows::{place_step, StepExtent};
+pub use tile::{place_step, StepExtent};
 pub use validate::{validate, Validation};
 
 /// One tile of clear space between steps, so a step's output belt never sits
@@ -175,11 +180,11 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError>
     let mut grid = Grid::new();
     let mut y = 0;
     for step in &plan.steps {
-        let extent = rows::place_step(&mut grid, step, &resolved, GridPos { x: 0, y })?;
+        let extent = tile::place_step(&mut grid, step, &resolved, &cfg.topology, GridPos { x: 0, y })?;
         y += extent.height as i32 + STEP_GAP;
     }
 
-    // Poles last: they fill the gaps the machine rows left, so they need the
+    // Poles last: they fill the gaps the machine cells left, so they need the
     // finished geometry to aim at.
     power::place_poles(&mut grid, &resolved)?;
 
@@ -214,94 +219,4 @@ fn reject_if_cyclic(step: &ProductionStep) -> Result<(), LayoutError> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::testsupport::{default_cfg, green_circuit_plan, plan_containing_kovarex};
-
-    #[test]
-    fn cyclic_step_is_rejected_by_name() {
-        let plan = plan_containing_kovarex();
-        match generate(&plan, &default_cfg()) {
-            Err(LayoutError::CyclicStep { recipe, item }) => {
-                assert_eq!(recipe, "kovarex-enrichment-process");
-                assert_eq!(item, "uranium-235");
-            }
-            other => panic!("expected CyclicStep, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn acyclic_plan_is_accepted() {
-        let plan = green_circuit_plan();
-        assert!(generate(&plan, &default_cfg()).is_ok(), "green circuits have no self-loop");
-    }
-
-    /// Multi-output is not cyclic. `uranium-processing` yields two different
-    /// items from one ore and lays out fine; only *self*-consumption has no
-    /// topology. It sits in the same plan as the kovarex step above, so a
-    /// check that confused the two would reject both.
-    #[test]
-    fn a_multi_output_step_is_not_mistaken_for_a_cycle() {
-        let plan = plan_containing_kovarex();
-        let processing = plan
-            .steps
-            .iter()
-            .find(|s| s.recipe.name == "uranium-processing")
-            .expect("uranium-processing is in the plan");
-        assert_eq!(processing.recipe.results.len(), 2, "it really is multi-output");
-        assert!(reject_if_cyclic(processing).is_ok());
-
-        let kovarex = plan
-            .steps
-            .iter()
-            .find(|s| s.recipe.name == "kovarex-enrichment-process")
-            .expect("kovarex is in the plan");
-        assert!(reject_if_cyclic(kovarex).is_err());
-    }
-
-    #[test]
-    fn config_typos_fail_before_anything_is_placed() {
-        let plan = green_circuit_plan();
-
-        let cfg = LayoutConfig::new("not-a-belt", "medium-electric-pole", "fast-inserter");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::BeltTierUnknown(_))));
-
-        // Real entities that are not the thing asked for are rejected too:
-        // being in the registry is not enough.
-        let cfg = LayoutConfig::new("express-transport-belt", "beacon", "fast-inserter");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::PoleUnknown(_))));
-
-        let cfg = LayoutConfig::new("express-transport-belt", "medium-electric-pole", "wooden-chest");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::InserterUnknown(_))));
-
-        // A real inserter is still not a *long* inserter: reach is checked, so
-        // a one-tile arm named here cannot silently be placed beside a belt
-        // pair it can never touch.
-        let cfg = default_cfg().with_long_inserter("fast-inserter");
-        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::LongInserterUnknown(_))));
-    }
-
-    #[test]
-    fn reach_comes_from_the_prototype_not_the_name() {
-        let long = prototype::lookup("long-handed-inserter").unwrap();
-        assert_eq!(reach(long), 2.0);
-        assert_eq!(reach(prototype::lookup("fast-inserter").unwrap()), 1.0);
-        assert_eq!(reach(prototype::lookup("wooden-chest").unwrap()), 0.0);
-    }
-
-    #[test]
-    fn the_default_config_resolves() {
-        LayoutConfig::default().resolve().expect("the default names must be real entities");
-    }
-
-    #[test]
-    fn a_plan_with_nothing_to_build_is_an_error_not_an_empty_blueprint() {
-        let plan = ProductionPlan {
-            steps: vec![],
-            inputs: vec![],
-            byproducts: vec![],
-            warnings: vec![],
-        };
-        assert!(matches!(generate(&plan, &default_cfg()), Err(LayoutError::EmptyPlan)));
-    }
-}
+mod tests;

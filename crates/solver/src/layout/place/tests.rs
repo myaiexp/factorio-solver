@@ -1,8 +1,8 @@
 // Geometry tests for `place_cell`: the far-lane invariant `lane.rs` states
 // but Phase 6 never checked, shared-belt lane ownership between adjacent
 // cells, inserter-tier selection by reach, containment/no-overlap at a
-// negative origin, both named refusals, a partly-filled trailing cell, and
-// the topology flip that moves products onto the spine.
+// negative origin, both named refusals, a partly-filled trailing cell, the
+// topology flip onto the spine, and a column's reserved pole rows.
 use std::collections::HashSet;
 
 use super::helpers::{rotate, to_delta};
@@ -221,7 +221,47 @@ fn a_trailing_cell_with_an_empty_second_column_still_places() {
     let machines = grid.entities().filter(|e| e.prototype_name == "assembling-machine-2").count();
     assert_eq!(machines, 3);
     let (_, mh) = effective_size(circuit.machine, Direction::North);
-    assert_eq!(extent.height, 3 * mh);
+    let period = pole_period(cfg.pole.supply_area_distance.unwrap(), mh);
+    assert_eq!(extent.height, column_height(3, mh, period).max(1), "must include reserved pole rows");
+}
+
+/// The whole reason the gap rows exist: `power::place_poles` needs a free
+/// tile in a machine's row-band to stand a pole in, since every column is
+/// otherwise load-bearing (see `machine_row_offset`'s doc comment). Checked
+/// on the placed grid, not the geometry that produced it, so a future edit
+/// removing or misplacing the gap fails here, not as `NoRoomForPole`.
+#[test]
+fn a_columns_reserved_rows_are_free_in_both_ingredient_gutters() {
+    let plan = green_circuit_plan();
+    let topo = CellTopology::default();
+    let cfg = default_cfg().resolve().unwrap();
+    let circuit = step(&plan, "electronic-circuit");
+    let sized = size_step(circuit, cfg.belt, &topo).unwrap();
+    let (mw, mh) = effective_size(circuit.machine, Direction::North);
+    let period = pole_period(cfg.pole.supply_area_distance.unwrap(), mh);
+
+    let mut grid = Grid::new();
+    place_cell(&mut grid, circuit, &sized, &cfg, &topo, GridPos { x: 0, y: 0 }, true).unwrap();
+
+    // Default topology: ingredients on the spine, so the two gutters the
+    // task's fixture found solid are the spine-facing ones — read from
+    // `x_layout`, the same source `place_cell` itself placed from, so this
+    // cannot drift from what was actually built.
+    let layout = x_layout(mw, &topo, true);
+    let reserved_rows: Vec<i32> = (0..sized.columns.0.max(sized.columns.1))
+        .filter(|&i| i % period == 0)
+        .map(|i| machine_row_offset(i, mh, period) - 1)
+        .collect();
+    assert!(!reserved_rows.is_empty(), "the fixture must actually exercise more than one group");
+
+    for &y in &reserved_rows {
+        for x in [layout.gutter_a_right, layout.gutter_b_left] {
+            assert!(
+                grid.get_at(x, y).is_none(),
+                "gutter ({x},{y}) on a reserved row must be free for a pole, found an entity"
+            );
+        }
+    }
 }
 
 /// `Side::Edge` swaps which gutter carries which stream: products move from

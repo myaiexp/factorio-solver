@@ -1,8 +1,9 @@
 // Placement primitives `place_cell` composes: the top-left -> centre
 // conversion every entity needs, the inserter-direction search carried over
-// unchanged from `rows.rs` (verified in-game; `rows.rs` is deleted in the
-// next task, so this duplicates rather than shares it), a vertical belt
-// column, and the gutter-inserter placement the far-lane rule rests on.
+// unchanged from the deleted `rows.rs` (verified in-game; it is duplicated
+// rather than shared, since `rows.rs` no longer exists to share it from), a
+// vertical belt column, and the gutter-inserter placement the far-lane rule
+// rests on.
 use factorio_grid::prototype::{effective_size, EntityPrototype};
 use factorio_grid::Grid;
 
