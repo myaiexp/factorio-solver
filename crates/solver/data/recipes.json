@@ -1,0 +1,30 @@
+[
+  {
+    "name": "iron-gear-wheel",
+    "display_name": "Iron gear wheel",
+    "category": "crafting",
+    "energy_required": 0.5,
+    "ingredients": [
+      { "name": "iron-plate", "type": "item", "amount": 2.0 }
+    ],
+    "results": [
+      { "name": "iron-gear-wheel", "type": "item", "amount": 1.0 }
+    ],
+    "enabled": true,
+    "hidden": false
+  },
+  {
+    "name": "iron-plate",
+    "display_name": "Iron plate",
+    "category": "smelting",
+    "energy_required": 3.2,
+    "ingredients": [
+      { "name": "iron-ore", "type": "item", "amount": 1.0 }
+    ],
+    "results": [
+      { "name": "iron-plate", "type": "item", "amount": 1.0 }
+    ],
+    "enabled": true,
+    "hidden": false
+  }
+]
