@@ -50,17 +50,18 @@ Each crate is independently testable. UI is the thinnest layer — all logic liv
 
 ## Current Phase
 
-**Phase 6 — Block Generator** (complete; see
-`.claude/plans/2026-08-11-chain-calculator-and-block-generator-design.md` and
-`phases/006-block-generator.md`). The app now goes goal → plan → grid →
-pasteable blueprint string end to end. What exists today:
+**Phase 7 — Columnar Block Topology** (complete; see
+`.claude/plans/2026-08-11-columnar-block-topology-design.md` and
+`phases/007-columnar-block-topology.md`). The app goes goal → plan → grid →
+pasteable blueprint string end to end, and the block now delivers its target
+rate rather than half of it. What exists today:
 
 - **blueprint** — Factorio blueprint string codec (version byte + base64 + zlib + JSON) with round-trip fidelity, plus a CLI.
 - **grid** — 2D spatial engine: placement/collision, chunk-based spatial index, A* routing (`find_path`), ASCII render, blueprint `import`/`export`, entity classification (`EntityCategory`), and the dump-derived prototype registry (169 entities).
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
-- **solver** — the dump-derived recipe registry (649 recipes), `chain` (`solve(&ChainGoal) -> ProductionPlan`, recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`, belt-lane maths, machine rows, poles, pre-emit validation).
+- **solver** — the dump-derived recipe registry (649 recipes), `chain` (`solve(&ChainGoal) -> ProductionPlan`, recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput), `place` (one cell's entities), `tile` (cells into bands), `power`, and pre-emit validation including a delivered-rate check.
 - **dump-ingest** — the manual ingest tool that generates both data files.
-- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with Generate + copy-to-clipboard.
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with belt/pole/inserter/topology controls, Generate + copy-to-clipboard.
 
 Next logical step: belt routing *between* steps (idea #3362) — the generator
 stacks a producer directly above its consumer but does not connect them, so the
@@ -100,13 +101,20 @@ player wires the block by hand. `crates/grid/src/astar.rs` already has
 - **`enabled` is not a selection filter**: research-locked recipes (`uranium-processing`) are legitimate goals
 - **Ingest is strict and loud**: a missing required field, an unparseable `energy_usage`, or a present-but-wrong-typed field aborts naming the entity/recipe. A silent partial write from a rarely-run tool would poison every downstream phase
 - **`supply_area_distance` is gated on the `electric-pole` prototype type**, not on the key being present: `beacon` declares the same key for its module *effect* radius, and ungated a layout reads a beacon as a 6×6 power pole and emits an unpowered block. Same trap as `belt_throughput` vs. robot `.speed`. It is the supply half-width, never the wire reach (medium pole: 3.5 supply, 9 wire)
-- **A belt is a sub-row**: a machine row's inserters reach only the belt beside them, so every belt of a step must carry that step's whole ingredient set. A shared pair costs `max(lanes)` belts, not `ceil(total_lanes / 2)` — 45/s iron plate beside 135/s copper cable is 6 belts; cable alone takes both lanes of 3. This is why `pack_lanes` is not a bin-pack
+- **An inserter drops on the belt's FAR lane, always — there is no near-lane fallback.** Confirmed in-game, and the fact the whole block topology follows from: a belt filled by our own inserters needs a machine column on *both* sides to use both of its lanes, while a belt filled from the bus does not. Stated once, as geometry over two cells, in `layout::lane::drop_lane` — never re-derived from an inserter's `Direction`, which would re-import the orientation question that helper exists to settle. Answers at distance 2 as well as 1, because a long-handed inserter reaching the outer belt of a pair obeys the same rule
 - **Inserter orientation is derived from `pickup_position`/`insert_position`**, searched across the four cardinals, never written down. Factorio's unrotated inserter picks from the **north** and drops to the **south**, so an inserter's `direction` points at what it takes *from* — the opposite of most intuitions, and the reason this is derived
 - **Pole coverage uses the game's rule — footprint *overlaps* the supply rectangle, not containment.** Requiring containment would make a 3-wide machine impossible to cover with a small pole (reach 2.5 clears 2 cells past the pole's column) and retire small poles for no safety gain. Each pole is scored by its own prototype's reach, not the config's
 - **The layout refuses fluids itself**: `chain::solve` only rejects a fluid *ingredient* that is off the bus, so a fluid the user declared available — or any fluid a recipe *produces* — reaches the layout looking like an ordinary item rate and would be belted
-- **Two item ingredients per step maximum** (one belt, two lanes). Three needs a second belt reached by long-handed inserters — idea #3359, and the reason `pack_lanes` chunks items in pairs
+- **Ingredient lanes are per cell; product lanes are per column** — picking shares a lane, dropping owns one. So `cell_cap` divides `2 × belts` ingredient lanes among the whole cell while `column_cap` gives each column the product side's belt count outright, and `machines_per_cell = min(floor(cell_cap), 2 × floor(column_cap))`. Both binding cases fall out of the same `min` with no special case: 45/s green circuits is input-bound on copper cable at 15 machines/cell, and the cable feeding it is output-bound on its own 2× yield at 14
+- **Sizing starts at the belt, never at `machines_needed`** — a belt's throughput caps how many machines a column can feed, so the old direction (machines → how many belts?) is what produced belts provisioned at twice their reachable capacity
+- **Lane allocation is exhaustive search, never proportional-with-rounding**: at most 4 lanes among at most 4 ingredients, so searching for the maximum is trivially cheap — and the rounding rule proportional allocation would need is exactly where the arithmetic would quietly stop being optimal. Ties go to the earlier ingredient, for determinism
+- **A machine gets one inserter per (stream, *belt*), not per stream**: an ingredient allocated 3 of a cell's 4 lanes sits on one belt outright plus a shared lane of the next one out, and a machine drawing it from the near belt alone would get 2 of the 3 lanes the sizing promised. Symmetrically, each machine drops onto *every* product belt, because `column_cap` assumes the column's output spreads across all of them
+- **`CellTopology` is configuration because middle-feed and outer-feed have opposite strengths**: sharing the spine helps an input-bound step, sharing the edge an output-bound one, and which a step is depends on the recipe. Moving copper cable's product to the wider side turns 14 machines/cell into 30
+- **A cell column reserves a pole row every `2 × floor(supply_area_distance) / mh` machines.** A *vertical* pole column is impossible — every column in a cell is load-bearing, since an inserter must sit beside its machine and a belt at exactly slot-0 or slot-1 distance from its gutter — so a horizontal row cut through the machine columns is the only place a pole can ever stand. Without it the flagship green-circuit step (3 ingredient inserters against a 3-tall machine) leaves both ingredient gutters solid for the column's full height and `place_poles` fails the whole block. Derived from the configured pole, never hardcoded; costs height, never throughput
+- **A step with two or more products is refused** (`MultipleProducts`) — a regression from the row topology, which laid `uranium-processing` out and dropped both outputs on the same far lane. What it built was wrong; refusing by name is the honest replacement
 - **`BLUEPRINT_VERSION` stamps 2.0.77 into every generated blueprint**: `from_blueprint` reads the major version to decide whether directions are 1.x-encoded, so a too-low stamp gets our own 2.0 directions rewritten on re-import
-- **Layout validation re-derives rather than trusts**: the connectivity check recomputes each inserter's reach from prototype data and deliberately does not share `rows`' rotation helper — a bug in a shared helper would pass both the placement and the check meant to catch it
+- **Layout validation re-derives rather than trusts**: the connectivity and delivered-rate checks recompute each inserter's reach from prototype data and deliberately do not share `place`'s rotation helper — a bug in a shared helper would pass both the placement and the check meant to catch it
+- **Delivered capacity is counted per belt *run*, never per belt tile**: a whole run carries one lane's throughput in total and every inserter along it shares that, so a per-tile count would scale with belt length and let every block pass trivially — which is precisely how the half-rate bug shipped
 
 ---
 
