@@ -120,8 +120,8 @@ pub enum LayoutError {
     EmptyPlan,
 
     // ── Pre-emit validation ───────────────────────────────────────────
-    // These describe a generator bug rather than user input: the row and
-    // pole passes are supposed to make all three impossible. They are hard
+    // These describe a generator bug rather than user input: the cell and
+    // pole passes are supposed to make each one impossible. They are hard
     // errors so a broken block is never handed to the player as a blueprint
     // string that merely looks plausible.
     #[error("the `{recipe}` machine at ({x}, {y}) has no {missing} inserter")]
@@ -132,6 +132,18 @@ pub enum LayoutError {
 
     #[error("the `{recipe}` machine at ({x}, {y}) is outside every pole's supply area")]
     Unpowered { recipe: String, x: i32, y: i32 },
+
+    /// The rate solver's own `wanted` for this step, against `delivered` —
+    /// the lane capacity actually reachable by the placed output inserters
+    /// for it, counted from the grid. This is the check that would have
+    /// caught #3364: an inserter drops on a belt's far lane only, so a belt
+    /// filled by our own inserters carries one lane per neighbouring machine
+    /// column, not two.
+    #[error(
+        "recipe `{recipe}`'s `{item}` needs {wanted:.3}/s but the placed block only delivers \
+         {delivered:.3}/s of it"
+    )]
+    UnderDelivers { recipe: String, item: String, wanted: f64, delivered: f64 },
 
     #[error("placement failed: {0}")]
     Placement(#[from] GridError),
@@ -195,6 +207,18 @@ mod tests {
         let e = LayoutError::InvalidTopology { field: "spine_belts".into(), value: 3 };
         let s = e.to_string();
         assert!(s.contains("spine_belts") && s.contains('3'), "{s}");
+    }
+
+    #[test]
+    fn under_delivers_names_recipe_item_and_both_rates() {
+        let e = LayoutError::UnderDelivers {
+            recipe: "electronic-circuit".into(),
+            item: "electronic-circuit".into(),
+            wanted: 45.0,
+            delivered: 22.5,
+        };
+        let s = e.to_string();
+        assert!(s.contains("electronic-circuit") && s.contains("45") && s.contains("22.5"), "{s}");
     }
 
     #[test]

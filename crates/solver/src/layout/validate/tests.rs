@@ -6,19 +6,25 @@
 // coverage (a real generated block, the round-trip) lives in
 // `tests/layout_output.rs` instead.
 use super::*;
+use crate::testsupport::{default_cfg, hand_step, rate};
 use factorio_blueprint::{Direction, Position};
 
-/// A bare 3x3 machine with `recipe` set, top-left at (0, 0). Callers add
-/// whatever inserters the case under test needs.
-fn place_machine(grid: &mut Grid, recipe: &str) {
+/// A 3x3 machine with `recipe` set, top-left at `(x, y)`.
+fn place_machine_at(grid: &mut Grid, recipe: &str, x: i32, y: i32) {
     grid.place(
         "assembling-machine-2",
-        &Position { x: 1.5, y: 1.5 },
+        &Position { x: x as f64 + 1.5, y: y as f64 + 1.5 },
         Direction::North,
         Some(recipe.to_string()),
         None,
     )
     .unwrap();
+}
+
+/// A bare 3x3 machine with `recipe` set, top-left at (0, 0). Callers add
+/// whatever inserters the case under test needs.
+fn place_machine(grid: &mut Grid, recipe: &str) {
+    place_machine_at(grid, recipe, 0, 0);
 }
 
 /// A single 1x1 inserter at `(x, y)` facing `dir`. `fast-inserter` matches
@@ -33,6 +39,27 @@ fn place_inserter(grid: &mut Grid, x: i32, y: i32, dir: Direction) {
         None,
     )
     .unwrap();
+}
+
+/// A single 1x1 belt tile at `(x, y)`, facing `dir`. `express-transport-belt`
+/// matches what `default_cfg()` resolves to (22.5/s per lane).
+fn place_belt(grid: &mut Grid, x: i32, y: i32, dir: Direction) {
+    grid.place(
+        "express-transport-belt",
+        &Position { x: x as f64 + 0.5, y: y as f64 + 0.5 },
+        dir,
+        None,
+        None,
+    )
+    .unwrap();
+}
+
+/// A one-step plan whose only step wants `per_sec` of `recipe`'s product —
+/// enough to drive `check_delivered_rate` in isolation, without going
+/// through `chain::solve`.
+fn plan_wanting(recipe: &str, per_sec: f64) -> ProductionPlan {
+    let step = hand_step(recipe, 5, vec![], vec![rate(recipe, per_sec)]);
+    ProductionPlan { steps: vec![step], inputs: vec![], byproducts: vec![], warnings: vec![] }
 }
 
 // ── rotate / to_delta ───────────────────────────────────────────────
@@ -159,4 +186,64 @@ fn a_pole_in_reach_covers_the_machine() {
     )
     .unwrap();
     assert!(check_pole_coverage(&grid).is_ok());
+}
+
+// ── delivered rate ──────────────────────────────────────────────────
+
+/// Five machines, five output inserters, one twenty-tile belt run — all
+/// landing on the same `(run, lane)` pair (a `West`-facing inserter picks up
+/// from the machine to its west and drops onto the belt to its east). A
+/// per-tile or per-inserter bug would report five, or twenty, times a single
+/// lane's throughput; the real check caps it at one claimed lane, proving
+/// the check measures the run rather than restating placement.
+#[test]
+fn delivered_rate_counts_one_lane_once_no_matter_how_many_inserters_or_tiles_reach_it() {
+    let mut grid = Grid::new();
+    for i in 0..5 {
+        let y = 4 * i;
+        place_machine_at(&mut grid, "iron-gear-wheel", 0, y);
+        place_inserter(&mut grid, 3, y + 1, Direction::West);
+    }
+    for y in 0..20 {
+        place_belt(&mut grid, 4, y, Direction::South);
+    }
+    let cfg = default_cfg().resolve().unwrap();
+    let lane = lane_throughput(cfg.belt);
+
+    check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", lane - 2.0), &cfg)
+        .expect("one claimed lane comfortably covers a rate under it");
+
+    match check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", lane + 2.0), &cfg) {
+        Err(LayoutError::UnderDelivers { delivered, .. }) => assert_eq!(
+            delivered, lane,
+            "five inserters on one twenty-tile run must still count as exactly one lane"
+        ),
+        other => panic!("expected UnderDelivers, got {other:?}"),
+    }
+}
+
+#[test]
+fn a_machine_with_no_output_inserter_delivers_nothing() {
+    let mut grid = Grid::new();
+    place_machine(&mut grid, "iron-gear-wheel");
+    let cfg = default_cfg().resolve().unwrap();
+
+    match check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", 1.0), &cfg) {
+        Err(LayoutError::UnderDelivers { recipe, item, delivered, wanted }) => {
+            assert_eq!(recipe, "iron-gear-wheel");
+            assert_eq!(item, "iron-gear-wheel");
+            assert_eq!(delivered, 0.0);
+            assert_eq!(wanted, 1.0);
+        }
+        other => panic!("expected UnderDelivers, got {other:?}"),
+    }
+}
+
+/// A step with nothing left to deliver (netted to zero, or ingredient-only)
+/// is skipped, not required to prove it delivers zero of nothing.
+#[test]
+fn a_step_with_no_positive_output_rate_is_skipped() {
+    let grid = Grid::new();
+    let cfg = default_cfg().resolve().unwrap();
+    assert!(check_delivered_rate(&grid, &plan_wanting("iron-gear-wheel", 0.0), &cfg).is_ok());
 }

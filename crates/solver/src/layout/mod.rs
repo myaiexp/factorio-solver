@@ -147,8 +147,10 @@ pub struct ResolvedConfig {
 /// Turn a plan into a placed grid, ready for `factorio_grid::to_blueprint`.
 ///
 /// Discards the validation report. Use `generate_with_report` where the
-/// warnings matter — they name real problems with a block that still emits,
-/// like a belt segment over its rating.
+/// warnings matter — `Validation::warnings` is the plan's own soft findings
+/// from the chain calculator, carried through unchanged; the layout phase's
+/// own findings are hard errors instead (an under-delivering block is
+/// `LayoutError::UnderDelivers`, never a warning a caller could ignore).
 pub fn generate(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<Grid, LayoutError> {
     generate_with_report(plan, cfg).map(|(grid, _)| grid)
 }
