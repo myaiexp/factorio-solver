@@ -10,6 +10,7 @@ use factorio_grid::prototype::{self, EntityPrototype};
 use crate::recipe::Recipe;
 
 pub mod error;
+pub mod select;
 
 pub use error::ChainError;
 
