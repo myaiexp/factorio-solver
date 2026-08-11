@@ -1,9 +1,5 @@
 // Loads entity icons from a live Factorio install into egui textures, caching hits and misses.
 
-// Nothing in this module tree is called from `main` yet — a follow-up task
-// wires `IconCache` into the viewport draw. Remove this once that lands.
-#![allow(dead_code)]
-
 mod icon_image;
 mod icon_install;
 mod icon_paths;
