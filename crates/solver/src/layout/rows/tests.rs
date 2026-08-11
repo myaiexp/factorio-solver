@@ -204,11 +204,11 @@ fn no_room_for_inserters_when_the_machine_is_too_narrow() {
 
     let mut grid = Grid::new();
     match place_step(&mut grid, &step, &cfg, GridPos { x: 0, y: 0 }) {
-        Err(LayoutError::NoRoomForInserters { recipe, machine, needed, width }) => {
+        Err(LayoutError::NoRoomForInserters { recipe, machine, needed, edge_tiles }) => {
             assert_eq!(recipe, "electronic-circuit");
             assert_eq!(machine, "inserter");
             assert_eq!(needed, 2);
-            assert_eq!(width, 1);
+            assert_eq!(edge_tiles, 1);
         }
         other => panic!("expected NoRoomForInserters, got {other:?}"),
     }

@@ -145,7 +145,7 @@ pub fn place_step(
             recipe: step.recipe.name.clone(),
             machine: step.machine.name.clone(),
             needed: ins.len(),
-            width: mw,
+            edge_tiles: mw,
         });
     }
     if outs.len() as u32 > mw {
@@ -153,7 +153,7 @@ pub fn place_step(
             recipe: step.recipe.name.clone(),
             machine: step.machine.name.clone(),
             needed: outs.len(),
-            width: mw,
+            edge_tiles: mw,
         });
     }
 

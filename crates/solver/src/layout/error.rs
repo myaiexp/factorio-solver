@@ -88,13 +88,27 @@ pub enum LayoutError {
     #[error("cell topology field `{field}` is {value}, but only 1 or 2 belts are supported")]
     InvalidTopology { field: String, value: u8 },
 
-    /// Every ingredient gets its own inserter along the machine's input edge,
-    /// so the machine has to be at least that wide.
+    /// Every ingredient/product an inserter reaches needs its own gutter tile
+    /// along the machine's column edge — its height, not its width, now that
+    /// a columnar cell runs belts vertically.
     #[error(
-        "`{machine}` is {width} tile(s) wide but recipe `{recipe}` needs {needed} \
-         inserters along that edge"
+        "`{machine}` has {edge_tiles} tile(s) along the edge recipe `{recipe}` needs {needed} \
+         inserters on — a taller machine or a narrower topology fixes it"
     )]
-    NoRoomForInserters { recipe: String, machine: String, needed: usize, width: u32 },
+    NoRoomForInserters { recipe: String, machine: String, needed: usize, edge_tiles: u32 },
+
+    /// A long inserter's insert offset lands two tiles past its own cell, so
+    /// against a machine narrower than that it would insert into open ground.
+    /// A guard rather than a live path — every vanilla crafting machine is at
+    /// least 2 wide — but reported as its own condition, because folding it
+    /// into `NoRoomForInserters` would print a *width* into a field that now
+    /// means the height of the machine's column edge.
+    #[error(
+        "`{machine}` is {width} tile(s) wide, and a long inserter reaching recipe `{recipe}`'s \
+         outer belt would insert two tiles in, past the machine entirely — use a topology with \
+         one belt per side"
+    )]
+    MachineTooNarrowForLongInserter { recipe: String, machine: String, width: u32 },
 
     #[error(
         "no free cell within reach of every machine in step `{step}` to put a `{pole}` — \
