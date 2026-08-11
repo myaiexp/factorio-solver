@@ -28,6 +28,15 @@ pub enum LayoutError {
     #[error("`{0}` is not an inserter (no pickup/insert position in the prototype registry)")]
     InserterUnknown(String),
 
+    /// A topology with two belts on one side reaches the outer one with this
+    /// inserter. A one-tile inserter named here would place fine and then
+    /// never touch that belt, so the reach is checked, not just the category.
+    #[error(
+        "`{0}` cannot reach two tiles, so it cannot serve the outer belt of a pair — \
+         `long-handed-inserter` can"
+    )]
+    LongInserterUnknown(String),
+
     /// The generator builds belt-fed *item* chains. A fluid cannot ride a
     /// belt, and pipes are a later phase — so a step that moves one has no
     /// layout, whichever side of the machine it is on.

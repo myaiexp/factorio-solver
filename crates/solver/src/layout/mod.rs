@@ -13,13 +13,15 @@ use factorio_grid::{Grid, GridPos};
 use crate::chain::{ProductionPlan, ProductionStep};
 
 pub mod error;
+pub mod lane;
 pub mod lanes;
 pub mod power;
 pub mod rows;
 pub mod validate;
 
 pub use error::LayoutError;
-pub use lanes::{lane_throughput, lanes_needed, pack_lanes, BeltAssignment};
+pub use lane::{drop_lane, lane_throughput, LaneSide};
+pub use lanes::{lanes_needed, pack_lanes, BeltAssignment};
 pub use power::{coverage_gaps, place_poles};
 pub use rows::{place_step, StepExtent};
 pub use validate::{validate, Validation};
@@ -47,20 +49,38 @@ pub struct LayoutConfig {
     pub pole: String,
     /// e.g. `fast-inserter`.
     pub inserter: String,
+    /// Reaches the *outer* belt of a pair, two tiles away — e.g.
+    /// `long-handed-inserter`. Only placed where a topology puts two belts on
+    /// one side of a machine column; a one-belt side never uses it.
+    pub long_inserter: String,
 }
 
+/// The reach a `long_inserter` must have, in tiles. Anything shorter cannot
+/// touch the outer belt of a pair, and a block built with it would have
+/// inserters swinging at empty ground.
+pub const LONG_INSERTER_REACH: f64 = 2.0;
+
 impl LayoutConfig {
+    /// The long inserter defaults to `long-handed-inserter`; override it with
+    /// [`LayoutConfig::with_long_inserter`]. It is not a `new` argument
+    /// because there is exactly one vanilla answer, and every caller that
+    /// does not place two belts on a side never uses it at all.
     pub fn new(belt_tier: &str, pole: &str, inserter: &str) -> Self {
         Self {
             belt_tier: belt_tier.to_string(),
             pole: pole.to_string(),
             inserter: inserter.to_string(),
+            long_inserter: "long-handed-inserter".to_string(),
         }
     }
 
-    /// Resolve all three names against the prototype registry up front, so a
-    /// typo fails before any entity is placed rather than half way through a
-    /// grid.
+    pub fn with_long_inserter(mut self, long_inserter: &str) -> Self {
+        self.long_inserter = long_inserter.to_string();
+        self
+    }
+
+    /// Resolve every name against the prototype registry up front, so a typo
+    /// fails before any entity is placed rather than half way through a grid.
     pub fn resolve(&self) -> Result<ResolvedConfig, LayoutError> {
         let belt = prototype::lookup(&self.belt_tier)
             .filter(|p| p.belt_throughput.is_some())
@@ -71,8 +91,21 @@ impl LayoutConfig {
         let inserter = prototype::lookup(&self.inserter)
             .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
             .ok_or_else(|| LayoutError::InserterUnknown(self.inserter.clone()))?;
-        Ok(ResolvedConfig { belt, pole, inserter })
+        // Reach is checked, not just inserter-ness: a `fast-inserter` named
+        // here would resolve fine and then place inserters that reach the
+        // inner belt twice and the outer one never.
+        let long_inserter = prototype::lookup(&self.long_inserter)
+            .filter(|p| p.insert_position.is_some())
+            .filter(|p| reach(p) >= LONG_INSERTER_REACH)
+            .ok_or_else(|| LayoutError::LongInserterUnknown(self.long_inserter.clone()))?;
+        Ok(ResolvedConfig { belt, pole, inserter, long_inserter })
     }
+}
+
+/// How far an inserter's arm reaches to pick up, in tiles, from its own
+/// prototype data. `0.0` for anything with no pickup position.
+pub fn reach(inserter: &EntityPrototype) -> f64 {
+    inserter.pickup_position.map_or(0.0, |(x, y)| x.abs().max(y.abs()))
 }
 
 impl Default for LayoutConfig {
@@ -90,6 +123,7 @@ pub struct ResolvedConfig {
     pub belt: &'static EntityPrototype,
     pub pole: &'static EntityPrototype,
     pub inserter: &'static EntityPrototype,
+    pub long_inserter: &'static EntityPrototype,
 }
 
 /// Turn a plan into a placed grid, ready for `factorio_grid::to_blueprint`.
@@ -226,6 +260,20 @@ mod tests {
 
         let cfg = LayoutConfig::new("express-transport-belt", "medium-electric-pole", "wooden-chest");
         assert!(matches!(generate(&plan, &cfg), Err(LayoutError::InserterUnknown(_))));
+
+        // A real inserter is still not a *long* inserter: reach is checked, so
+        // a one-tile arm named here cannot silently be placed beside a belt
+        // pair it can never touch.
+        let cfg = default_cfg().with_long_inserter("fast-inserter");
+        assert!(matches!(generate(&plan, &cfg), Err(LayoutError::LongInserterUnknown(_))));
+    }
+
+    #[test]
+    fn reach_comes_from_the_prototype_not_the_name() {
+        let long = prototype::lookup("long-handed-inserter").unwrap();
+        assert_eq!(reach(long), 2.0);
+        assert_eq!(reach(prototype::lookup("fast-inserter").unwrap()), 1.0);
+        assert_eq!(reach(prototype::lookup("wooden-chest").unwrap()), 0.0);
     }
 
     #[test]

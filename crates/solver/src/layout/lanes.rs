@@ -6,15 +6,7 @@
 use factorio_grid::prototype::EntityPrototype;
 
 use crate::chain::ItemRate;
-
-/// Per-lane throughput: half the belt's rating, because a Factorio belt
-/// carries two independent lanes that can hold different items.
-///
-/// `0.0` for anything that is not a belt. Callers reach this through
-/// `LayoutConfig::resolve`, which rejects non-belts before they get here.
-pub fn lane_throughput(belt: &EntityPrototype) -> f64 {
-    belt.belt_throughput.unwrap_or(0.0) / 2.0
-}
+use crate::layout::lane::lane_throughput;
 
 /// Lanes required to move `rate` items/sec, `ceil`ed to whole lanes.
 ///
