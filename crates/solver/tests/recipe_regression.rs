@@ -114,3 +114,57 @@ fn a_representative_chain_resolves_end_to_end() {
         assert!(r.ingredients.iter().all(|i| !i.name.is_empty()), "{name} has an unnamed ingredient");
     }
 }
+
+/// Guards the field the calculator's yield maths depends on. If the ingest
+/// ever silently drops `probability` again, every one of these 103 recipes
+/// reports a certainty it does not have — and for `uranium-processing` that
+/// turns a 0.7% chance into a 1:1 ratio with no test failing anywhere else.
+#[test]
+fn probability_weighted_results_survive_ingest() {
+    let weighted =
+        registry().values().filter(|r| r.results.iter().any(|x| x.probability != 1.0)).count();
+    assert_eq!(weighted, 103, "2.0.77 declares probability on 103 recipes' results");
+
+    let u = recipe("uranium-processing");
+    let u235 = u.results.iter().find(|r| r.name == "uranium-235").unwrap();
+    let u238 = u.results.iter().find(|r| r.name == "uranium-238").unwrap();
+    // Both declare amount 1 — the entire split lives in `probability`.
+    assert_eq!(u235.amount, 1.0);
+    assert_eq!(u238.amount, 1.0);
+    assert!((u235.probability - 0.007).abs() < 1e-9);
+    assert!((u238.probability - 0.993).abs() < 1e-9);
+    assert!((u235.effective_amount() - 0.007).abs() < 1e-9);
+
+    // Ingredients are never probabilistic in 2.0.77.
+    for (name, r) in registry() {
+        assert!(
+            r.ingredients.iter().all(|i| i.probability == 1.0),
+            "{name} has a probabilistic ingredient — the yield maths assumes none exist"
+        );
+        assert!(
+            r.results.iter().all(|x| (0.0..=1.0).contains(&x.probability)),
+            "{name} has an out-of-range result probability"
+        );
+    }
+}
+
+/// `main_product` is a demotion signal only — it can prove a result is
+/// secondary, never that one is primary. Pinning how few recipes carry it is
+/// what stops selection being rebuilt on top of it.
+#[test]
+fn main_product_is_declared_by_almost_nothing() {
+    let declared: Vec<&str> =
+        registry().values().filter(|r| r.main_product.is_some()).map(|r| r.name.as_str()).collect();
+    assert_eq!(declared.len(), 8, "8 of 649 recipes declare a non-empty main_product: {declared:?}");
+    assert_eq!(recipe("molten-iron").main_product.as_deref(), Some("molten-iron"));
+
+    // Factorio's `main_product: ""` means "no single main product" and must
+    // read as absent, not as a declaration for an item named "".
+    assert!(registry().values().all(|r| r.main_product.as_deref() != Some("")));
+    assert_eq!(recipe("metallic-asteroid-crushing").main_product, None);
+
+    // The multi-output recipes the calculator must handle declare nothing,
+    // so a filter keyed on `main_product == item` would exclude them entirely.
+    assert_eq!(recipe("uranium-processing").main_product, None);
+    assert_eq!(recipe("kovarex-enrichment-process").main_product, None);
+}

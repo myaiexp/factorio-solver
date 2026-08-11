@@ -22,9 +22,9 @@ pub fn item_amounts(recipe: &str, field: &str, value: Option<&Value>) -> Result<
     }
 }
 
-/// Every ingredient/result entry in the dump carries exactly `name`, `type`,
-/// `amount`; extra keys (`probability`, `temperature`, ...) exist but are not
-/// modelled and are ignored.
+/// Every ingredient/result entry in the dump carries `name`, `type` and
+/// `amount`, plus an optional `probability`. Remaining keys (`temperature`,
+/// `ignored_by_stats`, ...) exist but are not modelled and are ignored.
 fn item_amount(recipe: &str, field: &str, entry: &Value) -> Result<ItemAmount, IngestError> {
     let name = entry.get("name").and_then(Value::as_str).ok_or_else(|| IngestError::MissingRecipeField {
         name: recipe.to_string(),
@@ -43,7 +43,32 @@ fn item_amount(recipe: &str, field: &str, entry: &Value) -> Result<ItemAmount, I
         name: recipe.to_string(),
         field: format!("{field}[].amount"),
     })?;
-    Ok(ItemAmount { name: name.to_string(), kind, amount })
+    let probability = probability(recipe, field, entry)?;
+    Ok(ItemAmount { name: name.to_string(), kind, amount, probability })
+}
+
+/// Absent or null means certain (1.0). A key that is *present* but not a
+/// number is a hard error rather than a quiet fall-through to 1.0: for
+/// `uranium-processing` this field is the only thing distinguishing its two
+/// outputs, so defaulting past a shape change would silently turn a 0.7%
+/// chance into a certainty.
+fn probability(recipe: &str, field: &str, entry: &Value) -> Result<f64, IngestError> {
+    let Some(raw) = entry.get("probability").filter(|v| !v.is_null()) else {
+        return Ok(1.0);
+    };
+    let p = raw.as_f64().ok_or_else(|| IngestError::UnexpectedRecipeFieldType {
+        name: recipe.to_string(),
+        field: format!("{field}[].probability"),
+        value: raw.to_string(),
+    })?;
+    if !(0.0..=1.0).contains(&p) {
+        return Err(IngestError::UnexpectedRecipeFieldType {
+            name: recipe.to_string(),
+            field: format!("{field}[].probability"),
+            value: format!("{p} (expected 0.0..=1.0)"),
+        });
+    }
+    Ok(p)
 }
 
 #[cfg(test)]
@@ -55,7 +80,52 @@ mod tests {
     fn array_ingredients_are_parsed() {
         let v = json!([{"type":"item","name":"iron-plate","amount":2}]);
         let out = item_amounts("x", "ingredients", Some(&v)).unwrap();
-        assert_eq!(out, vec![ItemAmount { name: "iron-plate".into(), kind: ItemKind::Item, amount: 2.0 }]);
+        assert_eq!(
+            out,
+            vec![ItemAmount { name: "iron-plate".into(), kind: ItemKind::Item, amount: 2.0, probability: 1.0 }]
+        );
+    }
+
+    #[test]
+    fn absent_probability_is_certain() {
+        let v = json!([{"type":"item","name":"iron-plate","amount":2}]);
+        assert_eq!(item_amounts("x", "results", Some(&v)).unwrap()[0].probability, 1.0);
+    }
+
+    #[test]
+    fn probability_is_read_and_weights_the_yield() {
+        // uranium-processing: both results are amount 1; the whole split is here.
+        let v = json!([
+            {"type":"item","name":"uranium-235","amount":1,"probability":0.007},
+            {"type":"item","name":"uranium-238","amount":1,"probability":0.993}
+        ]);
+        let out = item_amounts("uranium-processing", "results", Some(&v)).unwrap();
+        assert_eq!(out[0].probability, 0.007);
+        assert!((out[0].effective_amount() - 0.007).abs() < 1e-12);
+        assert!((out[1].effective_amount() - 0.993).abs() < 1e-12);
+    }
+
+    #[test]
+    fn null_probability_is_certain() {
+        let v = json!([{"type":"item","name":"x","amount":1,"probability":null}]);
+        assert_eq!(item_amounts("x", "results", Some(&v)).unwrap()[0].probability, 1.0);
+    }
+
+    #[test]
+    fn wrongly_typed_probability_is_an_error_not_a_silent_certainty() {
+        let v = json!([{"type":"item","name":"x","amount":1,"probability":"0.007"}]);
+        let err = item_amounts("odd-recipe", "results", Some(&v)).unwrap_err();
+        assert!(matches!(err, IngestError::UnexpectedRecipeFieldType { .. }));
+        assert!(err.to_string().contains("odd-recipe") && err.to_string().contains("probability"));
+    }
+
+    #[test]
+    fn out_of_range_probability_is_an_error() {
+        let v = json!([{"type":"item","name":"x","amount":1,"probability":1.5}]);
+        assert!(matches!(
+            item_amounts("odd-recipe", "results", Some(&v)).unwrap_err(),
+            IngestError::UnexpectedRecipeFieldType { .. }
+        ));
     }
 
     #[test]
