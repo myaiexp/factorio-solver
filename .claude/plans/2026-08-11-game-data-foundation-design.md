@@ -119,9 +119,11 @@ and no existing `grid` code changes:
 | --- | --- | --- |
 | `display_name` | `entity-locale.json.names[name]` | UI labels |
 | `icon_path` | `.icon` / `.icons[0].icon` (mod-relative) | Icon rendering |
+| `icon_size` | `.icon_size` (absent → 64) | Icon cropping |
 | `crafting_categories` | `.crafting_categories` | Calculator (machine ↔ recipe match) |
 | `underground_max_distance` | `.max_distance` | Generator (belt routing) |
 | `pickup_position` / `insert_position` | `.pickup_position` / `.insert_position` | Generator (inserter reach) |
+| `supply_area_distance` | `.supply_area_distance` | **Generator (power-pole coverage)** — small pole 2.5, medium 3.5, big 2, substation 9 |
 
 #### Tile-size derivation
 
@@ -195,14 +197,32 @@ pub struct Recipe {
     pub results: Vec<ItemAmount>,
     pub enabled: bool,                  // absent → TRUE (242 recipes) — see warning
     pub hidden: bool,                   // 319 recipes; kept, not filtered
+    pub main_product: Option<String>,   // declared on only 13/659 — see note
 }
 
 pub struct ItemAmount {
     pub name: String,
     pub kind: ItemKind,                 // Item | Fluid
     pub amount: f64,
+    pub probability: f64,               // absent → 1.0; effective yield = amount × probability
 }
 ```
+
+#### `probability` is not optional detail — 103 recipes depend on it
+
+`uranium-processing` declares **both** results as `amount: 1`, with the real split carried
+entirely in `probability` (`0.007` U-235, `0.993` U-238). Drop the field and the ratio
+silently computes as 1:1 — a wrong answer that looks right, which is precisely what this
+project's error-handling stance forbids.
+
+**103 recipes carry `probability`**, including `yumako-processing`, `jellynut-processing`,
+`copper-bacteria`, `iron-bacteria` and all the asteroid-crushing recipes — i.e. nearly every
+fluid-free multi-output recipe the calculator is required to get right. Absent → `1.0`.
+Effective yield is always `amount × probability`.
+
+(`kovarex-enrichment-process` is the exception that uses plain amounts: 40 → 41 U-235,
+5 → 2 U-238. It also carries `ignored_by_stats`/`ignored_by_productivity`, which matter only
+for stats display and module maths — out of scope here, relevant to idea #3351.)
 
 #### Recipe field defaults — the dominant correctness risk in this phase
 
@@ -240,6 +260,15 @@ a `Vec<ItemAmount>`.
 **Filtering policy:** skip the 10 `parameter: true` recipes (not craftable). **Keep** the 319
 `hidden: true` recipes — Space Age's recycling recipes are hidden but real, and a
 recycler-aware solver needs them. Expose the flag so the UI can filter its own picker.
+
+#### `main_product` is nearly always absent — carry it, don't rely on it
+
+Only **13 of 659** recipes declare `main_product`, and none of the genuinely ambiguous
+items (`copper-cable`, `carbon`, `concrete`, `advanced-circuit`) have it on any candidate.
+Carry the field through as `Option<String>` so Phase 5 can use it where it exists, but the
+answer to "which recipe makes item X" cannot be built on it. **420 recipes have exactly one
+result**, and a single-result recipe trivially targets that result — that is the load-bearing
+rule. Phase 5's selection logic is specified in its own design doc.
 
 Loaded via `OnceLock` from a committed `recipes.json`, mirroring the existing prototype
 registry pattern.

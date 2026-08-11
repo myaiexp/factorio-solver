@@ -52,7 +52,13 @@ pub crafting_categories: Vec<String>,
 pub underground_max_distance: Option<u32>,
 pub pickup_position: Option<(f64, f64)>,
 pub insert_position: Option<(f64, f64)>,
+pub supply_area_distance: Option<f64>,  // power-pole coverage radius
 ```
+
+`supply_area_distance` is required by the Phase 6 generator's power-pole placement and
+validation (`.claude/plans/2026-08-11-chain-calculator-and-block-generator-design.md`).
+Real values: `small-electric-pole` 2.5, `medium-electric-pole` 3.5, `big-electric-pole` 2,
+`substation` 9.
 
 **Test Cases:**
 
@@ -110,6 +116,7 @@ pub struct ItemAmount {
     pub name: String,
     pub kind: ItemKind,
     pub amount: f64,
+    pub probability: f64,   // absent → 1.0; effective yield = amount × probability
 }
 
 pub struct Recipe {
@@ -121,6 +128,7 @@ pub struct Recipe {
     pub results: Vec<ItemAmount>,
     pub enabled: bool,
     pub hidden: bool,
+    pub main_product: Option<String>,   // declared on only 13/659; carried, not relied on
 }
 
 /// Loaded once from the committed recipes.json, mirroring grid's prototype registry.
@@ -134,6 +142,7 @@ pub fn get(name: &str) -> Option<&'static Recipe>;
 - `category`: absent → `"crafting"`.
 - `energy_required`: absent → `0.5`.
 - `ingredients` / `results`: must accept a JSON **array**, an empty **object `{}`**, or **`null`**, all yielding an empty vec for the latter two. `#[serde(default)]` is insufficient — it covers a missing key, not a key present with a mismatched type.
+- `ItemAmount.probability`: absent → **`1.0`** (`#[serde(default = "one")]`). **103 recipes carry it**, and `uranium-processing` declares both results as `amount: 1` with the entire split in `probability` — defaulting to `0.0`, or omitting the field, silently turns a 0.993/0.007 split into 1:1.
 
 **Test Cases:**
 
@@ -174,6 +183,24 @@ fn null_ingredients_parses_as_empty_vec() {
 }
 
 #[test]
+fn probability_defaults_to_one_and_is_preserved() {
+    // uranium-processing: both results are amount 1; the split is entirely probability.
+    let r: Recipe = serde_json::from_str(
+        r#"{"name":"uranium-processing","ingredients":[],
+            "results":[{"type":"item","name":"uranium-235","amount":1,"probability":0.007},
+                       {"type":"item","name":"uranium-238","amount":1,"probability":0.993}]}"#
+    ).unwrap();
+    assert_eq!(r.results[0].probability, 0.007);
+    assert_eq!(r.results[1].probability, 0.993);
+
+    // Absent probability must be 1.0, NOT bool/float default 0.0.
+    let p: Recipe = serde_json::from_str(
+        r#"{"name":"x","ingredients":[],
+            "results":[{"type":"item","name":"y","amount":2}]}"#).unwrap();
+    assert_eq!(p.results[0].probability, 1.0);
+}
+
+#[test]
 fn fluid_ingredients_keep_their_kind() {
     let r: Recipe = serde_json::from_str(
         r#"{"name":"x","ingredients":[{"type":"fluid","name":"water","amount":50}],
@@ -183,7 +210,7 @@ fn fluid_ingredients_keep_their_kind() {
 ```
 
 **Constraints:**
-- `solver` must not gain a dependency on `grid` beyond what it already has via `templates`.
+- `solver` may take **direct** `factorio-grid` / `factorio-blueprint` path dependencies. Today it reaches them only transitively, via `templates`' `pub use factorio_grid;` re-export, which forces awkward `factorio_templates::factorio_grid::…` paths. Phases 5 and 6 need `EntityPrototype` and `Grid` by name, so making the existing transitive dependency explicit is the right call. This does **not** invert the crate graph — `solver` already sits above `grid`. What remains forbidden is any dependency pointing the other way (`grid` → `solver`).
 - Registry load mirrors `grid::prototype`'s `OnceLock` + `include_str!` pattern, and keeps the same strict `.expect()` on malformed JSON (a committed bad file is a programming error).
 - Task 5 generates `recipes.json`. Until then, commit a **minimal valid placeholder** (a two-recipe file) so the crate compiles and tests run.
 
@@ -223,7 +250,7 @@ pub fn to_prototype(entity: &serde_json::Value, locale: &Locale) -> EntityProtot
 
 **Dump shape (load-bearing):** the top level is a dict of ~250 *prototype-type* keys (`"assembling-machine"`, `"furnace"`, `"recipe"`, …), each mapping entity name → object. Not a flat list.
 
-**Field mapping:** `tile_width`/`tile_height` per `tile_size`; `crafting_speed`, `module_slots`, `crafting_categories` verbatim; `power_kw` from `energy_usage`; `belt_throughput` = `speed × 480` for belt-family types; `underground_max_distance` from `max_distance`; `icon_path` from `.icon` or `.icons[0].icon`; `icon_size` from `.icon_size`; `display_name` from locale.
+**Field mapping:** `tile_width`/`tile_height` per `tile_size`; `crafting_speed`, `module_slots`, `crafting_categories` verbatim; `power_kw` from `energy_usage`; `belt_throughput` = `speed × 480` for belt-family types; `underground_max_distance` from `max_distance`; `supply_area_distance` from `.supply_area_distance`; `icon_path` from `.icon` or `.icons[0].icon`; `icon_size` from `.icon_size`; `display_name` from locale.
 
 **`fluid_connections` — do not omit this.** Two existing tests in `grid` assert on it
 (`test_fluid_connections_chemical_plant`, `test_no_fluid_connections_belt`), so leaving it
