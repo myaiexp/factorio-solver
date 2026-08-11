@@ -50,17 +50,20 @@ Each crate is independently testable. UI is the thinnest layer — all logic liv
 
 ## Current Phase
 
-**Phase 4 — Game Data Foundation** (see `.claude/plans/2026-08-11-game-data-foundation-design.md`). What exists today:
+**Phase 5 — Production Chain Calculator** (complete; see
+`.claude/plans/2026-08-11-chain-calculator-and-block-generator-design.md`).
+What exists today:
 
 - **blueprint** — Factorio blueprint string codec (version byte + base64 + zlib + JSON) with round-trip fidelity, plus a CLI.
 - **grid** — 2D spatial engine: placement/collision, chunk-based spatial index, A* routing (`find_path`), ASCII render, blueprint `import`/`export`, entity classification (`EntityCategory`), and the dump-derived prototype registry (169 entities).
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
-- **solver** — the dump-derived recipe registry (649 recipes: `Recipe`/`ItemAmount`/`ItemKind`, `registry()`/`get()`). The production-chain calculator is **not** built yet.
+- **solver** — the dump-derived recipe registry (649 recipes) plus `chain`: `solve(&ChainGoal) -> ProductionPlan` with recipe/machine selection (`chain::select`) and the rate solver (`chain::solve`). Spatial layout (`ProductionPlan` → `Grid`) is Phase 6 and does **not** exist.
 - **dump-ingest** — the manual ingest tool that generates both data files.
-- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, and hover tooltips.
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`).
 
-Next logical step: the production-chain calculator — walk `Recipe` graphs and
-match them to machines via `crafting_categories`.
+Next logical step: Phase 6, the block generator — `ProductionPlan` → `Grid` →
+the existing `to_blueprint`, with computed (not A*-searched) belt-fed rows. See
+`.claude/plans/2026-08-11-phase6-block-generator-plan.md`.
 
 > **Note (2026-07):** A code audit found the committed HEAD referenced ~10 phantom module/data files (`spatial`, `astar`, `lod`, `recipe`, `calculator`, `control_behavior`, `wire_extraction`, `prototypes.json`, `to_blueprint`) that were documented as complete but had never been committed to any branch — the workspace did not compile. The engine pieces the tests actually exercise (spatial index, A*, LOD, prototypes registry, grid→blueprint export, `EntityCategory` declaration) were reconstructed; the unconsumed recipe/calculator/wire modules were stripped and backlogged.
 
@@ -86,6 +89,13 @@ match them to machines via `crafting_categories`.
 - **`fluid_connections` use the dump's raw centre-relative `pipe_connections[].position`**, typed from per-connection `flow_direction` falling back to box-level `production_type`. Both `fluid_boxes` (plural) and `fluid_box` (singular) shapes are read. The old hand-written coordinates were internally inconsistent and are not a reproduction target; `storage-tank` went 1 → 4 connections (the old count was simply wrong)
 - **Recipe defaults come from Factorio, not Rust**: `enabled` absent → **`true`** (`#[serde(default)]` on a bool gives the opposite and would mark 242 recipes research-locked), `category` absent → `"crafting"`, `energy_required` absent → `0.5`. `ingredients`/`results` accept an array, an empty object `{}` (Factorio's empty-Lua-table serialization, hit by the real `biter-egg`) or null; a *populated* object is an error
 - **Recipe filtering**: the 10 `parameter: true` placeholders are skipped, the 319 `hidden: true` ones are kept with the flag (Space Age recycling recipes are hidden but real)
+- **Yields are `amount × probability`, never `amount`** (`ItemAmount::effective_amount`): 103 recipes weight a result, and `uranium-processing` gives both outputs `amount: 1` with the whole 0.007/0.993 split in `probability`. Absent → 1.0; a present-but-wrong-typed or out-of-range value is an ingest error, since defaulting past it turns a 0.7% chance into a certainty
+- **`main_product` is a demotion signal, not a selector**: only 8 of 649 recipes declare a non-empty one (Factorio's `""` means "no single main product" and stores as `None`). It can prove a result is *secondary*; it can never identify a primary. Selection rests on the 420 single-result recipes instead — a filter keyed on `main_product == item` would exclude `uranium-processing` from its own outputs
+- **The goal declares a boundary, not a recipe**: `ChainGoal.available` is the bus, and resolution walks back from the product until it reaches it. "One assembler" and "the whole chain" are the same code path — only `available` differs. Fluids fall out of this for free: a fluid ingredient not in `available` is an error telling the user to declare that recipe's product instead
+- **Recycling is filtered by `category.starts_with("recycling")`, never `== "recycling"`**: 310 recipes are exactly `recycling`, but `scrap-recycling` is `recycling-or-hand-crafting` and outputs 10+ common items. Exact equality makes nearly every common item look ambiguous. Applies to both `chain::select` and the UI recipe picker
+- **Ambiguity is always an error, never a guess** (`AmbiguousRecipe` listing candidates, resolved via `recipe_overrides`). 43 items have several producers — `copper-cable`, `iron-plate` and `copper-plate` among them — so the headline green-circuit case needs an override, which the UI offers as a button per candidate
+- **The rate solver nets a recipe's own item against itself before dividing** (`chain::solve::net_yield`). That single subtraction is what makes a self-consuming recipe (kovarex: 40 U-235 in, 41 out) resolve in one division instead of iterating toward a limit. Cross-recipe cycles have no closed form and hit the iteration cap as `DidNotConverge` — never a silent partial plan
+- **`enabled` is not a selection filter**: research-locked recipes (`uranium-processing`) are legitimate goals
 - **Ingest is strict and loud**: a missing required field, an unparseable `energy_usage`, or a present-but-wrong-typed field aborts naming the entity/recipe. A silent partial write from a rarely-run tool would poison every downstream phase
 
 ---

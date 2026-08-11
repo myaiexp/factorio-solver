@@ -2,6 +2,7 @@ use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use factorio_blueprint::{decode, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
+use crate::chain_panel::ChainPanel;
 use crate::entity_draw::EntityPainter;
 use crate::icons::{IconCache, IconStatus};
 use crate::lod::lod_for_zoom;
@@ -64,6 +65,8 @@ pub struct FactorioApp {
     /// no install found this stays empty and the viewport falls back to label
     /// characters, which is what it drew before icons existed.
     icons: IconCache,
+    /// Production-chain calculator side panel.
+    chain: ChainPanel,
 }
 
 impl FactorioApp {
@@ -77,6 +80,7 @@ impl FactorioApp {
             needs_fit: false,
             // Detection runs once, here — not per frame and not per entity.
             icons: IconCache::new(None),
+            chain: ChainPanel::new(),
         }
     }
 
@@ -434,6 +438,11 @@ impl eframe::App for FactorioApp {
                 );
             }
         });
+
+        // ── Right panel: production-chain calculator ───────────────────
+        // Must be declared before the central panel — egui lays out side
+        // panels first and gives the remainder to CentralPanel.
+        egui::SidePanel::right("chain_panel").show(ctx, |ui| self.chain.ui(ui));
 
         // ── Central panel: viewport ────────────────────────────────────
         egui::CentralPanel::default().show(ctx, |ui| {

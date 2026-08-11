@@ -20,6 +20,30 @@ pub struct ItemAmount {
     #[serde(rename = "type")]
     pub kind: ItemKind,
     pub amount: f64,
+    /// Chance this result is actually produced, 0.0–1.0. Absent means 1.0.
+    ///
+    /// Load-bearing on results, not ingredients: 103 recipes declare it, and
+    /// `uranium-processing` gives both outputs `amount: 1` with the entire
+    /// 0.007/0.993 split living here. Any rate maths that reads `amount`
+    /// alone silently reports a 1:1 ratio for it.
+    #[serde(default = "default_probability", skip_serializing_if = "is_certain")]
+    pub probability: f64,
+}
+
+impl ItemAmount {
+    /// Expected units produced/consumed per craft — the only figure rate
+    /// maths may use. See the `probability` field.
+    pub fn effective_amount(&self) -> f64 {
+        self.amount * self.probability
+    }
+}
+
+fn default_probability() -> f64 {
+    1.0
+}
+
+fn is_certain(p: &f64) -> bool {
+    *p == 1.0
 }
 
 // ── Recipe ────────────────────────────────────────────────────────────
@@ -47,6 +71,15 @@ pub struct Recipe {
     /// Age's recycling recipes are hidden but real.
     #[serde(default)]
     pub hidden: bool,
+    /// The result this recipe is "for", when the game declares one.
+    ///
+    /// Only 13 of 659 recipes declare it and 5 of those declare it empty
+    /// (Factorio's way of saying "no single main product"), which is stored
+    /// as `None`. So this is a *demotion* signal only — it can prove a
+    /// result is secondary, never that one is primary. Selection is built on
+    /// single-result recipes instead; see `chain::select`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_product: Option<String>,
 }
 
 fn default_true() -> bool {
@@ -192,6 +225,59 @@ mod tests {
         )
         .unwrap();
         assert!(matches!(r.ingredients[0].kind, ItemKind::Fluid));
+    }
+
+    #[test]
+    fn absent_probability_is_certain() {
+        let r: Recipe = serde_json::from_str(
+            r#"{"name":"x","results":[{"type":"item","name":"iron-plate","amount":2}]}"#,
+        )
+        .unwrap();
+        assert_eq!(r.results[0].probability, 1.0);
+        assert_eq!(r.results[0].effective_amount(), 2.0);
+    }
+
+    #[test]
+    fn effective_amount_weights_by_probability() {
+        // uranium-processing's entire 235/238 split lives in `probability`;
+        // both results declare `amount: 1`.
+        let r: Recipe = serde_json::from_str(
+            r#"{"name":"uranium-processing","results":[
+                 {"type":"item","name":"uranium-235","amount":1,"probability":0.007},
+                 {"type":"item","name":"uranium-238","amount":1,"probability":0.993}]}"#,
+        )
+        .unwrap();
+        assert_eq!(r.results[0].amount, r.results[1].amount, "amount alone cannot tell them apart");
+        assert!((r.results[0].effective_amount() - 0.007).abs() < 1e-12);
+        assert!((r.results[1].effective_amount() - 0.993).abs() < 1e-12);
+    }
+
+    #[test]
+    fn certain_probability_is_omitted_from_output() {
+        // Keeps the regenerated data file to the 103 recipes that need it.
+        let r: Recipe =
+            serde_json::from_str(r#"{"name":"x","results":[{"type":"item","name":"y","amount":1}]}"#)
+                .unwrap();
+        assert!(!serde_json::to_string(&r).unwrap().contains("probability"));
+    }
+
+    #[test]
+    fn main_product_defaults_to_none_and_round_trips() {
+        let bare: Recipe = serde_json::from_str(r#"{"name":"x"}"#).unwrap();
+        assert_eq!(bare.main_product, None);
+        assert!(!serde_json::to_string(&bare).unwrap().contains("main_product"));
+
+        let declared: Recipe =
+            serde_json::from_str(r#"{"name":"molten-iron","main_product":"molten-iron"}"#).unwrap();
+        assert_eq!(declared.main_product.as_deref(), Some("molten-iron"));
+    }
+
+    #[test]
+    fn registry_carries_probability_and_main_product() {
+        let u = get("uranium-processing").expect("uranium-processing present");
+        let u235 = u.results.iter().find(|r| r.name == "uranium-235").unwrap();
+        assert!((u235.probability - 0.007).abs() < 1e-9, "got {}", u235.probability);
+        assert_eq!(get("molten-iron").unwrap().main_product.as_deref(), Some("molten-iron"));
     }
 
     #[test]

@@ -1,4 +1,5 @@
 mod app;
+mod chain_panel;
 mod colors;
 mod entity_draw;
 mod icons;

@@ -54,6 +54,13 @@ pub fn to_recipe(name: &str, raw: &Value, locale: &Locale) -> Result<Option<Reci
         // bool::default(). 242 of 659 recipes rely on this.
         enabled: defaulted(name, "enabled", raw, Value::as_bool, true)?,
         hidden: defaulted(name, "hidden", raw, Value::as_bool, false)?,
+        // Empty string is Factorio's "this recipe has no single main
+        // product" (5 of the 13 declarations), which is the same thing as
+        // not declaring one at all.
+        main_product: match defaulted(name, "main_product", raw, Value::as_str, "")? {
+            "" => None,
+            product => Some(product.to_string()),
+        },
     }))
 }
 
@@ -192,6 +199,52 @@ mod tests {
                 IngestError::UnexpectedRecipeFieldType { .. }
             ));
         }
+    }
+
+    #[test]
+    fn absent_main_product_is_none() {
+        let locale = locale_with("uranium-processing", "Uranium processing");
+        let raw = json!({"ingredients":[],"results":[]});
+        assert_eq!(to_recipe("uranium-processing", &raw, &locale).unwrap().unwrap().main_product, None);
+    }
+
+    #[test]
+    fn empty_main_product_is_none_not_an_empty_string() {
+        // Factorio writes "" for "no single main product". Storing that
+        // verbatim would make it look like a declaration for an item named "".
+        let locale = locale_with("metallic-asteroid-crushing", "Metallic asteroid crushing");
+        let raw = json!({"main_product":"","ingredients":[],"results":[]});
+        let r = to_recipe("metallic-asteroid-crushing", &raw, &locale).unwrap().unwrap();
+        assert_eq!(r.main_product, None);
+    }
+
+    #[test]
+    fn declared_main_product_is_preserved() {
+        let locale = locale_with("molten-iron", "Molten iron");
+        let raw = json!({"main_product":"molten-iron","ingredients":[],"results":[]});
+        let r = to_recipe("molten-iron", &raw, &locale).unwrap().unwrap();
+        assert_eq!(r.main_product.as_deref(), Some("molten-iron"));
+    }
+
+    #[test]
+    fn wrongly_typed_main_product_is_an_error() {
+        let locale = locale_with("x", "X");
+        let raw = json!({"main_product": 7, "ingredients": [], "results": []});
+        assert!(matches!(
+            to_recipe("x", &raw, &locale).unwrap_err(),
+            IngestError::UnexpectedRecipeFieldType { .. }
+        ));
+    }
+
+    #[test]
+    fn result_probability_survives_the_mapping() {
+        let locale = locale_with("uranium-processing", "Uranium processing");
+        let raw = json!({"ingredients":[{"type":"item","name":"uranium-ore","amount":10}],
+                         "results":[{"type":"item","name":"uranium-235","amount":1,"probability":0.007},
+                                    {"type":"item","name":"uranium-238","amount":1,"probability":0.993}]});
+        let r = to_recipe("uranium-processing", &raw, &locale).unwrap().unwrap();
+        assert_eq!(r.results[0].probability, 0.007);
+        assert_eq!(r.results[1].probability, 0.993);
     }
 
     #[test]
