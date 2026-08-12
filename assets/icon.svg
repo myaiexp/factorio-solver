@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Factorio Solver">
+  <!-- Two producer cells feeding a belt into a consumer: the block the solver builds. -->
+  <rect x="2" y="2" width="60" height="60" rx="10" fill="#152534"/>
+  <g stroke="#2c4d6e" stroke-width="1" opacity="0.55">
+    <path d="M10 4V60M18 4V60M26 4V60M34 4V60M42 4V60M50 4V60"/>
+    <path d="M4 10H60M4 18H60M4 26H60M4 34H60M4 42H60M4 50H60"/>
+  </g>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="9.5" fill="none" stroke="#3f6f9c" stroke-width="1.5"/>
+  <g fill="#8fc4e8" stroke="#2c4d6e" stroke-width="1.5">
+    <rect x="11" y="10" width="15" height="15" rx="2.5"/>
+    <rect x="38" y="10" width="15" height="15" rx="2.5"/>
+    <rect x="24.5" y="45" width="15" height="15" rx="2.5"/>
+  </g>
+  <rect x="9" y="31" width="46" height="8" rx="2" fill="#f0b429" stroke="#8a5f0a" stroke-width="1.5"/>
+  <g fill="#8a5f0a" opacity="0.85">
+    <path d="M18 33l3 2-3 2z"/>
+    <path d="M30 33l3 2-3 2z"/>
+    <path d="M42 33l3 2-3 2z"/>
+  </g>
+</svg>

@@ -36,6 +36,17 @@ ui → solver → templates → grid → blueprint
 
 Each crate is independently testable. UI is the thinnest layer — all logic lives in lower crates.
 
+## Running It
+
+`cargo run -p factorio-ui` from the workspace root, or `scripts/launch.sh` — the
+same thing, but it fast-forwards a clean `master` to `origin/master` and rebuilds
+in release only when the binary is stale, so a desktop entry always starts the
+newest code. `scripts/install-desktop-entry.sh` writes that entry (paths derived
+from the checkout, so it is re-runnable and machine-independent). The window's
+`app_id`, the entry's basename, and its `StartupWMClass` are all
+`factorio-solver` and must stay equal — that triple is what pairs the window
+with the launcher icon on Wayland.
+
 ## Key Patterns
 
 - **Blueprint string format**: version byte (`0`) + base64 + zlib + JSON. Round-trip fidelity is critical.
