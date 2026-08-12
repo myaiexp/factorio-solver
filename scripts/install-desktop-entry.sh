@@ -24,7 +24,7 @@ Icon=$repo/assets/icon.svg
 Terminal=false
 StartupNotify=true
 StartupWMClass=factorio-solver
-Categories=Game;Utility;
+Categories=Game;
 Keywords=factorio;blueprint;layout;solver;production;
 EOF
 

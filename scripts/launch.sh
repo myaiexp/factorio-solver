@@ -23,7 +23,12 @@
     held="Working tree is dirty — launching the checked-out version."
   elif [[ "$(git symbolic-ref --quiet --short HEAD 2>/dev/null)" != "master" ]]; then
     held="Not on master — launching the checked-out version."
-  elif ! timeout 20 git fetch --quiet origin master 2>/dev/null; then
+  # A desktop entry starts with no terminal and often no ssh-agent, so the
+  # fetch must fail fast rather than block the launch on a prompt it cannot
+  # show. The timeout is the backstop; the ssh options are what make it rare.
+  elif ! GIT_TERMINAL_PROMPT=0 \
+    GIT_SSH_COMMAND='ssh -o BatchMode=yes -o ConnectTimeout=8' \
+    timeout 20 git fetch --quiet origin master 2>/dev/null; then
     held="Could not reach origin — launching the local version."
   elif ! git merge --ff-only --quiet FETCH_HEAD 2>/dev/null; then
     held="Local master has diverged from origin — launching the local version."
