@@ -12,9 +12,17 @@ factorio-solver = { path = "../solver" }
 factorio-templates = { path = "../templates" }
 factorio-grid = { path = "../grid" }
 factorio-blueprint = { path = "../blueprint" }
-eframe = "0.33"
+# "persistence" is not in eframe's defaults; it pulls in `ron` + `serde` for
+# eframe's own use, but a crate deriving Serialize still has to declare serde
+# itself — every other workspace crate already does.
+eframe = { version = "0.33", features = ["persistence"] }
 egui = "0.33"
 image = { version = "0.25", default-features = false, features = ["png"] }
+serde = { version = "1", features = ["derive"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+# The persist tests round-trip through JSON for readability; eframe's own
+# storage is RON, but the leniency properties under test (missing fields,
+# unknown fields) are format-independent.
+serde_json = "1"

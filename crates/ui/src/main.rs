@@ -4,6 +4,7 @@ mod colors;
 mod entity_draw;
 mod icons;
 mod lod;
+mod persist;
 mod viewport;
 
 use app::FactorioApp;
@@ -11,6 +12,11 @@ use app::FactorioApp;
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
+            // With the "persistence" feature on, eframe restores the window's
+            // last size/position from storage once one exists — this is only
+            // the first-run default, not a fixed size. Desirable, not a
+            // regression: it is the same persistence this app now uses for
+            // the chain panel's inputs.
             .with_inner_size([1280.0, 800.0])
             // Must stay equal to the desktop entry's basename and its
             // StartupWMClass (scripts/install-desktop-entry.sh) — that pairing
@@ -21,6 +27,6 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "Factorio Layout Solver",
         options,
-        Box::new(|_cc| Ok(Box::new(FactorioApp::new()))),
+        Box::new(|cc| Ok(Box::new(FactorioApp::new(cc)))),
     )
 }

@@ -5,20 +5,27 @@
 // same ingredient belts), dropping owns one (only one column reaches the
 // far lane of a product belt).
 use factorio_grid::prototype::EntityPrototype;
+use serde::{Deserialize, Serialize};
 
 use crate::chain::{ItemRate, ProductionStep};
 use crate::layout::{lane::lane_throughput, LayoutError};
 
 /// Which side of a cell carries a stream. [`CellTopology::ingredients_on`]
 /// names which side is which; the other side always carries the opposite.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Serialize/Deserialize: the UI persists a `CellTopology` (which embeds this)
+/// as part of the chain panel's saved block-generator config.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Side {
     Spine,
     Edge,
 }
 
 /// Belt counts on each side and which side carries ingredients; independent of any one step.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Serialize/Deserialize: persisted verbatim as the chain panel's saved
+/// `layout_topology` — see `factorio-ui`'s `persist.rs`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CellTopology {
     /// Belts on the spine between a cell's two machine columns. 1 or 2.
     pub spine_belts: u8,

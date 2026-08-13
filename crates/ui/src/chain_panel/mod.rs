@@ -7,6 +7,7 @@ use factorio_grid::Grid;
 use factorio_solver::availability::{all_available_recipe_names, Availability};
 use factorio_solver::chain::{solve, ChainError, ChainGoal, MachinePolicy, ProductionPlan, Rate};
 use factorio_solver::layout::{CellTopology, LayoutConfig};
+use serde::{Deserialize, Serialize};
 
 mod availability_controls;
 #[cfg(test)]
@@ -27,12 +28,18 @@ mod scroll_tests;
 #[cfg(test)]
 mod topology_tests;
 
-use availability_controls::AvailabilityMode;
+// pub(crate), not a plain `use`: `crate::persist` (a sibling of this module,
+// not a descendant) names this type in `PanelState` and needs a crate-visible
+// path to it — `availability_controls` itself stays private to this module.
+pub(crate) use availability_controls::AvailabilityMode;
 use generate::GeneratedBlock;
 pub use logic::display_name;
 
 /// Rate unit picked in the UI; converted to a `Rate` at solve time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// Serialize/Deserialize: persisted as part of the chain panel's saved
+/// inputs (`persist.rs`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum RateUnit {
     PerSec,
     PerMin,
@@ -41,7 +48,10 @@ pub enum RateUnit {
 
 /// Which machine(s) to use, mirroring `MachinePolicy`'s two constructors —
 /// `with_preference` (per-category pins) has no control here yet.
-#[derive(Debug, Clone, PartialEq, Eq)]
+///
+/// Serialize/Deserialize: persisted as part of the chain panel's saved
+/// inputs (`persist.rs`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MachineChoice {
     Fastest,
     Named(String),
@@ -57,14 +67,32 @@ impl MachineChoice {
 }
 
 /// All panel input state plus the last solve result.
+///
+/// `persist.rs` saves a subset of these fields (see `PanelState`) across
+/// runs — deliberately the *inputs* only, never `result`/`generated`/
+/// `pending_grid`. Those three are derived from a solve/generate call against
+/// the inputs at the time; restoring them next to freshly-restored inputs
+/// would show a plan on screen that no longer matches what's above it (the
+/// user could have edited the product or the bus in the meantime, in a
+/// version of the app that didn't exist when the result was computed). The
+/// panel instead opens with its inputs filled and no result — one click
+/// (Solve) from where it left off, never a stale answer presented as current.
+///
+/// The fields widened to `pub(crate)` below are exactly the ones `PanelState`
+/// persists — `persist.rs` lives in a sibling module and needs to read and
+/// write them directly rather than through fifteen accessor pairs. That the
+/// two sets coincide is not a coincidence to paper over: it is a cheap
+/// consistency check. A field that should be persisted but stayed private
+/// won't compile in `persist.rs`; a field that got widened but isn't
+/// persisted is a visible loose end in this struct.
 pub struct ChainPanel {
     /// Doubles as the recipe-picker search query: typing here both names the
     /// goal item and filters the list of recipes shown below it.
-    product: String,
-    rate_value: f64,
-    rate_unit: RateUnit,
-    belt_tier: String,
-    available: Vec<String>,
+    pub(crate) product: String,
+    pub(crate) rate_value: f64,
+    pub(crate) rate_unit: RateUnit,
+    pub(crate) belt_tier: String,
+    pub(crate) available: Vec<String>,
     available_input: String,
     /// Everything vs. an edited "what I can build" set. Orthogonal to
     /// `available` above — that pair is the bus, this trio is the
@@ -72,28 +100,28 @@ pub struct ChainPanel {
     /// field here called plain `available_*` would be a landmine. Read
     /// through `availability()`, never matched on directly, so nothing else
     /// has to know `AvailabilityMode` exists.
-    availability_mode: AvailabilityMode,
+    pub(crate) availability_mode: AvailabilityMode,
     /// The edited set. `None` means "never seeded" — the state a fresh panel
     /// starts in. That is *not* the same as `Some(empty set)`, which is what
     /// the user gets by ticking `OnlyAvailable` and then unticking every
     /// recipe on purpose; conflating the two would make `set_availability_mode`
     /// re-seed over a deliberate "nothing" and silently discard the edit.
-    available_recipes: Option<BTreeSet<String>>,
+    pub(crate) available_recipes: Option<BTreeSet<String>>,
     availability_query: String,
-    machine: MachineChoice,
-    show_hidden_recycling: bool,
+    pub(crate) machine: MachineChoice,
+    pub(crate) show_hidden_recycling: bool,
     /// Item -> recipe name. Populated from the ambiguous-recipe error UI as
     /// well as any future manual override control.
-    overrides: HashMap<String, String>,
+    pub(crate) overrides: HashMap<String, String>,
     result: Option<Result<ProductionPlan, ChainError>>,
     /// The block generator's `LayoutConfig`, as internal prototype names —
     /// distinct from `belt_tier` above, which is only ever the "belts" rate
     /// unit's tier and has no bearing on how a block gets built.
-    layout_belt: String,
-    layout_pole: String,
-    layout_inserter: String,
-    layout_long_inserter: String,
-    layout_topology: CellTopology,
+    pub(crate) layout_belt: String,
+    pub(crate) layout_pole: String,
+    pub(crate) layout_inserter: String,
+    pub(crate) layout_long_inserter: String,
+    pub(crate) layout_topology: CellTopology,
     /// The last call to `generate_block`, if any: stats and a blueprint
     /// string on success, the layout error's message on failure.
     generated: Option<Result<GeneratedBlock, String>>,
@@ -186,7 +214,11 @@ impl ChainPanel {
     /// on `available_recipes.is_none()`, not on the mode being entered again,
     /// so toggling back to `Everything` and returning preserves whatever the
     /// user already unticked instead of re-seeding over it.
-    fn set_availability_mode(&mut self, mode: AvailabilityMode) {
+    ///
+    /// `pub(crate)`, not private: `persist.rs::PanelState::apply` reuses this
+    /// exact method to re-seed a restored `OnlyAvailable` mode that carries no
+    /// set, rather than re-implementing the seeding rule a second time.
+    pub(crate) fn set_availability_mode(&mut self, mode: AvailabilityMode) {
         if mode == AvailabilityMode::OnlyAvailable && self.available_recipes.is_none() {
             self.available_recipes = Some(all_available_recipe_names());
         }

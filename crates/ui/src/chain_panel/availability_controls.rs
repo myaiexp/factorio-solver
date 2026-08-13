@@ -5,6 +5,7 @@
 use std::collections::BTreeSet;
 
 use factorio_solver::recipe::{self, Recipe};
+use serde::{Deserialize, Serialize};
 
 use super::logic::{display_name, filtered_recipes};
 use super::ChainPanel;
@@ -14,8 +15,13 @@ use super::ChainPanel;
 /// state, which is exactly the distinction `ChainPanel::set_availability_mode`
 /// has to preserve — so this stays its own enum rather than being inferred
 /// from the set.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum AvailabilityMode {
+///
+/// `pub(crate)`, not `pub(super)`: `crate::persist` is a sibling of
+/// `chain_panel`, not its parent, so it needs crate-wide visibility to name
+/// this type in `PanelState`. Also carries Serialize/Deserialize for the
+/// same reason — persisted as part of the chain panel's saved inputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub(crate) enum AvailabilityMode {
     Everything,
     OnlyAvailable,
 }
