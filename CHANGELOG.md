@@ -1,9 +1,5 @@
 # Changelog
 
-<!-- Everything below the Unreleased section is malformed — duplicated inside a
-     code fence, with commentary interleaved. Tracked as idea #2780; not fixed
-     here so the cleanup stays its own reviewable change. -->
-
 ## [Unreleased]
 
 ### Fixed
@@ -16,13 +12,12 @@
 - **The generated-block panel reports which stream capped each step's sizing**, so it names the knob to turn
 - **Recipes with three or four item ingredients now lay out**, fed by long-handed inserters reaching the outer belt of a pair. The long inserter is a picker of its own, filtered by actual reach rather than by name
 - **A delivered-rate check**, measured from the placed grid rather than restated from the sizing arithmetic. A block that would under-deliver is refused outright instead of being handed over as a blueprint string that merely looks plausible
+- **Steps with two products lay out**, each product claiming a whole belt rather than a lane — a machine column reaches only each belt's far lane, so a belt cannot be split between two items the way an ingredient belt can. Every output inserter carries a filter, without which both belts would take a random mix. Three or more products still refuse (`TooManyProductsForBelts`), since no topology offers a side more than two belts
 
 ### Removed
 
-- **Steps with two or more products are refused rather than laid out.** `uranium-processing` (one ingredient, two item results) built under the old topology and no longer does. This is deliberate: a machine column owns its product lanes outright, and what the old layout built dropped both outputs on the same far lane, so it was never right
 - The belt-capacity warning, which flagged a belt segment over its rating — sizing from belt throughput makes that condition structurally impossible
 
-```markdown
 ## [1.0.0] - 2026-03-20
 
 ### Added
@@ -39,35 +34,3 @@
 ### Fixed
 
 - Prototype lookup optimized from O(n) linear scan to O(1) `HashMap` via `OnceLock`, reducing per-entity overhead during blueprint import and grid placement
-```
-
-`★ Insight ─────────────────────────────────────`
-- The `to_blueprint` addition is architecturally significant — it completes a **round-trip data pipeline**, which is a common milestone in format-handling tools. It's worth calling out explicitly in changelogs because it unlocks workflows that weren't previously possible.
-- The `OnceLock`-based `HashMap` optimization is an implementation detail, but its *user-facing effect* (faster blueprint import/placement) is changelog-worthy — the entry frames it that way rather than mentioning `OnceLock` or `std::sync`.
-- Expanding `EntityCategory` from 13 to ~15 groups is framed as a **Fixed** entry (grey `?` was effectively a rendering bug) rather than **Changed**, since the prior behavior was unintentional rather than a deliberate design choice.
-`─────────────────────────────────────────────────`
-
-```markdown
-## [1.0.0] - 2026-03-20
-
-### Added
-
-- Centered empty-state guidance in the blueprint viewport — first-time users now see welcome text, load/paste instructions, and keyboard shortcut hints instead of a blank canvas
-- Grid-to-Blueprint export (`to_blueprint`) for full round-trip capability: blueprints can now be imported, modified, and exported back to a blueprint string
-- `Display` implementation for the `Direction` enum, plus utility methods: `opposite()`, `rotate_cw()`, `rotate_ccw()`, and cardinal direction checks
-
-### Changed
-
-- Expanded `EntityCategory` coverage to classify all 78 registered prototype groups — chests, turrets, walls, gates, mining drills, solar panels, accumulators, roboports, labs, and train stops no longer render as grey `?`
-- Unified duplicated entity classification logic into the `grid` crate, eliminating the divergence between `grid/render.rs` and `ui/colors.rs`
-
-### Fixed
-
-- Prototype lookup optimized from O(n) linear scan to O(1) `HashMap` via `OnceLock`, reducing per-entity overhead during blueprint import and grid placement
-```
-
-`★ Insight ─────────────────────────────────────`
-- The `to_blueprint` addition is architecturally significant — it completes a **round-trip data pipeline**, which is a common milestone in format-handling tools. It's worth calling out explicitly in changelogs because it unlocks workflows that weren't previously possible.
-- The `OnceLock`-based `HashMap` optimization is an implementation detail, but its *user-facing effect* (faster blueprint import/placement) is changelog-worthy — the entry frames it that way rather than mentioning `OnceLock` or `std::sync`.
-- Expanding `EntityCategory` from 13 to ~15 groups is framed as a **Fixed** entry (grey `?` was effectively a rendering bug) rather than **Changed**, since the prior behavior was unintentional rather than a deliberate design choice.
-`─────────────────────────────────────────────────`
