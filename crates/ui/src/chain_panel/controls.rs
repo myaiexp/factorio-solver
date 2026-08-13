@@ -4,10 +4,24 @@
 use std::path::PathBuf;
 
 use factorio_grid::prototype;
-use factorio_solver::recipe;
+use factorio_solver::recipe::{self, Recipe};
 
 use super::logic::{belt_tier_names, crafting_machine_names, filtered_recipes, recipe_product_item};
-use super::{display_name, ChainPanel, MachineChoice, RateUnit};
+use super::{display_name, AvailabilityMode, ChainPanel, MachineChoice, RateUnit};
+
+/// The product picker's list, computed the same way it's rendered — pulled
+/// out so `availability_tests.rs` can assert on it directly instead of
+/// scraping painted text. An unbuildable product must not be offered as a
+/// goal in the first place, so this filters by `panel.availability()` on top
+/// of the usual hidden/recycling/search chain.
+pub(super) fn picker_matches(panel: &ChainPanel) -> Vec<&'static Recipe> {
+    let registry = recipe::registry();
+    let availability = panel.availability();
+    filtered_recipes(registry.values(), &panel.product, panel.show_hidden_recycling)
+        .into_iter()
+        .filter(|r| availability.allows(r))
+        .collect()
+}
 
 /// Points the solver at a save's unlocked-recipe set: a dropdown of saves
 /// found in `~/.factorio/saves`, newest first, present only when that scan
@@ -55,7 +69,7 @@ pub(super) fn save_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
         // `&mut panel.save_picker` while the loop above still borrows
         // `panel.save_picker.entries`.
         if let Some(path) = chosen {
-            panel.save_picker.select(&path);
+            panel.adopt_save(&path);
         }
     }
 
@@ -71,6 +85,10 @@ pub(super) fn save_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
         }
         if ui.button("Clear").clicked() {
             panel.save_picker.clear();
+            // Back to unrestricted, but the set itself is kept: a user who
+            // imported a save and then hand-corrected it has edits worth more
+            // than the import, and switching the mode radio back gets them.
+            panel.availability_mode = AvailabilityMode::Everything;
         }
     });
 
@@ -79,7 +97,7 @@ pub(super) fn save_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
     ui.text_edit_singleline(&mut panel.save_picker.manual_path);
     if ui.button("Load").clicked() && !panel.save_picker.manual_path.trim().is_empty() {
         let path = PathBuf::from(panel.save_picker.manual_path.trim());
-        panel.save_picker.select(&path);
+        panel.adopt_save(&path);
     }
 
     match &panel.save_picker.status {
@@ -104,8 +122,7 @@ pub(super) fn product_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
     ui.text_edit_singleline(&mut panel.product);
     ui.checkbox(&mut panel.show_hidden_recycling, "Show hidden/recycling recipes");
 
-    let registry = recipe::registry();
-    let matches = filtered_recipes(registry.values(), &panel.product, panel.show_hidden_recycling);
+    let matches = picker_matches(panel);
 
     egui::ScrollArea::vertical().max_height(150.0).id_salt("chain_product_picker").show(ui, |ui| {
         for r in matches {

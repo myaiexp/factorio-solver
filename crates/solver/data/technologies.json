@@ -1,0 +1,2780 @@
+[
+  {
+    "name": "advanced-asteroid-processing",
+    "display_name": "Advanced asteroid processing",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "production-science-pack",
+      "utility-science-pack"
+    ],
+    "unlocks": [
+      "advanced-metallic-asteroid-crushing",
+      "advanced-carbonic-asteroid-crushing",
+      "advanced-oxide-asteroid-crushing",
+      "advanced-thruster-fuel",
+      "advanced-thruster-oxidizer"
+    ]
+  },
+  {
+    "name": "advanced-circuit",
+    "display_name": "Advanced circuit",
+    "prerequisites": [
+      "plastics"
+    ],
+    "unlocks": [
+      "advanced-circuit"
+    ]
+  },
+  {
+    "name": "advanced-combinators",
+    "display_name": "Advanced combinators",
+    "prerequisites": [
+      "circuit-network",
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "selector-combinator"
+    ]
+  },
+  {
+    "name": "advanced-material-processing",
+    "display_name": "Advanced material processing",
+    "prerequisites": [
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "steel-furnace"
+    ]
+  },
+  {
+    "name": "advanced-material-processing-2",
+    "display_name": "Advanced material processing 2",
+    "prerequisites": [
+      "advanced-material-processing",
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "electric-furnace"
+    ]
+  },
+  {
+    "name": "advanced-oil-processing",
+    "display_name": "Advanced oil processing",
+    "prerequisites": [
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "advanced-oil-processing",
+      "heavy-oil-cracking",
+      "light-oil-cracking",
+      "solid-fuel-from-heavy-oil",
+      "solid-fuel-from-light-oil"
+    ]
+  },
+  {
+    "name": "agricultural-science-pack",
+    "display_name": "Agricultural science pack",
+    "prerequisites": [
+      "bioflux-processing",
+      "bacteria-cultivation",
+      "artificial-soil"
+    ],
+    "unlocks": [
+      "agricultural-science-pack"
+    ]
+  },
+  {
+    "name": "agriculture",
+    "display_name": "Agriculture",
+    "prerequisites": [
+      "planet-discovery-gleba"
+    ],
+    "unlocks": [
+      "agricultural-tower",
+      "nutrients-from-spoilage"
+    ]
+  },
+  {
+    "name": "artificial-soil",
+    "display_name": "Artificial soil",
+    "prerequisites": [
+      "yumako",
+      "jellynut"
+    ],
+    "unlocks": [
+      "artificial-yumako-soil",
+      "artificial-jellynut-soil"
+    ]
+  },
+  {
+    "name": "artillery",
+    "display_name": "Artillery",
+    "prerequisites": [
+      "military-4",
+      "metallurgic-science-pack",
+      "radar"
+    ],
+    "unlocks": [
+      "artillery-wagon",
+      "artillery-turret",
+      "artillery-shell"
+    ]
+  },
+  {
+    "name": "artillery-shell-damage-1",
+    "display_name": "Artillery shell damage",
+    "prerequisites": [
+      "artillery"
+    ]
+  },
+  {
+    "name": "artillery-shell-range-1",
+    "display_name": "Artillery shell range",
+    "prerequisites": [
+      "artillery"
+    ]
+  },
+  {
+    "name": "artillery-shell-speed-1",
+    "display_name": "Artillery shell shooting speed",
+    "prerequisites": [
+      "artillery"
+    ]
+  },
+  {
+    "name": "asteroid-productivity",
+    "display_name": "Asteroid productivity",
+    "prerequisites": [
+      "advanced-asteroid-processing"
+    ]
+  },
+  {
+    "name": "asteroid-reprocessing",
+    "display_name": "Asteroid reprocessing",
+    "prerequisites": [
+      "metallurgic-science-pack"
+    ],
+    "unlocks": [
+      "metallic-asteroid-reprocessing",
+      "oxide-asteroid-reprocessing",
+      "carbonic-asteroid-reprocessing"
+    ]
+  },
+  {
+    "name": "atomic-bomb",
+    "display_name": "Atomic bomb",
+    "prerequisites": [
+      "military-4",
+      "kovarex-enrichment-process",
+      "rocketry"
+    ],
+    "unlocks": [
+      "atomic-bomb"
+    ]
+  },
+  {
+    "name": "automated-rail-transportation",
+    "display_name": "Automated rail transportation",
+    "prerequisites": [
+      "railway"
+    ],
+    "unlocks": [
+      "train-stop",
+      "rail-signal",
+      "rail-chain-signal"
+    ]
+  },
+  {
+    "name": "automation",
+    "display_name": "Automation",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "assembling-machine-1",
+      "long-handed-inserter"
+    ]
+  },
+  {
+    "name": "automation-2",
+    "display_name": "Automation 2",
+    "prerequisites": [
+      "automation",
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "assembling-machine-2"
+    ]
+  },
+  {
+    "name": "automation-3",
+    "display_name": "Automation 3",
+    "prerequisites": [
+      "speed-module",
+      "production-science-pack",
+      "electric-engine"
+    ],
+    "unlocks": [
+      "assembling-machine-3"
+    ]
+  },
+  {
+    "name": "automation-science-pack",
+    "display_name": "Automation science pack",
+    "prerequisites": [
+      "steam-power",
+      "electronics"
+    ],
+    "unlocks": [
+      "automation-science-pack"
+    ]
+  },
+  {
+    "name": "automobilism",
+    "display_name": "Automobilism",
+    "prerequisites": [
+      "logistics-2",
+      "engine"
+    ],
+    "unlocks": [
+      "car"
+    ]
+  },
+  {
+    "name": "bacteria-cultivation",
+    "display_name": "Bacteria cultivation",
+    "prerequisites": [
+      "bioflux"
+    ],
+    "unlocks": [
+      "copper-bacteria-cultivation",
+      "iron-bacteria-cultivation"
+    ]
+  },
+  {
+    "name": "battery",
+    "display_name": "Battery",
+    "prerequisites": [
+      "sulfur-processing"
+    ],
+    "unlocks": [
+      "battery"
+    ]
+  },
+  {
+    "name": "battery-equipment",
+    "display_name": "Personal battery",
+    "prerequisites": [
+      "battery",
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "battery-equipment"
+    ]
+  },
+  {
+    "name": "battery-mk2-equipment",
+    "display_name": "Personal battery MK2",
+    "prerequisites": [
+      "battery-equipment",
+      "power-armor",
+      "utility-science-pack"
+    ],
+    "unlocks": [
+      "battery-mk2-equipment"
+    ]
+  },
+  {
+    "name": "battery-mk3-equipment",
+    "display_name": "Personal battery MK3",
+    "prerequisites": [
+      "battery-mk2-equipment",
+      "electromagnetic-science-pack"
+    ],
+    "unlocks": [
+      "battery-mk3-equipment"
+    ]
+  },
+  {
+    "name": "belt-immunity-equipment",
+    "display_name": "Belt immunity equipment",
+    "prerequisites": [
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "belt-immunity-equipment"
+    ]
+  },
+  {
+    "name": "big-mining-drill",
+    "display_name": "Big mining drill",
+    "prerequisites": [
+      "foundry",
+      "electric-mining-drill"
+    ],
+    "unlocks": [
+      "big-mining-drill"
+    ]
+  },
+  {
+    "name": "biochamber",
+    "display_name": "Biochamber",
+    "prerequisites": [
+      "yumako",
+      "jellynut"
+    ],
+    "unlocks": [
+      "biochamber",
+      "nutrients-from-yumako-mash",
+      "burnt-spoilage",
+      "pentapod-egg"
+    ]
+  },
+  {
+    "name": "bioflux",
+    "display_name": "Bioflux",
+    "prerequisites": [
+      "biochamber"
+    ],
+    "unlocks": [
+      "bioflux",
+      "nutrients-from-bioflux"
+    ]
+  },
+  {
+    "name": "bioflux-processing",
+    "display_name": "Bioflux processing",
+    "prerequisites": [
+      "bioflux"
+    ],
+    "unlocks": [
+      "bioplastic",
+      "rocket-fuel-from-jelly",
+      "biosulfur",
+      "biolubricant"
+    ]
+  },
+  {
+    "name": "biolab",
+    "display_name": "Biolab",
+    "prerequisites": [
+      "biter-egg-handling",
+      "production-science-pack",
+      "utility-science-pack",
+      "uranium-processing"
+    ],
+    "unlocks": [
+      "biolab"
+    ]
+  },
+  {
+    "name": "biter-egg-handling",
+    "display_name": "Biter egg handling",
+    "prerequisites": [
+      "captivity"
+    ]
+  },
+  {
+    "name": "braking-force-1",
+    "display_name": "Braking force 1",
+    "prerequisites": [
+      "railway",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "braking-force-2",
+    "display_name": "Braking force 2",
+    "prerequisites": [
+      "braking-force-1"
+    ]
+  },
+  {
+    "name": "braking-force-3",
+    "display_name": "Braking force 3",
+    "prerequisites": [
+      "braking-force-2",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "braking-force-4",
+    "display_name": "Braking force 4",
+    "prerequisites": [
+      "braking-force-3"
+    ]
+  },
+  {
+    "name": "braking-force-5",
+    "display_name": "Braking force 5",
+    "prerequisites": [
+      "braking-force-4"
+    ]
+  },
+  {
+    "name": "braking-force-6",
+    "display_name": "Braking force 6",
+    "prerequisites": [
+      "braking-force-5",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "braking-force-7",
+    "display_name": "Braking force 7",
+    "prerequisites": [
+      "braking-force-6"
+    ]
+  },
+  {
+    "name": "bulk-inserter",
+    "display_name": "Bulk inserter",
+    "prerequisites": [
+      "fast-inserter",
+      "logistics-2",
+      "advanced-circuit"
+    ],
+    "unlocks": [
+      "bulk-inserter"
+    ]
+  },
+  {
+    "name": "calcite-processing",
+    "display_name": "Calcite processing",
+    "prerequisites": [
+      "planet-discovery-vulcanus"
+    ],
+    "unlocks": [
+      "acid-neutralisation",
+      "steam-condensation",
+      "simple-coal-liquefaction"
+    ]
+  },
+  {
+    "name": "captive-biter-spawner",
+    "display_name": "Captive biter spawner",
+    "prerequisites": [
+      "cryogenic-science-pack",
+      "biter-egg-handling",
+      "kovarex-enrichment-process"
+    ],
+    "unlocks": [
+      "captive-biter-spawner"
+    ]
+  },
+  {
+    "name": "captivity",
+    "display_name": "Captivity",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "military-3",
+      "rocketry"
+    ],
+    "unlocks": [
+      "capture-robot-rocket",
+      "biter-egg",
+      "nutrients-from-biter-egg"
+    ]
+  },
+  {
+    "name": "carbon-fiber",
+    "display_name": "Carbon fiber",
+    "prerequisites": [
+      "agricultural-science-pack"
+    ],
+    "unlocks": [
+      "carbon-fiber"
+    ]
+  },
+  {
+    "name": "chemical-science-pack",
+    "display_name": "Chemical science pack",
+    "prerequisites": [
+      "advanced-circuit",
+      "sulfur-processing"
+    ],
+    "unlocks": [
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "circuit-network",
+    "display_name": "Circuit network",
+    "prerequisites": [
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "arithmetic-combinator",
+      "decider-combinator",
+      "constant-combinator",
+      "power-switch",
+      "programmable-speaker",
+      "display-panel",
+      "iron-stick"
+    ]
+  },
+  {
+    "name": "cliff-explosives",
+    "display_name": "Cliff explosives",
+    "prerequisites": [
+      "explosives",
+      "military-science-pack",
+      "metallurgic-science-pack"
+    ],
+    "unlocks": [
+      "cliff-explosives"
+    ]
+  },
+  {
+    "name": "coal-liquefaction",
+    "display_name": "Coal liquefaction",
+    "prerequisites": [
+      "metallurgic-science-pack"
+    ],
+    "unlocks": [
+      "coal-liquefaction"
+    ]
+  },
+  {
+    "name": "concrete",
+    "display_name": "Concrete",
+    "prerequisites": [
+      "advanced-material-processing",
+      "automation-2"
+    ],
+    "unlocks": [
+      "concrete",
+      "hazard-concrete",
+      "refined-concrete",
+      "refined-hazard-concrete",
+      "iron-stick"
+    ]
+  },
+  {
+    "name": "construction-robotics",
+    "display_name": "Construction robotics",
+    "prerequisites": [
+      "robotics"
+    ],
+    "unlocks": [
+      "roboport",
+      "passive-provider-chest",
+      "storage-chest",
+      "construction-robot"
+    ]
+  },
+  {
+    "name": "cryogenic-plant",
+    "display_name": "Cryogenic plant",
+    "prerequisites": [
+      "lithium-processing"
+    ],
+    "unlocks": [
+      "cryogenic-plant",
+      "fluoroketone",
+      "fluoroketone-cooling"
+    ]
+  },
+  {
+    "name": "cryogenic-science-pack",
+    "display_name": "Cryogenic science pack",
+    "prerequisites": [
+      "cryogenic-plant"
+    ],
+    "unlocks": [
+      "cryogenic-science-pack"
+    ]
+  },
+  {
+    "name": "defender",
+    "display_name": "Defender",
+    "prerequisites": [
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "defender-capsule"
+    ]
+  },
+  {
+    "name": "destroyer",
+    "display_name": "Destroyer",
+    "prerequisites": [
+      "military-4",
+      "distractor",
+      "speed-module"
+    ],
+    "unlocks": [
+      "destroyer-capsule"
+    ]
+  },
+  {
+    "name": "discharge-defense-equipment",
+    "display_name": "Discharge defense",
+    "prerequisites": [
+      "laser-turret",
+      "military-3",
+      "power-armor",
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "discharge-defense-equipment"
+    ]
+  },
+  {
+    "name": "distractor",
+    "display_name": "Distractor",
+    "prerequisites": [
+      "defender",
+      "military-3",
+      "laser"
+    ],
+    "unlocks": [
+      "distractor-capsule"
+    ]
+  },
+  {
+    "name": "effect-transmission",
+    "display_name": "Effect transmission",
+    "prerequisites": [
+      "processing-unit",
+      "production-science-pack"
+    ],
+    "unlocks": [
+      "beacon"
+    ]
+  },
+  {
+    "name": "efficiency-module",
+    "display_name": "Efficiency module",
+    "prerequisites": [
+      "modules"
+    ],
+    "unlocks": [
+      "efficiency-module"
+    ]
+  },
+  {
+    "name": "efficiency-module-2",
+    "display_name": "Efficiency module 2",
+    "prerequisites": [
+      "efficiency-module",
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "efficiency-module-2"
+    ]
+  },
+  {
+    "name": "efficiency-module-3",
+    "display_name": "Efficiency module 3",
+    "prerequisites": [
+      "efficiency-module-2",
+      "agricultural-science-pack"
+    ],
+    "unlocks": [
+      "efficiency-module-3"
+    ]
+  },
+  {
+    "name": "electric-energy-accumulators",
+    "display_name": "Electric energy accumulators",
+    "prerequisites": [
+      "electric-energy-distribution-1",
+      "battery"
+    ],
+    "unlocks": [
+      "accumulator"
+    ]
+  },
+  {
+    "name": "electric-energy-distribution-1",
+    "display_name": "Electric energy distribution 1",
+    "prerequisites": [
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "medium-electric-pole",
+      "big-electric-pole",
+      "iron-stick"
+    ]
+  },
+  {
+    "name": "electric-energy-distribution-2",
+    "display_name": "Electric energy distribution 2",
+    "prerequisites": [
+      "electric-energy-distribution-1",
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "substation"
+    ]
+  },
+  {
+    "name": "electric-engine",
+    "display_name": "Electric engine",
+    "prerequisites": [
+      "lubricant"
+    ],
+    "unlocks": [
+      "electric-engine-unit"
+    ]
+  },
+  {
+    "name": "electric-mining-drill",
+    "display_name": "Electric mining drill",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "electric-mining-drill"
+    ]
+  },
+  {
+    "name": "electric-weapons-damage-1",
+    "display_name": "Electric weapons damage 1",
+    "prerequisites": [
+      "destroyer"
+    ]
+  },
+  {
+    "name": "electric-weapons-damage-2",
+    "display_name": "Electric weapons damage 2",
+    "prerequisites": [
+      "electric-weapons-damage-1",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "electric-weapons-damage-3",
+    "display_name": "Electric weapons damage 3",
+    "prerequisites": [
+      "electric-weapons-damage-2",
+      "tesla-weapons"
+    ]
+  },
+  {
+    "name": "electric-weapons-damage-4",
+    "display_name": "Electric weapons damage",
+    "prerequisites": [
+      "electric-weapons-damage-3"
+    ]
+  },
+  {
+    "name": "electromagnetic-plant",
+    "display_name": "Electromagnetic plant",
+    "prerequisites": [
+      "holmium-processing"
+    ],
+    "unlocks": [
+      "electromagnetic-plant",
+      "superconductor",
+      "supercapacitor",
+      "electrolyte"
+    ]
+  },
+  {
+    "name": "electromagnetic-science-pack",
+    "display_name": "Electromagnetic science pack",
+    "prerequisites": [
+      "electromagnetic-plant"
+    ],
+    "unlocks": [
+      "electromagnetic-science-pack"
+    ]
+  },
+  {
+    "name": "electronics",
+    "display_name": "Electronics",
+    "unlocks": [
+      "copper-cable",
+      "electronic-circuit",
+      "lab",
+      "inserter",
+      "small-electric-pole"
+    ]
+  },
+  {
+    "name": "elevated-rail",
+    "display_name": "Elevated rail",
+    "prerequisites": [
+      "concrete",
+      "production-science-pack"
+    ],
+    "unlocks": [
+      "rail-support",
+      "rail-ramp"
+    ]
+  },
+  {
+    "name": "energy-shield-equipment",
+    "display_name": "Energy shield equipment",
+    "prerequisites": [
+      "solar-panel-equipment",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "energy-shield-equipment"
+    ]
+  },
+  {
+    "name": "energy-shield-mk2-equipment",
+    "display_name": "Energy shield MK2 equipment",
+    "prerequisites": [
+      "energy-shield-equipment",
+      "military-4",
+      "electromagnetic-science-pack",
+      "power-armor"
+    ],
+    "unlocks": [
+      "energy-shield-mk2-equipment"
+    ]
+  },
+  {
+    "name": "engine",
+    "display_name": "Engine",
+    "prerequisites": [
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "engine-unit"
+    ]
+  },
+  {
+    "name": "epic-quality",
+    "display_name": "Epic quality",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "utility-science-pack",
+      "quality-module"
+    ]
+  },
+  {
+    "name": "exoskeleton-equipment",
+    "display_name": "Exoskeleton equipment",
+    "prerequisites": [
+      "processing-unit",
+      "electric-engine",
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "exoskeleton-equipment"
+    ]
+  },
+  {
+    "name": "explosive-rocketry",
+    "display_name": "Explosive rocketry",
+    "prerequisites": [
+      "rocketry",
+      "military-3"
+    ],
+    "unlocks": [
+      "explosive-rocket"
+    ]
+  },
+  {
+    "name": "explosives",
+    "display_name": "Explosives",
+    "prerequisites": [
+      "sulfur-processing"
+    ],
+    "unlocks": [
+      "explosives"
+    ]
+  },
+  {
+    "name": "fast-inserter",
+    "display_name": "Fast inserter",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "fast-inserter"
+    ]
+  },
+  {
+    "name": "fish-breeding",
+    "display_name": "Fish breeding",
+    "prerequisites": [
+      "tree-seeding"
+    ],
+    "unlocks": [
+      "fish-breeding",
+      "nutrients-from-fish"
+    ]
+  },
+  {
+    "name": "fission-reactor-equipment",
+    "display_name": "Portable fission reactor",
+    "prerequisites": [
+      "utility-science-pack",
+      "power-armor",
+      "military-science-pack",
+      "nuclear-power"
+    ],
+    "unlocks": [
+      "fission-reactor-equipment"
+    ]
+  },
+  {
+    "name": "flamethrower",
+    "display_name": "Flamethrower",
+    "prerequisites": [
+      "flammables",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "flamethrower",
+      "flamethrower-ammo",
+      "flamethrower-turret"
+    ]
+  },
+  {
+    "name": "flammables",
+    "display_name": "Flammables",
+    "prerequisites": [
+      "oil-processing"
+    ]
+  },
+  {
+    "name": "fluid-handling",
+    "display_name": "Fluid handling",
+    "prerequisites": [
+      "automation-2",
+      "engine"
+    ],
+    "unlocks": [
+      "storage-tank",
+      "pump",
+      "barrel",
+      "water-barrel",
+      "empty-water-barrel",
+      "sulfuric-acid-barrel",
+      "empty-sulfuric-acid-barrel",
+      "crude-oil-barrel",
+      "empty-crude-oil-barrel",
+      "heavy-oil-barrel",
+      "empty-heavy-oil-barrel",
+      "light-oil-barrel",
+      "empty-light-oil-barrel",
+      "petroleum-gas-barrel",
+      "empty-petroleum-gas-barrel",
+      "lubricant-barrel",
+      "empty-lubricant-barrel",
+      "fluoroketone-cold-barrel",
+      "empty-fluoroketone-cold-barrel",
+      "fluoroketone-hot-barrel",
+      "empty-fluoroketone-hot-barrel"
+    ]
+  },
+  {
+    "name": "fluid-wagon",
+    "display_name": "Fluid wagon",
+    "prerequisites": [
+      "railway",
+      "fluid-handling"
+    ],
+    "unlocks": [
+      "fluid-wagon"
+    ]
+  },
+  {
+    "name": "follower-robot-count-1",
+    "display_name": "Follower robot count 1",
+    "prerequisites": [
+      "defender"
+    ]
+  },
+  {
+    "name": "follower-robot-count-2",
+    "display_name": "Follower robot count 2",
+    "prerequisites": [
+      "follower-robot-count-1"
+    ]
+  },
+  {
+    "name": "follower-robot-count-3",
+    "display_name": "Follower robot count 3",
+    "prerequisites": [
+      "follower-robot-count-2",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "follower-robot-count-4",
+    "display_name": "Follower robot count 4",
+    "prerequisites": [
+      "follower-robot-count-3",
+      "destroyer"
+    ]
+  },
+  {
+    "name": "follower-robot-count-5",
+    "display_name": "Follower robot count",
+    "prerequisites": [
+      "follower-robot-count-4",
+      "space-science-pack",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "foundation",
+    "display_name": "Foundation",
+    "prerequisites": [
+      "cryogenic-science-pack"
+    ],
+    "unlocks": [
+      "foundation"
+    ]
+  },
+  {
+    "name": "foundry",
+    "display_name": "Foundry",
+    "prerequisites": [
+      "calcite-processing",
+      "tungsten-carbide"
+    ],
+    "unlocks": [
+      "foundry",
+      "molten-iron-from-lava",
+      "molten-copper-from-lava",
+      "concrete-from-molten-iron",
+      "casting-low-density-structure",
+      "molten-iron",
+      "molten-copper",
+      "casting-iron",
+      "casting-steel",
+      "casting-copper",
+      "casting-iron-gear-wheel",
+      "casting-iron-stick",
+      "casting-pipe",
+      "casting-pipe-to-ground",
+      "casting-copper-cable"
+    ]
+  },
+  {
+    "name": "fusion-reactor",
+    "display_name": "Fusion reactor",
+    "prerequisites": [
+      "quantum-processor"
+    ],
+    "unlocks": [
+      "fusion-reactor",
+      "fusion-generator",
+      "fusion-power-cell"
+    ]
+  },
+  {
+    "name": "fusion-reactor-equipment",
+    "display_name": "Portable fusion reactor",
+    "prerequisites": [
+      "fusion-reactor",
+      "fission-reactor-equipment"
+    ],
+    "unlocks": [
+      "fusion-reactor-equipment"
+    ]
+  },
+  {
+    "name": "gate",
+    "display_name": "Gate",
+    "prerequisites": [
+      "stone-wall",
+      "military-2"
+    ],
+    "unlocks": [
+      "gate"
+    ]
+  },
+  {
+    "name": "gun-turret",
+    "display_name": "Gun turret",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "gun-turret"
+    ]
+  },
+  {
+    "name": "health",
+    "display_name": "Health",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "utility-science-pack",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "heating-tower",
+    "display_name": "Heating tower",
+    "prerequisites": [
+      "planet-discovery-gleba"
+    ],
+    "unlocks": [
+      "heating-tower",
+      "heat-pipe",
+      "heat-exchanger",
+      "steam-turbine"
+    ]
+  },
+  {
+    "name": "heavy-armor",
+    "display_name": "Heavy armor",
+    "prerequisites": [
+      "military",
+      "steel-processing"
+    ],
+    "unlocks": [
+      "heavy-armor"
+    ]
+  },
+  {
+    "name": "holmium-processing",
+    "display_name": "Holmium processing",
+    "prerequisites": [
+      "recycling"
+    ],
+    "unlocks": [
+      "holmium-solution",
+      "holmium-plate"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-1",
+    "display_name": "Inserter capacity bonus 1",
+    "prerequisites": [
+      "bulk-inserter"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-2",
+    "display_name": "Inserter capacity bonus 2",
+    "prerequisites": [
+      "inserter-capacity-bonus-1"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-3",
+    "display_name": "Inserter capacity bonus 3",
+    "prerequisites": [
+      "inserter-capacity-bonus-2",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-4",
+    "display_name": "Inserter capacity bonus 4",
+    "prerequisites": [
+      "inserter-capacity-bonus-3",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-5",
+    "display_name": "Inserter capacity bonus 5",
+    "prerequisites": [
+      "inserter-capacity-bonus-4"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-6",
+    "display_name": "Inserter capacity bonus 6",
+    "prerequisites": [
+      "inserter-capacity-bonus-5"
+    ]
+  },
+  {
+    "name": "inserter-capacity-bonus-7",
+    "display_name": "Inserter capacity bonus 7",
+    "prerequisites": [
+      "inserter-capacity-bonus-6",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "jellynut",
+    "display_name": "Jellynut",
+    "prerequisites": [
+      "agriculture"
+    ],
+    "unlocks": [
+      "jellynut-processing",
+      "iron-bacteria"
+    ]
+  },
+  {
+    "name": "kovarex-enrichment-process",
+    "display_name": "Kovarex enrichment process",
+    "prerequisites": [
+      "uranium-processing",
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "kovarex-enrichment-process",
+      "nuclear-fuel"
+    ]
+  },
+  {
+    "name": "lamp",
+    "display_name": "Lamp",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "small-lamp"
+    ]
+  },
+  {
+    "name": "land-mine",
+    "display_name": "Land mines",
+    "prerequisites": [
+      "explosives",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "land-mine"
+    ]
+  },
+  {
+    "name": "landfill",
+    "display_name": "Landfill",
+    "prerequisites": [
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "landfill"
+    ]
+  },
+  {
+    "name": "laser",
+    "display_name": "Laser",
+    "prerequisites": [
+      "battery",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-1",
+    "display_name": "Laser shooting speed 1",
+    "prerequisites": [
+      "laser",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-2",
+    "display_name": "Laser shooting speed 2",
+    "prerequisites": [
+      "laser-shooting-speed-1"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-3",
+    "display_name": "Laser shooting speed 3",
+    "prerequisites": [
+      "laser-shooting-speed-2"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-4",
+    "display_name": "Laser shooting speed 4",
+    "prerequisites": [
+      "laser-shooting-speed-3"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-5",
+    "display_name": "Laser shooting speed 5",
+    "prerequisites": [
+      "laser-shooting-speed-4",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-6",
+    "display_name": "Laser shooting speed 6",
+    "prerequisites": [
+      "laser-shooting-speed-5"
+    ]
+  },
+  {
+    "name": "laser-shooting-speed-7",
+    "display_name": "Laser shooting speed 7",
+    "prerequisites": [
+      "laser-shooting-speed-6"
+    ]
+  },
+  {
+    "name": "laser-turret",
+    "display_name": "Laser turret",
+    "prerequisites": [
+      "laser",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "laser-turret"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-1",
+    "display_name": "Laser weapons damage 1",
+    "prerequisites": [
+      "laser",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-2",
+    "display_name": "Laser weapons damage 2",
+    "prerequisites": [
+      "laser-weapons-damage-1"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-3",
+    "display_name": "Laser weapons damage 3",
+    "prerequisites": [
+      "laser-weapons-damage-2"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-4",
+    "display_name": "Laser weapons damage 4",
+    "prerequisites": [
+      "laser-weapons-damage-3"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-5",
+    "display_name": "Laser weapons damage 5",
+    "prerequisites": [
+      "laser-weapons-damage-4",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-6",
+    "display_name": "Laser weapons damage 6",
+    "prerequisites": [
+      "laser-weapons-damage-5"
+    ]
+  },
+  {
+    "name": "laser-weapons-damage-7",
+    "display_name": "Laser weapons damage",
+    "prerequisites": [
+      "laser-weapons-damage-6",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "legendary-quality",
+    "display_name": "Legendary quality",
+    "prerequisites": [
+      "cryogenic-science-pack",
+      "epic-quality"
+    ]
+  },
+  {
+    "name": "lightning-collector",
+    "display_name": "Lightning collector",
+    "prerequisites": [
+      "electromagnetic-science-pack"
+    ],
+    "unlocks": [
+      "lightning-collector"
+    ]
+  },
+  {
+    "name": "lithium-processing",
+    "display_name": "Lithium processing",
+    "prerequisites": [
+      "planet-discovery-aquilo"
+    ],
+    "unlocks": [
+      "lithium",
+      "lithium-plate"
+    ]
+  },
+  {
+    "name": "logistic-robotics",
+    "display_name": "Logistic robotics",
+    "prerequisites": [
+      "robotics"
+    ],
+    "unlocks": [
+      "roboport",
+      "passive-provider-chest",
+      "storage-chest",
+      "logistic-robot"
+    ]
+  },
+  {
+    "name": "logistic-science-pack",
+    "display_name": "Logistic science pack",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "logistic-science-pack"
+    ]
+  },
+  {
+    "name": "logistic-system",
+    "display_name": "Logistic system",
+    "prerequisites": [
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "active-provider-chest",
+      "requester-chest",
+      "buffer-chest"
+    ]
+  },
+  {
+    "name": "logistics",
+    "display_name": "Logistics",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "underground-belt",
+      "splitter"
+    ]
+  },
+  {
+    "name": "logistics-2",
+    "display_name": "Logistics 2",
+    "prerequisites": [
+      "logistics",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "fast-transport-belt",
+      "fast-underground-belt",
+      "fast-splitter"
+    ]
+  },
+  {
+    "name": "logistics-3",
+    "display_name": "Logistics 3",
+    "prerequisites": [
+      "production-science-pack",
+      "lubricant"
+    ],
+    "unlocks": [
+      "express-transport-belt",
+      "express-underground-belt",
+      "express-splitter"
+    ]
+  },
+  {
+    "name": "low-density-structure",
+    "display_name": "Low density structure",
+    "prerequisites": [
+      "advanced-material-processing",
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "low-density-structure"
+    ]
+  },
+  {
+    "name": "low-density-structure-productivity",
+    "display_name": "Low density structure productivity",
+    "prerequisites": [
+      "production-science-pack",
+      "metallurgic-science-pack"
+    ]
+  },
+  {
+    "name": "lubricant",
+    "display_name": "Lubricant",
+    "prerequisites": [
+      "advanced-oil-processing"
+    ],
+    "unlocks": [
+      "lubricant"
+    ]
+  },
+  {
+    "name": "mech-armor",
+    "display_name": "Mech armor",
+    "prerequisites": [
+      "electromagnetic-science-pack",
+      "power-armor-mk2"
+    ],
+    "unlocks": [
+      "mech-armor"
+    ]
+  },
+  {
+    "name": "metallurgic-science-pack",
+    "display_name": "Metallurgic science pack",
+    "prerequisites": [
+      "tungsten-steel"
+    ],
+    "unlocks": [
+      "metallurgic-science-pack"
+    ]
+  },
+  {
+    "name": "military",
+    "display_name": "Military",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "submachine-gun",
+      "shotgun",
+      "shotgun-shell"
+    ]
+  },
+  {
+    "name": "military-2",
+    "display_name": "Military 2",
+    "prerequisites": [
+      "military",
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "piercing-rounds-magazine",
+      "grenade"
+    ]
+  },
+  {
+    "name": "military-3",
+    "display_name": "Military 3",
+    "prerequisites": [
+      "chemical-science-pack",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "poison-capsule",
+      "slowdown-capsule",
+      "combat-shotgun"
+    ]
+  },
+  {
+    "name": "military-4",
+    "display_name": "Military 4",
+    "prerequisites": [
+      "military-3",
+      "utility-science-pack",
+      "explosives"
+    ],
+    "unlocks": [
+      "piercing-shotgun-shell",
+      "cluster-grenade"
+    ]
+  },
+  {
+    "name": "military-science-pack",
+    "display_name": "Military science pack",
+    "prerequisites": [
+      "military-2",
+      "stone-wall"
+    ],
+    "unlocks": [
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "mining-productivity-1",
+    "display_name": "Mining productivity 1",
+    "prerequisites": [
+      "advanced-circuit"
+    ]
+  },
+  {
+    "name": "mining-productivity-2",
+    "display_name": "Mining productivity 2",
+    "prerequisites": [
+      "mining-productivity-1",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "mining-productivity-3",
+    "display_name": "Mining productivity",
+    "prerequisites": [
+      "mining-productivity-2",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "modular-armor",
+    "display_name": "Modular armor",
+    "prerequisites": [
+      "heavy-armor",
+      "advanced-circuit"
+    ],
+    "unlocks": [
+      "modular-armor"
+    ]
+  },
+  {
+    "name": "modules",
+    "display_name": "Modules",
+    "prerequisites": [
+      "advanced-circuit"
+    ]
+  },
+  {
+    "name": "night-vision-equipment",
+    "display_name": "Nightvision equipment",
+    "prerequisites": [
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "night-vision-equipment"
+    ]
+  },
+  {
+    "name": "nuclear-fuel-reprocessing",
+    "display_name": "Nuclear fuel reprocessing",
+    "prerequisites": [
+      "nuclear-power",
+      "production-science-pack"
+    ],
+    "unlocks": [
+      "nuclear-fuel-reprocessing"
+    ]
+  },
+  {
+    "name": "nuclear-power",
+    "display_name": "Nuclear power",
+    "prerequisites": [
+      "uranium-processing"
+    ],
+    "unlocks": [
+      "nuclear-reactor",
+      "heat-exchanger",
+      "heat-pipe",
+      "steam-turbine",
+      "uranium-fuel-cell"
+    ]
+  },
+  {
+    "name": "oil-gathering",
+    "display_name": "Oil gathering",
+    "prerequisites": [
+      "fluid-handling"
+    ],
+    "unlocks": [
+      "pumpjack"
+    ]
+  },
+  {
+    "name": "oil-processing",
+    "display_name": "Oil processing",
+    "prerequisites": [
+      "oil-gathering"
+    ],
+    "unlocks": [
+      "oil-refinery",
+      "chemical-plant",
+      "basic-oil-processing",
+      "solid-fuel-from-petroleum-gas"
+    ]
+  },
+  {
+    "name": "overgrowth-soil",
+    "display_name": "Overgrowth soil",
+    "prerequisites": [
+      "biter-egg-handling",
+      "production-science-pack",
+      "utility-science-pack"
+    ],
+    "unlocks": [
+      "overgrowth-yumako-soil",
+      "overgrowth-jellynut-soil"
+    ]
+  },
+  {
+    "name": "personal-laser-defense-equipment",
+    "display_name": "Personal laser defense",
+    "prerequisites": [
+      "laser-turret",
+      "military-3",
+      "low-density-structure",
+      "power-armor",
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "personal-laser-defense-equipment"
+    ]
+  },
+  {
+    "name": "personal-roboport-equipment",
+    "display_name": "Personal roboport",
+    "prerequisites": [
+      "construction-robotics",
+      "solar-panel-equipment"
+    ],
+    "unlocks": [
+      "personal-roboport-equipment"
+    ]
+  },
+  {
+    "name": "personal-roboport-mk2-equipment",
+    "display_name": "Personal roboport MK2",
+    "prerequisites": [
+      "personal-roboport-equipment",
+      "electromagnetic-science-pack",
+      "utility-science-pack"
+    ],
+    "unlocks": [
+      "personal-roboport-mk2-equipment"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-1",
+    "display_name": "Physical projectile damage 1",
+    "prerequisites": [
+      "military"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-2",
+    "display_name": "Physical projectile damage 2",
+    "prerequisites": [
+      "physical-projectile-damage-1",
+      "logistic-science-pack"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-3",
+    "display_name": "Physical projectile damage 3",
+    "prerequisites": [
+      "physical-projectile-damage-2",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-4",
+    "display_name": "Physical projectile damage 4",
+    "prerequisites": [
+      "physical-projectile-damage-3"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-5",
+    "display_name": "Physical projectile damage 5",
+    "prerequisites": [
+      "physical-projectile-damage-4",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-6",
+    "display_name": "Physical projectile damage 6",
+    "prerequisites": [
+      "physical-projectile-damage-5",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "physical-projectile-damage-7",
+    "display_name": "Physical projectile damage",
+    "prerequisites": [
+      "physical-projectile-damage-6",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "planet-discovery-aquilo",
+    "display_name": "Planet discovery Aquilo",
+    "prerequisites": [
+      "rocket-turret",
+      "advanced-asteroid-processing",
+      "heating-tower",
+      "asteroid-reprocessing",
+      "electromagnetic-science-pack"
+    ],
+    "unlocks": [
+      "ammoniacal-solution-separation",
+      "solid-fuel-from-ammonia",
+      "ammonia-rocket-fuel",
+      "ice-platform"
+    ]
+  },
+  {
+    "name": "planet-discovery-fulgora",
+    "display_name": "Planet discovery Fulgora",
+    "prerequisites": [
+      "space-platform-thruster",
+      "electric-energy-accumulators"
+    ],
+    "unlocks": [
+      "lightning-rod"
+    ]
+  },
+  {
+    "name": "planet-discovery-gleba",
+    "display_name": "Planet discovery Gleba",
+    "prerequisites": [
+      "space-platform-thruster",
+      "landfill"
+    ]
+  },
+  {
+    "name": "planet-discovery-vulcanus",
+    "display_name": "Planet discovery Vulcanus",
+    "prerequisites": [
+      "space-platform-thruster"
+    ]
+  },
+  {
+    "name": "plastic-bar-productivity",
+    "display_name": "Plastic bar productivity",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "plastics",
+    "display_name": "Plastics",
+    "prerequisites": [
+      "oil-processing"
+    ],
+    "unlocks": [
+      "plastic-bar"
+    ]
+  },
+  {
+    "name": "power-armor",
+    "display_name": "Power armor",
+    "prerequisites": [
+      "modular-armor",
+      "electric-engine",
+      "processing-unit"
+    ],
+    "unlocks": [
+      "power-armor"
+    ]
+  },
+  {
+    "name": "power-armor-mk2",
+    "display_name": "Power armor MK2",
+    "prerequisites": [
+      "power-armor",
+      "military-4",
+      "speed-module",
+      "efficiency-module"
+    ],
+    "unlocks": [
+      "power-armor-mk2"
+    ]
+  },
+  {
+    "name": "processing-unit",
+    "display_name": "Processing unit",
+    "prerequisites": [
+      "chemical-science-pack"
+    ],
+    "unlocks": [
+      "processing-unit"
+    ]
+  },
+  {
+    "name": "processing-unit-productivity",
+    "display_name": "Processing unit productivity",
+    "prerequisites": [
+      "electromagnetic-science-pack",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "production-science-pack",
+    "display_name": "Production science pack",
+    "prerequisites": [
+      "productivity-module",
+      "advanced-material-processing-2",
+      "railway"
+    ],
+    "unlocks": [
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "productivity-module",
+    "display_name": "Productivity module",
+    "prerequisites": [
+      "modules"
+    ],
+    "unlocks": [
+      "productivity-module"
+    ]
+  },
+  {
+    "name": "productivity-module-2",
+    "display_name": "Productivity module 2",
+    "prerequisites": [
+      "productivity-module",
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "productivity-module-2"
+    ]
+  },
+  {
+    "name": "productivity-module-3",
+    "display_name": "Productivity module 3",
+    "prerequisites": [
+      "productivity-module-2",
+      "biter-egg-handling"
+    ],
+    "unlocks": [
+      "productivity-module-3"
+    ]
+  },
+  {
+    "name": "promethium-science-pack",
+    "display_name": "Promethium science pack",
+    "prerequisites": [
+      "biter-egg-handling",
+      "fusion-reactor"
+    ],
+    "unlocks": [
+      "promethium-science-pack"
+    ]
+  },
+  {
+    "name": "quality-module",
+    "display_name": "Quality module",
+    "prerequisites": [
+      "modules"
+    ],
+    "unlocks": [
+      "quality-module"
+    ]
+  },
+  {
+    "name": "quality-module-2",
+    "display_name": "Quality module 2",
+    "prerequisites": [
+      "quality-module",
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "quality-module-2"
+    ]
+  },
+  {
+    "name": "quality-module-3",
+    "display_name": "Quality module 3",
+    "prerequisites": [
+      "quality-module-2",
+      "electromagnetic-science-pack"
+    ],
+    "unlocks": [
+      "quality-module-3"
+    ]
+  },
+  {
+    "name": "quantum-processor",
+    "display_name": "Quantum processor",
+    "prerequisites": [
+      "cryogenic-science-pack"
+    ],
+    "unlocks": [
+      "quantum-processor"
+    ]
+  },
+  {
+    "name": "radar",
+    "display_name": "Radar",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "radar"
+    ]
+  },
+  {
+    "name": "rail-support-foundations",
+    "display_name": "Rail support foundations",
+    "prerequisites": [
+      "electromagnetic-science-pack",
+      "utility-science-pack",
+      "metallurgic-science-pack",
+      "elevated-rail"
+    ]
+  },
+  {
+    "name": "railgun",
+    "display_name": "Railgun",
+    "prerequisites": [
+      "quantum-processor"
+    ],
+    "unlocks": [
+      "railgun",
+      "railgun-turret",
+      "railgun-ammo"
+    ]
+  },
+  {
+    "name": "railgun-damage-1",
+    "display_name": "Railgun damage",
+    "prerequisites": [
+      "railgun"
+    ]
+  },
+  {
+    "name": "railgun-shooting-speed-1",
+    "display_name": "Railgun shooting speed",
+    "prerequisites": [
+      "railgun"
+    ]
+  },
+  {
+    "name": "railway",
+    "display_name": "Railway",
+    "prerequisites": [
+      "logistics-2",
+      "engine"
+    ],
+    "unlocks": [
+      "rail",
+      "locomotive",
+      "cargo-wagon",
+      "iron-stick"
+    ]
+  },
+  {
+    "name": "recycling",
+    "display_name": "Recycling",
+    "prerequisites": [
+      "planet-discovery-fulgora"
+    ],
+    "unlocks": [
+      "recycler",
+      "scrap-recycling"
+    ]
+  },
+  {
+    "name": "refined-flammables-1",
+    "display_name": "Refined flammables 1",
+    "prerequisites": [
+      "flamethrower"
+    ]
+  },
+  {
+    "name": "refined-flammables-2",
+    "display_name": "Refined flammables 2",
+    "prerequisites": [
+      "refined-flammables-1"
+    ]
+  },
+  {
+    "name": "refined-flammables-3",
+    "display_name": "Refined flammables 3",
+    "prerequisites": [
+      "refined-flammables-2",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "refined-flammables-4",
+    "display_name": "Refined flammables 4",
+    "prerequisites": [
+      "refined-flammables-3",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "refined-flammables-5",
+    "display_name": "Refined flammables 5",
+    "prerequisites": [
+      "refined-flammables-4"
+    ]
+  },
+  {
+    "name": "refined-flammables-6",
+    "display_name": "Refined flammables 6",
+    "prerequisites": [
+      "refined-flammables-5",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "refined-flammables-7",
+    "display_name": "Refined flammables",
+    "prerequisites": [
+      "refined-flammables-6",
+      "agricultural-science-pack"
+    ]
+  },
+  {
+    "name": "repair-pack",
+    "display_name": "Repair pack",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "repair-pack"
+    ]
+  },
+  {
+    "name": "research-productivity",
+    "display_name": "Research productivity",
+    "prerequisites": [
+      "promethium-science-pack"
+    ]
+  },
+  {
+    "name": "research-speed-1",
+    "display_name": "Lab research speed 1",
+    "prerequisites": [
+      "automation-2"
+    ]
+  },
+  {
+    "name": "research-speed-2",
+    "display_name": "Lab research speed 2",
+    "prerequisites": [
+      "research-speed-1"
+    ]
+  },
+  {
+    "name": "research-speed-3",
+    "display_name": "Lab research speed 3",
+    "prerequisites": [
+      "research-speed-2",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "research-speed-4",
+    "display_name": "Lab research speed 4",
+    "prerequisites": [
+      "research-speed-3"
+    ]
+  },
+  {
+    "name": "research-speed-5",
+    "display_name": "Lab research speed 5",
+    "prerequisites": [
+      "research-speed-4",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "research-speed-6",
+    "display_name": "Lab research speed 6",
+    "prerequisites": [
+      "research-speed-5",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "robotics",
+    "display_name": "Robotics",
+    "prerequisites": [
+      "electric-engine",
+      "battery"
+    ],
+    "unlocks": [
+      "flying-robot-frame"
+    ]
+  },
+  {
+    "name": "rocket-fuel",
+    "display_name": "Rocket fuel",
+    "prerequisites": [
+      "flammables",
+      "advanced-oil-processing"
+    ],
+    "unlocks": [
+      "rocket-fuel"
+    ]
+  },
+  {
+    "name": "rocket-fuel-productivity",
+    "display_name": "Rocket fuel productivity",
+    "prerequisites": [
+      "agricultural-science-pack",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "rocket-part-productivity",
+    "display_name": "Rocket part productivity",
+    "prerequisites": [
+      "cryogenic-science-pack"
+    ]
+  },
+  {
+    "name": "rocket-silo",
+    "display_name": "Rocket silo",
+    "prerequisites": [
+      "concrete",
+      "rocket-fuel",
+      "processing-unit",
+      "logistic-robotics",
+      "low-density-structure",
+      "advanced-material-processing-2"
+    ],
+    "unlocks": [
+      "rocket-silo",
+      "rocket-part",
+      "cargo-landing-pad",
+      "space-platform-starter-pack",
+      "space-platform-foundation"
+    ]
+  },
+  {
+    "name": "rocket-turret",
+    "display_name": "Rocket turret",
+    "prerequisites": [
+      "rocketry",
+      "carbon-fiber",
+      "stronger-explosives-2"
+    ],
+    "unlocks": [
+      "rocket-turret",
+      "coal-synthesis"
+    ]
+  },
+  {
+    "name": "rocketry",
+    "display_name": "Rocketry",
+    "prerequisites": [
+      "explosives",
+      "flammables",
+      "military-science-pack"
+    ],
+    "unlocks": [
+      "rocket-launcher",
+      "rocket"
+    ]
+  },
+  {
+    "name": "scrap-recycling-productivity",
+    "display_name": "Scrap recycling productivity",
+    "prerequisites": [
+      "electromagnetic-science-pack",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "solar-energy",
+    "display_name": "Solar energy",
+    "prerequisites": [
+      "steel-processing",
+      "logistic-science-pack"
+    ],
+    "unlocks": [
+      "solar-panel"
+    ]
+  },
+  {
+    "name": "solar-panel-equipment",
+    "display_name": "Portable solar panel",
+    "prerequisites": [
+      "modular-armor",
+      "solar-energy"
+    ],
+    "unlocks": [
+      "solar-panel-equipment"
+    ]
+  },
+  {
+    "name": "space-platform",
+    "display_name": "Space platform",
+    "prerequisites": [
+      "rocket-silo"
+    ],
+    "unlocks": [
+      "asteroid-collector",
+      "crusher",
+      "metallic-asteroid-crushing",
+      "carbonic-asteroid-crushing",
+      "oxide-asteroid-crushing",
+      "cargo-bay"
+    ]
+  },
+  {
+    "name": "space-platform-thruster",
+    "display_name": "Space platform thruster",
+    "prerequisites": [
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "thruster",
+      "ice-melting",
+      "thruster-fuel",
+      "thruster-oxidizer"
+    ]
+  },
+  {
+    "name": "space-science-pack",
+    "display_name": "Space science pack",
+    "prerequisites": [
+      "space-platform"
+    ],
+    "unlocks": [
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "speed-module",
+    "display_name": "Speed module",
+    "prerequisites": [
+      "modules"
+    ],
+    "unlocks": [
+      "speed-module"
+    ]
+  },
+  {
+    "name": "speed-module-2",
+    "display_name": "Speed module 2",
+    "prerequisites": [
+      "speed-module",
+      "space-science-pack"
+    ],
+    "unlocks": [
+      "speed-module-2"
+    ]
+  },
+  {
+    "name": "speed-module-3",
+    "display_name": "Speed module 3",
+    "prerequisites": [
+      "speed-module-2",
+      "metallurgic-science-pack"
+    ],
+    "unlocks": [
+      "speed-module-3"
+    ]
+  },
+  {
+    "name": "spidertron",
+    "display_name": "Spidertron",
+    "prerequisites": [
+      "rocket-turret",
+      "exoskeleton-equipment",
+      "fission-reactor-equipment",
+      "military-4",
+      "production-science-pack",
+      "radar"
+    ],
+    "unlocks": [
+      "spidertron"
+    ]
+  },
+  {
+    "name": "stack-inserter",
+    "display_name": "Stack inserter",
+    "prerequisites": [
+      "carbon-fiber",
+      "production-science-pack",
+      "utility-science-pack",
+      "bulk-inserter"
+    ],
+    "unlocks": [
+      "stack-inserter"
+    ]
+  },
+  {
+    "name": "steam-power",
+    "display_name": "Steam power",
+    "unlocks": [
+      "pipe",
+      "pipe-to-ground",
+      "offshore-pump",
+      "boiler",
+      "steam-engine"
+    ]
+  },
+  {
+    "name": "steel-axe",
+    "display_name": "Steel axe",
+    "prerequisites": [
+      "steel-processing"
+    ]
+  },
+  {
+    "name": "steel-plate-productivity",
+    "display_name": "Steel plate productivity",
+    "prerequisites": [
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "steel-processing",
+    "display_name": "Steel processing",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "steel-plate",
+      "steel-chest"
+    ]
+  },
+  {
+    "name": "stone-wall",
+    "display_name": "Stone wall",
+    "prerequisites": [
+      "automation-science-pack"
+    ],
+    "unlocks": [
+      "stone-wall"
+    ]
+  },
+  {
+    "name": "stronger-explosives-1",
+    "display_name": "Stronger explosives 1",
+    "prerequisites": [
+      "military-2"
+    ]
+  },
+  {
+    "name": "stronger-explosives-2",
+    "display_name": "Stronger explosives 2",
+    "prerequisites": [
+      "stronger-explosives-1",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "stronger-explosives-3",
+    "display_name": "Stronger explosives 3",
+    "prerequisites": [
+      "stronger-explosives-2",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "stronger-explosives-4",
+    "display_name": "Stronger explosives 4",
+    "prerequisites": [
+      "stronger-explosives-3",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "stronger-explosives-5",
+    "display_name": "Stronger explosives 5",
+    "prerequisites": [
+      "stronger-explosives-4",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "stronger-explosives-6",
+    "display_name": "Stronger explosives 6",
+    "prerequisites": [
+      "stronger-explosives-5"
+    ]
+  },
+  {
+    "name": "stronger-explosives-7",
+    "display_name": "Stronger explosives",
+    "prerequisites": [
+      "stronger-explosives-6",
+      "agricultural-science-pack"
+    ]
+  },
+  {
+    "name": "sulfur-processing",
+    "display_name": "Sulfur processing",
+    "prerequisites": [
+      "oil-processing"
+    ],
+    "unlocks": [
+      "sulfuric-acid",
+      "sulfur"
+    ]
+  },
+  {
+    "name": "tank",
+    "display_name": "Tank",
+    "prerequisites": [
+      "automobilism",
+      "military-3",
+      "explosives"
+    ],
+    "unlocks": [
+      "tank",
+      "cannon-shell",
+      "explosive-cannon-shell"
+    ]
+  },
+  {
+    "name": "tesla-weapons",
+    "display_name": "Tesla weapons",
+    "prerequisites": [
+      "electromagnetic-science-pack",
+      "military-4"
+    ],
+    "unlocks": [
+      "teslagun",
+      "tesla-turret",
+      "tesla-ammo"
+    ]
+  },
+  {
+    "name": "toolbelt",
+    "display_name": "Toolbelt",
+    "prerequisites": [
+      "logistic-science-pack"
+    ]
+  },
+  {
+    "name": "toolbelt-equipment",
+    "display_name": "Toolbelt equipment",
+    "prerequisites": [
+      "power-armor",
+      "toolbelt",
+      "carbon-fiber"
+    ],
+    "unlocks": [
+      "toolbelt-equipment"
+    ]
+  },
+  {
+    "name": "transport-belt-capacity-1",
+    "display_name": "Transport belt capacity 1",
+    "prerequisites": [
+      "stack-inserter"
+    ]
+  },
+  {
+    "name": "transport-belt-capacity-2",
+    "display_name": "Transport belt capacity 2",
+    "prerequisites": [
+      "transport-belt-capacity-1"
+    ]
+  },
+  {
+    "name": "tree-seeding",
+    "display_name": "Tree seeding",
+    "prerequisites": [
+      "agricultural-science-pack"
+    ],
+    "unlocks": [
+      "wood-processing"
+    ]
+  },
+  {
+    "name": "tungsten-carbide",
+    "display_name": "Tungsten carbide",
+    "prerequisites": [
+      "planet-discovery-vulcanus"
+    ],
+    "unlocks": [
+      "carbon",
+      "tungsten-carbide"
+    ]
+  },
+  {
+    "name": "tungsten-steel",
+    "display_name": "Tungsten steel",
+    "prerequisites": [
+      "big-mining-drill"
+    ],
+    "unlocks": [
+      "tungsten-plate"
+    ]
+  },
+  {
+    "name": "turbo-transport-belt",
+    "display_name": "Turbo transport belt",
+    "prerequisites": [
+      "metallurgic-science-pack",
+      "logistics-3"
+    ],
+    "unlocks": [
+      "turbo-transport-belt",
+      "turbo-underground-belt",
+      "turbo-splitter"
+    ]
+  },
+  {
+    "name": "uranium-ammo",
+    "display_name": "Uranium ammo",
+    "prerequisites": [
+      "uranium-processing",
+      "military-4",
+      "tank"
+    ],
+    "unlocks": [
+      "uranium-rounds-magazine",
+      "uranium-cannon-shell",
+      "explosive-uranium-cannon-shell"
+    ]
+  },
+  {
+    "name": "uranium-mining",
+    "display_name": "Uranium mining",
+    "prerequisites": [
+      "chemical-science-pack",
+      "concrete"
+    ]
+  },
+  {
+    "name": "uranium-processing",
+    "display_name": "Uranium processing",
+    "prerequisites": [
+      "uranium-mining"
+    ],
+    "unlocks": [
+      "centrifuge",
+      "uranium-processing"
+    ]
+  },
+  {
+    "name": "utility-science-pack",
+    "display_name": "Utility science pack",
+    "prerequisites": [
+      "robotics",
+      "processing-unit",
+      "low-density-structure"
+    ],
+    "unlocks": [
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-1",
+    "display_name": "Weapon shooting speed 1",
+    "prerequisites": [
+      "military"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-2",
+    "display_name": "Weapon shooting speed 2",
+    "prerequisites": [
+      "weapon-shooting-speed-1",
+      "logistic-science-pack"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-3",
+    "display_name": "Weapon shooting speed 3",
+    "prerequisites": [
+      "weapon-shooting-speed-2",
+      "military-science-pack"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-4",
+    "display_name": "Weapon shooting speed 4",
+    "prerequisites": [
+      "weapon-shooting-speed-3"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-5",
+    "display_name": "Weapon shooting speed 5",
+    "prerequisites": [
+      "weapon-shooting-speed-4",
+      "chemical-science-pack"
+    ]
+  },
+  {
+    "name": "weapon-shooting-speed-6",
+    "display_name": "Weapon shooting speed 6",
+    "prerequisites": [
+      "weapon-shooting-speed-5",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-1",
+    "display_name": "Worker robot speed 1",
+    "prerequisites": [
+      "robotics"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-2",
+    "display_name": "Worker robot speed 2",
+    "prerequisites": [
+      "worker-robots-speed-1"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-3",
+    "display_name": "Worker robot speed 3",
+    "prerequisites": [
+      "worker-robots-speed-2",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-4",
+    "display_name": "Worker robot speed 4",
+    "prerequisites": [
+      "worker-robots-speed-3"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-5",
+    "display_name": "Worker robot speed 5",
+    "prerequisites": [
+      "worker-robots-speed-4",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-6",
+    "display_name": "Worker robot speed 6",
+    "prerequisites": [
+      "worker-robots-speed-5",
+      "space-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-speed-7",
+    "display_name": "Worker robot speed",
+    "prerequisites": [
+      "worker-robots-speed-6",
+      "electromagnetic-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-storage-1",
+    "display_name": "Worker robot cargo size 1",
+    "prerequisites": [
+      "robotics"
+    ]
+  },
+  {
+    "name": "worker-robots-storage-2",
+    "display_name": "Worker robot cargo size 2",
+    "prerequisites": [
+      "worker-robots-storage-1",
+      "production-science-pack"
+    ]
+  },
+  {
+    "name": "worker-robots-storage-3",
+    "display_name": "Worker robot cargo size 3",
+    "prerequisites": [
+      "worker-robots-storage-2",
+      "utility-science-pack"
+    ]
+  },
+  {
+    "name": "yumako",
+    "display_name": "Yumako",
+    "prerequisites": [
+      "agriculture"
+    ],
+    "unlocks": [
+      "yumako-processing",
+      "copper-bacteria"
+    ]
+  }
+]

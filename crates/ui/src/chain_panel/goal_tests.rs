@@ -1,7 +1,6 @@
-// Unit tests for the chain panel's own state: goal construction from the
-// panel's fields, including the availability the save picker supplies.
-use factorio_solver::chain::Availability;
-
+// Tests for `ChainPanel::build_goal`: rate-unit conversion, bus/override
+// wiring, and an end-to-end machine-count check. Moved out of `mod.rs`
+// verbatim to keep that file under the project's 300-line cap.
 use super::*;
 
 fn panel_with(product: &str, available: &[&str]) -> ChainPanel {
@@ -55,25 +54,6 @@ fn goal_carries_overrides() {
     assert_eq!(goal.recipe_overrides.get("copper-cable").unwrap(), "copper-cable");
 }
 
-#[test]
-fn build_goal_is_unrestricted_when_no_save_is_selected() {
-    let panel = ChainPanel::default();
-    assert_eq!(panel.build_goal().availability, Availability::Unrestricted);
-}
-
-/// `build_goal` must read `save_picker.availability` straight through
-/// with no re-derivation — proven here by setting the field directly
-/// rather than going through a real decode, which `save_picker`'s own
-/// tests already cover.
-#[test]
-fn build_goal_carries_unlocked_availability_once_a_save_is_loaded() {
-    let mut p = panel_with("electronic-circuit", &[]);
-    let unlocked: std::collections::HashSet<String> =
-        ["iron-plate", "copper-plate"].iter().map(|s| s.to_string()).collect();
-    p.save_picker.availability = Availability::Unlocked(unlocked.clone());
-    assert_eq!(p.build_goal().availability, Availability::Unlocked(unlocked));
-}
-
 /// The number a human checks on screen: 45/s electronic circuits from
 /// plates, on assembling-machine-2, needs 30 machines making circuits
 /// and 45 making the copper cable they consume.
@@ -90,4 +70,28 @@ fn end_to_end_electronic_circuit_plan_matches_expected_machine_counts() {
     assert!(counts.contains(&30), "expected a 30-machine step, got {counts:?}");
     assert!(counts.contains(&45), "expected a 45-machine step, got {counts:?}");
     assert_eq!(plan.steps.len(), 2, "only electronic-circuit and copper-cable should run");
+}
+
+#[test]
+fn build_goal_defaults_to_everything() {
+    let panel = ChainPanel::default();
+    assert_eq!(panel.build_goal().availability, Availability::Everything);
+}
+
+/// `build_goal` reads `available_recipes`/`availability_mode` straight
+/// through with no re-derivation — proven here by setting both fields
+/// directly (what `adopt_save` does with a decoded set) rather than going
+/// through `set_availability_mode`'s seed-then-edit flow, which
+/// `availability_tests.rs`'s `build_goal_carries_the_availability` already
+/// covers. A small, hand-picked set makes an exact equality check on
+/// `build_goal().availability` meaningful; the seeded ~300-recipe set that
+/// flow produces would not be.
+#[test]
+fn build_goal_passes_through_available_recipes_with_no_re_derivation() {
+    let mut p = panel_with("electronic-circuit", &[]);
+    let unlocked: BTreeSet<String> =
+        ["iron-plate", "copper-plate"].iter().map(|s| s.to_string()).collect();
+    p.available_recipes = Some(unlocked.clone());
+    p.availability_mode = AvailabilityMode::OnlyAvailable;
+    assert_eq!(p.build_goal().availability, Availability::Unlocked(unlocked));
 }

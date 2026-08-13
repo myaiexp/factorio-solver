@@ -19,13 +19,19 @@ pub fn passes_default_filter(recipe: &Recipe) -> bool {
 }
 
 /// Case-insensitive substring match of `query` against the recipe's display
-/// name (falling back to its internal name).
+/// name *or* its internal name. Every recipe has a locale-provided
+/// `display_name`, so a fallback never actually fires — but error messages,
+/// `recipe_overrides` and the availability set all print the internal name
+/// (e.g. `casting-copper-cable`), so a query pasted from one of those has to
+/// match it even though it is nowhere close to the display text ("Casting
+/// copper cable") the user is looking at.
 pub fn matches_query(recipe: &Recipe, query: &str) -> bool {
     if query.trim().is_empty() {
         return true;
     }
-    let name = display_name(&recipe.name, &recipe.display_name);
-    name.to_lowercase().contains(&query.trim().to_lowercase())
+    let q = query.trim().to_lowercase();
+    let display = display_name(&recipe.name, &recipe.display_name).to_lowercase();
+    display.contains(&q) || recipe.name.to_lowercase().contains(&q)
 }
 
 /// The picker's full filter chain: recycling/hidden (unless overridden) then
@@ -144,6 +150,17 @@ mod tests {
         assert!(matches_query(circuit, &name.to_uppercase()));
         assert!(matches_query(circuit, &name.to_lowercase()));
         assert!(!matches_query(circuit, "zzz-not-a-real-query"));
+    }
+
+    #[test]
+    fn search_matches_the_internal_name_when_the_display_name_would_not() {
+        // "Casting copper cable" (the display name) has no hyphens, so a
+        // hyphenated query can only match through the internal-name fallback
+        // — proving that path runs rather than assuming it does.
+        let registry = recipe::registry();
+        let casting = registry.get("casting-copper-cable").expect("fixture recipe exists");
+        assert_eq!(display_name(&casting.name, &casting.display_name), "Casting copper cable");
+        assert!(matches_query(casting, "casting-copper-cable"));
     }
 
     #[test]

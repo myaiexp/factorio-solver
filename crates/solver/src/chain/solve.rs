@@ -7,7 +7,9 @@
 // pass each, where a tree recursion could express neither.
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use crate::chain::select::{candidates_for, select_machine, select_recipe};
+use crate::chain::select::{
+    available_candidates_for, candidates_for, select_machine, select_recipe, unlockers_of,
+};
 use crate::chain::{ChainError, ChainGoal, ItemRate, ProductionPlan, ProductionStep};
 use crate::recipe::{ItemKind, Recipe};
 
@@ -43,10 +45,19 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         });
     }
 
-    // The *goal* having no recipe is the one place an empty candidate set
-    // is an error — everywhere else below it means "raw resource".
-    if candidates_for(&goal.product).is_empty() {
+    // The *goal* is held to a stricter bar than every intermediate below it:
+    // both "no recipe" and "a recipe this player cannot build" are refusals
+    // here, never a bus input. Ungated first, so a locked goal keeps its remedy.
+    let goal_candidates = candidates_for(&goal.product);
+    if goal_candidates.is_empty() {
         return Err(ChainError::UnreachableBoundary { item: goal.product.clone() });
+    }
+    if locked_without_an_override(goal, &goal.product) {
+        return Err(ChainError::RecipeLocked {
+            item: goal.product.clone(),
+            unlocked_by: unlockers_of(&goal_candidates),
+            recipes: goal_candidates.iter().map(|r| r.name.clone()).collect(),
+        });
     }
 
     // Produced-but-unconsumed rate per item, e.g. kovarex's spare U-238.
@@ -86,11 +97,22 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
             }
         }
 
-        // No recipe: a raw resource, not an error (the goal itself is held
-        // to a stricter bar, checked once above before the loop starts).
-        if candidates_for(&item).is_empty() {
+        // "No recipe" and "no recipe you can build" stay distinguishable: a
+        // truly empty candidate set is ore, full stop — ungated, so a locked
+        // intermediate can never masquerade as a bus requirement.
+        let candidates = candidates_for(&item);
+        if candidates.is_empty() {
             *inputs.entry(item.clone()).or_insert(0.0) += demand;
             continue;
+        }
+        // Craftable, but not by this player — never a bus input, or the plan
+        // looks fine and is not.
+        if locked_without_an_override(goal, &item) {
+            return Err(ChainError::RecipeLocked {
+                item: item.clone(),
+                unlocked_by: unlockers_of(&candidates),
+                recipes: candidates.iter().map(|r| r.name.clone()).collect(),
+            });
         }
 
         let recipe = select_recipe(&item, &goal.recipe_overrides, &goal.availability)?;
@@ -159,6 +181,20 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         .collect();
 
     Ok(ProductionPlan { steps, inputs: plan_inputs, byproducts, warnings })
+}
+
+/// Whether `item` is craftable in principle but not under `goal.availability`
+/// — the case that must be refused rather than billed to the bus.
+///
+/// An override for `item` suppresses it outright, because `select_recipe`
+/// honours an override without consulting availability at all: an override is
+/// an explicit instruction, and naming a locked recipe means the user meant
+/// it. Without this check the two disagreed, and `solve` won the race by
+/// refusing before `select_recipe` was ever reached — so an override that
+/// worked when called directly failed inside a plan.
+fn locked_without_an_override(goal: &ChainGoal, item: &str) -> bool {
+    !goal.recipe_overrides.contains_key(item)
+        && available_candidates_for(item, &goal.availability).is_empty()
 }
 
 /// Expected units of `item` produced per craft, minus expected units
@@ -276,4 +312,5 @@ fn topologically_order(steps: Vec<ProductionStep>) -> Vec<ProductionStep> {
 }
 
 #[cfg(test)]
+#[path = "solve_tests.rs"]
 mod tests;

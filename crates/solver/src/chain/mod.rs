@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use factorio_grid::prototype::{self, EntityPrototype};
 
-use crate::recipe::{self, Recipe};
+use crate::recipe::Recipe;
 
 pub mod error;
 pub mod select;
@@ -16,48 +16,11 @@ pub mod solve;
 pub use error::ChainError;
 pub use solve::solve;
 
-// ── Availability ──────────────────────────────────────────────────────
-
-/// What the player can actually build, read from a save's unlocked-recipe
-/// set. Kept separate from `available` (the bus) — one is "what item I
-/// already have", the other is "what I'm allowed to craft at all".
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub enum Availability {
-    /// Everything. The default — preserves existing behaviour exactly, so a
-    /// caller that never sets this sees no change from before the feature.
-    #[default]
-    Unrestricted,
-    /// Only these recipe names.
-    Unlocked(HashSet<String>),
-}
-
-impl Availability {
-    pub fn allows_recipe(&self, recipe: &str) -> bool {
-        match self {
-            Availability::Unrestricted => true,
-            Availability::Unlocked(names) => names.contains(recipe),
-        }
-    }
-
-    /// A machine is craftable when some allowed recipe produces an item
-    /// named `machine`. Keyed on the produced *item*, not the recipe name,
-    /// because that is what `select_machine` has in hand — an
-    /// `EntityPrototype` name, not a recipe.
-    ///
-    /// This assumes entity-prototype name and item name coincide, which
-    /// holds for every machine in this data set but is an assumption, not a
-    /// guarantee: a machine that violates it would read as locked rather
-    /// than as wrongly available, which is the safer failure direction.
-    pub fn allows_machine(&self, machine: &str) -> bool {
-        match self {
-            Availability::Unrestricted => true,
-            Availability::Unlocked(_) => recipe::registry()
-                .values()
-                .filter(|r| self.allows_recipe(&r.name))
-                .any(|r| r.results.iter().any(|res| res.name == machine)),
-        }
-    }
-}
+/// Re-exported so `chain::Availability` keeps resolving — the type itself
+/// lives in `crate::availability`, beside the sources that build one and the
+/// technology lookup that explains a refusal, none of which are chain
+/// concerns.
+pub use crate::availability::Availability;
 
 // ── Goal ──────────────────────────────────────────────────────────────
 
@@ -150,14 +113,15 @@ pub struct ChainGoal {
     pub machines: MachinePolicy,
     /// Item → recipe name, resolving items with more than one producer.
     pub recipe_overrides: HashMap<String, String>,
-    /// What the player can actually build. Defaults to `Unrestricted`, so
-    /// every existing caller of `new` is unaffected until it opts in.
+    /// What the player can build — the bus (`available`) says what they
+    /// already *have*, this says what they are able to *craft*. Defaults to
+    /// `Everything`, so every existing caller is unaffected until it opts in.
     pub availability: Availability,
 }
 
 impl ChainGoal {
-    /// A goal with the default machine policy, no overrides, and no
-    /// availability restriction.
+    /// A goal with the default machine policy, no overrides, and every
+    /// buildable recipe available (see `Availability::Everything`).
     pub fn new(product: &str, rate: Rate, available: &[&str]) -> Self {
         Self {
             product: product.to_string(),
@@ -165,7 +129,7 @@ impl ChainGoal {
             available: available.iter().map(|s| s.to_string()).collect(),
             machines: MachinePolicy::fastest(),
             recipe_overrides: HashMap::new(),
-            availability: Availability::Unrestricted,
+            availability: Availability::Everything,
         }
     }
 
@@ -179,6 +143,9 @@ impl ChainGoal {
         self
     }
 
+    /// Overrides the default `Everything` — what a specific player can
+    /// actually build, from a save import, the UI's own edited set, or a
+    /// future technology projection.
     pub fn with_availability(mut self, availability: Availability) -> Self {
         self.availability = availability;
         self

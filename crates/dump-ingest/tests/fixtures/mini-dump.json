@@ -133,5 +133,29 @@
       "name": "parameter-0",
       "parameter": true
     }
+  },
+  "technology": {
+    "automation": {
+      "type": "technology",
+      "name": "automation",
+      "effects": [
+        { "type": "unlock-recipe", "recipe": "electronic-circuit" }
+      ]
+    },
+    "mining-productivity-1": {
+      "type": "technology",
+      "name": "mining-productivity-1",
+      "effects": [
+        { "type": "mining-drill-productivity-bonus", "modifier": 0.1 }
+      ],
+      "prerequisites": ["automation"]
+    },
+    "steel-axe": {
+      "type": "technology",
+      "name": "steel-axe",
+      "effects": [
+        { "type": "unlock-recipe", "recipe": "parameter-0" }
+      ]
+    }
   }
 }

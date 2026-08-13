@@ -1,10 +1,12 @@
 // Selection layer: which recipe makes an item, and which machine crafts a recipe.
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use factorio_grid::prototype::{self, EntityPrototype};
 
-use crate::chain::{Availability, ChainError, MachineFallback, MachinePolicy};
+use crate::availability::{self, Availability};
+use crate::chain::{ChainError, MachineFallback, MachinePolicy};
 use crate::recipe::{self, Recipe};
+use crate::tech;
 
 /// Every recipe that can be chosen to produce `item`.
 ///
@@ -35,23 +37,53 @@ pub fn candidates_for(item: &str) -> Vec<&'static Recipe> {
     out
 }
 
+/// The subset of `candidates_for` that `availability` allows — the gated
+/// filter applied AFTER the existing hidden/recycling/main-product ones.
+///
+/// Deliberately does not replace `candidates_for`: a caller that needs to
+/// know "is this genuinely a raw resource" (no recipe at all, ever) must ask
+/// the ungated function, or a locked intermediate would be indistinguishable
+/// from ore. See `chain::solve`'s raw-resource split for why that matters.
+pub fn available_candidates_for(item: &str, availability: &Availability) -> Vec<&'static Recipe> {
+    candidates_for(item).into_iter().filter(|r| availability.allows(r)).collect()
+}
+
+/// Technology names that would unlock some candidate recipe for `item`,
+/// sorted and deduped. May be empty — plenty of locked recipes are behind no
+/// technology at all.
+///
+/// `pub(super)` rather than fully private: `chain::solve` needs the same
+/// explanation for its own raw-resource-vs-locked split, and duplicating
+/// this scan there would risk the two explanations drifting apart.
+pub(super) fn unlockers_of(candidates: &[&'static Recipe]) -> Vec<String> {
+    let mut names: BTreeSet<String> = BTreeSet::new();
+    for r in candidates {
+        names.extend(tech::unlockers_for(&r.name).into_iter().map(str::to_string));
+    }
+    names.into_iter().collect()
+}
+
 /// Pick the one recipe that produces `item`: an override wins outright,
-/// otherwise there must be exactly one *unlocked* candidate. Never guesses
-/// between several — that is always `AmbiguousRecipe`.
+/// otherwise there must be exactly one candidate `availability` allows.
+/// Never guesses between several — that is always `AmbiguousRecipe`.
 ///
 /// `candidates_for` stays purely structural (see its doc comment and
 /// `solve.rs`'s raw-resource check) — availability is applied here, after
 /// the structural list is in hand, not inside it. Filtering before counting
 /// means a locked alternative can no longer make an item look ambiguous, so
 /// availability sometimes *resolves* an `AmbiguousRecipe` that would
-/// otherwise need a manual override.
+/// otherwise need a manual override. That is the whole point: with the
+/// casting recipes out, the chemical-science chain stops asking the player to
+/// arbitrate four times over recipes they cannot build.
 pub fn select_recipe(
     item: &str,
     overrides: &HashMap<String, String>,
     availability: &Availability,
 ) -> Result<&'static Recipe, ChainError> {
-    // An explicit override is a deliberate user statement and bypasses
-    // candidate selection (and therefore availability) entirely.
+    // An override is an explicit instruction from the user, not a search
+    // result — it already bypasses the hidden/recycling/main-product
+    // filters, and availability is no different: naming a locked recipe here
+    // means they meant it. Do not "fix" this into an availability check.
     if let Some(recipe_name) = overrides.get(item) {
         return recipe::get(recipe_name).ok_or_else(|| ChainError::UnknownItem(recipe_name.clone()));
     }
@@ -65,19 +97,38 @@ pub fn select_recipe(
         return Err(ChainError::UnreachableBoundary { item: item.to_string() });
     }
 
-    let mut unlocked: Vec<&'static Recipe> =
-        candidates.iter().filter(|r| availability.allows_recipe(&r.name)).copied().collect();
-
-    match unlocked.len() {
-        1 => Ok(unlocked.remove(0)),
-        0 => Err(ChainError::RecipeLocked {
+    // Filtered from `candidates` rather than via `available_candidates_for`,
+    // which would walk the registry a second time for a list already in hand.
+    let mut available: Vec<&'static Recipe> =
+        candidates.iter().copied().filter(|r| availability.allows(r)).collect();
+    match available.len() {
+        1 => Ok(available.remove(0)),
+        n if n > 1 => Err(ChainError::AmbiguousRecipe {
             item: item.to_string(),
+            candidates: available.into_iter().map(|r| r.name.clone()).collect(),
+        }),
+        // Craftable in principle, not by this player. Names the producers it
+        // rejected *and* the research that would grant them — the first tells
+        // the user what they were denied, the second what to do about it.
+        _ => Err(ChainError::RecipeLocked {
+            item: item.to_string(),
+            unlocked_by: unlockers_of(&candidates),
             recipes: candidates.into_iter().map(|r| r.name.clone()).collect(),
         }),
-        _ => Err(ChainError::AmbiguousRecipe {
-            item: item.to_string(),
-            candidates: unlocked.into_iter().map(|r| r.name.clone()).collect(),
-        }),
+    }
+}
+
+/// True if `(name, speed)` should replace `current` under the "faster wins,
+/// ties broken by lower name" rule. Factored out so the gated and ungated
+/// searches in `select_machine` share one tie-break instead of two copies
+/// that could quietly diverge.
+fn beats(name: &str, speed: f64, current: Option<&'static EntityPrototype>) -> bool {
+    match current {
+        None => true,
+        Some(cur) => {
+            let cur_speed = cur.crafting_speed.unwrap_or(0.0);
+            speed > cur_speed || (speed == cur_speed && name < cur.name.as_str())
+        }
     }
 }
 
@@ -87,9 +138,9 @@ pub fn select_recipe(
 /// A named or preferred machine that is locked is an error (`MachineLocked`)
 /// rather than a downgrade — consistent with a named machine that cannot
 /// craft the category at all already erroring instead of falling back. Under
-/// the fastest-available fallback, a locked machine is skipped and the
-/// search continues silently: that is the point of the fallback existing —
-/// e.g. picking assembling-machine-2 over a locked assembling-machine-3.
+/// the fastest-available fallback, a locked machine is skipped and the search
+/// continues silently: that is the point of the fallback existing — e.g.
+/// picking assembling-machine-2 over a locked assembling-machine-3.
 pub fn select_machine(
     recipe: &Recipe,
     policy: &MachinePolicy,
@@ -108,58 +159,77 @@ pub fn select_machine(
         // and deserves its own error rather than one check masking another.
         let proto = prototype::lookup(machine)
             .ok_or_else(|| ChainError::UnknownMachine { machine: machine.clone() })?;
+        // A machine that cannot craft the category is fatal regardless of
+        // research, so that check stays first. Only once the category is
+        // right do we ask whether the player can actually build it —
+        // substituting a different machine here would silently break the
+        // caller's explicit "build it all in X" instruction.
         if !proto.crafting_categories.iter().any(|c| c == category) {
             return Err(ChainError::NoMachineForCategory {
                 category: category.clone(),
                 recipe: recipe.name.clone(),
             });
         }
-        return if availability.allows_machine(&proto.name) {
+        return if availability.allows_machine(machine) {
             Ok(proto)
         } else {
             Err(ChainError::MachineLocked {
-                machine: proto.name.clone(),
+                machine: machine.clone(),
                 recipe: recipe.name.clone(),
+                unlocked_by: availability::machine_unlockers(machine),
             })
         };
     }
 
-    // No preference and no named fallback: search for the fastest *unlocked*
-    // prototype covering the category. `all_names()` iterates a HashMap, so
-    // ties are broken by name to keep the result deterministic.
-    let mut best: Option<&'static EntityPrototype> = None;
+    // No preference and no named fallback: search for the fastest *available*
+    // prototype covering the category, tracking the gated and ungated bests in
+    // the same pass rather than scanning twice. `all_names()` iterates a
+    // HashMap, so ties are broken by name (via `beats`) to keep both results
+    // deterministic.
+    let mut best_available: Option<&'static EntityPrototype> = None;
+    let mut best_overall: Option<&'static EntityPrototype> = None;
     for name in prototype::all_names() {
         let Some(proto) = prototype::lookup(name) else { continue };
         if !proto.crafting_categories.iter().any(|c| c == category) {
             continue;
         }
         let Some(speed) = proto.crafting_speed else { continue };
-        if !availability.allows_machine(&proto.name) {
-            continue;
+
+        if beats(&proto.name, speed, best_overall) {
+            best_overall = Some(proto);
         }
-        best = match best {
-            None => Some(proto),
-            Some(current) => {
-                let current_speed = current.crafting_speed.unwrap_or(0.0);
-                if speed > current_speed || (speed == current_speed && proto.name < current.name) {
-                    Some(proto)
-                } else {
-                    Some(current)
-                }
-            }
-        };
+        if availability.allows_machine(&proto.name) && beats(&proto.name, speed, best_available) {
+            best_available = Some(proto);
+        }
     }
 
-    // Nothing craftable and unlocked: report the same error as "no machine
-    // covers this category at all" rather than `MachineLocked`, which needs
-    // one specific machine name to put in its field and the fallback search
-    // never had one — every candidate was ruled out for the same reason, but
-    // there is no single offending machine to name.
-    best.ok_or_else(|| ChainError::NoMachineForCategory {
-        category: category.clone(),
-        recipe: recipe.name.clone(),
-    })
+    if let Some(proto) = best_available {
+        return Ok(proto);
+    }
+
+    // Nothing available covers the category. If the ungated search found
+    // something, the honest error names that machine's lock rather than
+    // `NoMachineForCategory`, whose message points at the machine policy —
+    // the wrong control entirely when the real remedy is research. Tracking
+    // `best_overall` alongside is what makes a name available here: every
+    // candidate was ruled out for the same reason, and the fastest of them is
+    // the one the player would have got.
+    if let Some(proto) = best_overall {
+        return Err(ChainError::MachineLocked {
+            machine: proto.name.clone(),
+            recipe: recipe.name.clone(),
+            unlocked_by: availability::machine_unlockers(&proto.name),
+        });
+    }
+
+    Err(ChainError::NoMachineForCategory { category: category.clone(), recipe: recipe.name.clone() })
 }
 
+/// Recipe selection: candidate lists, `select_recipe`, and availability.
 #[cfg(test)]
+#[path = "select_tests.rs"]
 mod tests;
+/// Machine selection: `select_machine`, its policy, and availability.
+#[cfg(test)]
+#[path = "select_machine_tests.rs"]
+mod machine_tests;

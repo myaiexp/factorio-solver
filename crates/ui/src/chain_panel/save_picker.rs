@@ -3,12 +3,12 @@
 // of every recipe the registry knows about. `controls::save_picker` is the
 // egui-facing half of this; everything here is plain data and file I/O so it
 // can be unit-tested with no frame driven.
+use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
-use factorio_solver::availability;
-use factorio_solver::chain::Availability;
+use factorio_solver::availability::from_save;
 
 /// A save file discovered on disk.
 pub struct SaveEntry {
@@ -52,17 +52,20 @@ pub fn default_saves_dir() -> Option<PathBuf> {
 }
 
 /// Panel-side state for the save picker: what was found on disk, what's
-/// selected, and the availability constraint decoded from it.
+/// selected, and the outcome of decoding it.
 pub struct SavePickerState {
     pub entries: Vec<SaveEntry>,
     pub selected: Option<PathBuf>,
     pub manual_path: String,
-    /// Decoded once, when a save is selected. `ChainPanel::build_goal` reads
-    /// this and never decodes: it runs on every Solve click, and re-deriving
-    /// there would reopen and re-inflate the save each time for an answer
-    /// that cannot have changed.
-    pub availability: Availability,
     /// The unlocked recipe count on success, the error text on failure.
+    ///
+    /// The decoded *set* is not kept here. It goes straight into the panel's
+    /// one `available_recipes`, so an import and a hand-edit are the same
+    /// state rather than two that can disagree — and so the tick list below
+    /// can correct an import rather than being overruled by it. Decoding
+    /// happens once, on selection: `build_goal` runs on every Solve click and
+    /// re-inflating a save there would be work for an answer that cannot have
+    /// changed.
     pub status: Option<Result<usize, String>>,
 }
 
@@ -80,7 +83,6 @@ impl SavePickerState {
             entries: scan_default_dir(),
             selected: None,
             manual_path: String::new(),
-            availability: Availability::Unrestricted,
             status: None,
         }
     }
@@ -91,39 +93,33 @@ impl SavePickerState {
         self.entries = scan_default_dir();
     }
 
-    /// Decode `path` and apply the result to `availability`/`status`.
+    /// Decode `path`, record the outcome in `status`, and hand back the
+    /// unlocked set for the caller to adopt.
     ///
-    /// A failure never half-applies: it resets `availability` to
-    /// `Unrestricted` even if a previous selection had left it `Unlocked` —
-    /// an empty or stale set would make every recipe look locked, which is a
-    /// worse failure than simply not constraining the solve.
-    pub fn select(&mut self, path: &Path) {
+    /// Returns `None` on failure and applies nothing, so a bad read never
+    /// half-lands: leaving the previous set in place beats replacing it with
+    /// an empty or stale one, which would make every recipe look locked —
+    /// a worse outcome than simply not changing the constraint.
+    pub fn select(&mut self, path: &Path) -> Option<BTreeSet<String>> {
         self.selected = Some(path.to_path_buf());
-        match availability::from_save(path) {
-            Ok(Availability::Unlocked(set)) => {
+        match from_save::unlocked_from_save(path) {
+            Ok(set) => {
                 self.status = Some(Ok(set.len()));
-                self.availability = Availability::Unlocked(set);
-            }
-            // `from_save` only ever produces `Unlocked`; matched rather than
-            // asserted so a future change there fails a type check here
-            // instead of surfacing as a silent UI mismatch.
-            Ok(Availability::Unrestricted) => {
-                self.status = Some(Ok(0));
-                self.availability = Availability::Unrestricted;
+                Some(set)
             }
             Err(e) => {
                 self.status = Some(Err(e.to_string()));
-                self.availability = Availability::Unrestricted;
+                None
             }
         }
     }
 
-    /// Back to no constraint: the selection, the decoded availability, and
-    /// the status line are cleared together so none of the three can drift
-    /// out of sync with the other two.
+    /// Forget the selection and its status line together, so the two cannot
+    /// drift apart. The caller decides what happens to the availability set
+    /// itself — clearing the picker does not throw away recipes the user may
+    /// since have ticked by hand.
     pub fn clear(&mut self) {
         self.selected = None;
-        self.availability = Availability::Unrestricted;
         self.status = None;
     }
 }
@@ -134,7 +130,6 @@ fn scan_default_dir() -> Vec<SaveEntry> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashSet;
     use std::time::Duration;
 
     use super::*;
@@ -205,23 +200,26 @@ mod tests {
     }
 
     #[test]
-    fn a_failed_load_surfaces_the_error_and_leaves_availability_unrestricted() {
+    fn a_failed_load_surfaces_the_error_and_adopts_nothing() {
         let mut state = SavePickerState::default();
-        state.select(Path::new("/nonexistent/save.zip"));
+        assert!(
+            state.select(Path::new("/nonexistent/save.zip")).is_none(),
+            "a failed read must hand back no set, so the caller leaves the existing one alone"
+        );
         assert!(matches!(state.status, Some(Err(_))));
-        assert_eq!(state.availability, Availability::Unrestricted);
     }
 
     /// End to end over a synthetic save whose recipe table is the *real*
-    /// registry, mirroring `factorio_solver::availability`'s own round-trip
-    /// test — the fixture must carry every `default_enabled()` name as
-    /// unlocked or calibration fails by design.
+    /// registry, mirroring `factorio_solver::availability::from_save`'s own
+    /// round-trip test — the fixture must carry every `default_enabled()`
+    /// name as unlocked or calibration fails by design.
     #[test]
-    fn a_successful_load_sets_unlocked_availability_and_the_count() {
+    fn a_successful_load_returns_the_unlocked_set_and_the_count() {
         let all: Vec<String> = factorio_solver::recipe::registry().keys().cloned().collect();
         let all_refs: Vec<&str> = all.iter().map(String::as_str).collect();
 
-        let mut expected = availability::default_enabled();
+        let mut expected: BTreeSet<String> =
+            from_save::default_enabled().into_iter().collect();
         expected.insert("beacon".to_string());
         let unlocked: Vec<&str> = expected.iter().map(String::as_str).collect();
 
@@ -235,29 +233,24 @@ mod tests {
         fs::write(&path, zip).unwrap();
 
         let mut state = SavePickerState::default();
-        state.select(&path);
+        let got = state.select(&path).expect("the real registry must calibrate uniquely");
 
         assert_eq!(state.selected.as_deref(), Some(path.as_path()));
         assert_eq!(state.status, Some(Ok(expected.len())));
-        match &state.availability {
-            Availability::Unlocked(got) => assert_eq!(got, &expected),
-            other => panic!("expected Unlocked, got {other:?}"),
-        }
+        assert_eq!(got, expected);
     }
 
     #[test]
-    fn clearing_returns_to_unrestricted_and_clears_status() {
+    fn clearing_forgets_the_selection_and_the_status_together() {
         let mut state = SavePickerState {
             entries: Vec::new(),
             selected: Some(PathBuf::from("/some/save.zip")),
             manual_path: String::new(),
-            availability: Availability::Unlocked(HashSet::from(["iron-plate".to_string()])),
             status: Some(Ok(1)),
         };
 
         state.clear();
 
-        assert_eq!(state.availability, Availability::Unrestricted);
         assert!(state.selected.is_none());
         assert!(state.status.is_none());
     }

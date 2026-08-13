@@ -6,6 +6,7 @@ use crate::chain_panel::ChainPanel;
 use crate::entity_draw::EntityPainter;
 use crate::icons::{IconCache, IconStatus};
 use crate::lod::lod_for_zoom;
+use crate::persist::{self, PanelState};
 use crate::viewport::ViewportTransform;
 
 fn direction_name(dir: Direction) -> &'static str {
@@ -70,8 +71,13 @@ pub struct FactorioApp {
 }
 
 impl FactorioApp {
-    pub fn new() -> Self {
-        Self {
+    /// `cc` is only used to restore the chain panel's saved inputs — the
+    /// window's own geometry is restored by eframe itself once the
+    /// "persistence" feature is on (`with_inner_size` in `main.rs` becomes a
+    /// first-run default rather than a fixed size, which is desirable, not a
+    /// regression).
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let mut app = Self {
             blueprint_input: String::new(),
             state: AppState::Empty,
             viewport: ViewportTransform::new(),
@@ -81,7 +87,13 @@ impl FactorioApp {
             // Detection runs once, here — not per frame and not per entity.
             icons: IconCache::new(None),
             chain: ChainPanel::new(),
+        };
+        if let Some(storage) = cc.storage
+            && let Some(state) = eframe::get_value::<PanelState>(storage, persist::STORAGE_KEY)
+        {
+            state.apply(&mut app.chain);
         }
+        app
     }
 
     /// Decode the current `blueprint_input`, build a grid, and update state.
@@ -355,6 +367,12 @@ impl FactorioApp {
 }
 
 impl eframe::App for FactorioApp {
+    /// Called periodically and on exit by eframe (persistence feature) — not
+    /// something this app schedules itself.
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, persist::STORAGE_KEY, &PanelState::capture(&self.chain));
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // ── Top panel: input controls ──────────────────────────────────
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {

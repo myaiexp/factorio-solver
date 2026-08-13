@@ -1,10 +1,12 @@
 // CLI entry point: reads a Factorio data dump + locale directory, regenerates prototypes.json.
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::Parser;
 use factorio_grid::prototype::EntityPrototype;
 use factorio_solver::recipe::Recipe;
+use factorio_solver::tech::Technology;
 use serde_json::Value;
 
 mod dump;
@@ -15,14 +17,16 @@ mod item_amount;
 mod locale;
 mod mapping;
 mod recipes;
+mod technologies;
 
 use error::IngestError;
 use locale::Locale;
 
-/// Regenerates `crates/grid/data/prototypes.json` and `crates/solver/data/
-/// recipes.json` from a Factorio `--dump-data` dump (mod-free
-/// `factorio --dump-data`). Run manually when the game updates — never as a
-/// build step, since the workspace build must not require a Factorio install.
+/// Regenerates `crates/grid/data/prototypes.json`, `crates/solver/data/
+/// recipes.json`, and `crates/solver/data/technologies.json` from a Factorio
+/// `--dump-data` dump (mod-free `factorio --dump-data`). Run manually when
+/// the game updates — never as a build step, since the workspace build must
+/// not require a Factorio install.
 #[derive(Parser)]
 #[command(name = "dump-ingest")]
 struct Args {
@@ -38,14 +42,18 @@ struct Args {
     /// Where to write the regenerated recipes JSON array.
     #[arg(long)]
     out_recipes: PathBuf,
+    /// Where to write the regenerated technologies JSON array.
+    #[arg(long)]
+    out_technologies: PathBuf,
 }
 
 fn main() -> ExitCode {
     let args = Args::parse();
     match run(&args) {
-        Ok((proto_count, recipe_count)) => {
+        Ok((proto_count, recipe_count, tech_count)) => {
             eprintln!("wrote {proto_count} prototypes to {}", args.out_prototypes.display());
             eprintln!("wrote {recipe_count} recipes to {}", args.out_recipes.display());
+            eprintln!("wrote {tech_count} technologies to {}", args.out_technologies.display());
             ExitCode::SUCCESS
         }
         Err(err) => {
@@ -55,7 +63,7 @@ fn main() -> ExitCode {
     }
 }
 
-fn run(args: &Args) -> Result<(usize, usize), IngestError> {
+fn run(args: &Args) -> Result<(usize, usize, usize), IngestError> {
     let dump = read_dump(&args.dump)?;
 
     let entity_locale = locale::load_locale(&args.locale_dir, "entity")?;
@@ -66,7 +74,16 @@ fn run(args: &Args) -> Result<(usize, usize), IngestError> {
     let recipes = build_recipes(&dump, &recipe_locale)?;
     write_recipes(&args.out_recipes, &recipes)?;
 
-    Ok((prototypes.len(), recipes.len()))
+    // The technology unlock filter needs the recipe set the ingest actually
+    // kept (parameter placeholders already dropped by `build_recipes`), so
+    // it is derived from `recipes` rather than re-reading the raw dump — the
+    // recipe filter stays the single source of truth for what counts as real.
+    let known_recipes: HashSet<String> = recipes.iter().map(|r| r.name.clone()).collect();
+    let technology_locale = locale::load_locale(&args.locale_dir, "technology")?;
+    let technologies = build_technologies(&dump, &technology_locale, &known_recipes)?;
+    write_technologies(&args.out_technologies, &technologies)?;
+
+    Ok((prototypes.len(), recipes.len(), technologies.len()))
 }
 
 fn read_dump(path: &Path) -> Result<Value, IngestError> {
@@ -111,6 +128,33 @@ fn build_recipes(dump: &Value, locale: &Locale) -> Result<Vec<Recipe>, IngestErr
 
 fn write_recipes(path: &Path, recipes: &[Recipe]) -> Result<(), IngestError> {
     let mut json = serde_json::to_string_pretty(recipes).map_err(IngestError::Serialize)?;
+    json.push('\n');
+    std::fs::write(path, json)
+        .map_err(|source| IngestError::WriteOutput { path: path.display().to_string(), source })
+}
+
+/// Maps every technology under the dump's top-level `"technology"` key,
+/// sorted by name for a reviewable diff, then validates the whole
+/// prerequisite graph in a second pass — a check that needs every
+/// technology gathered first, so it cannot live inside `to_technology`.
+fn build_technologies(
+    dump: &Value,
+    locale: &Locale,
+    known_recipes: &HashSet<String>,
+) -> Result<Vec<Technology>, IngestError> {
+    let mut technologies = Vec::new();
+    if let Some(entries) = dump.get("technology").and_then(Value::as_object) {
+        for (name, raw) in entries {
+            technologies.push(technologies::to_technology(name, raw, locale, known_recipes)?);
+        }
+    }
+    technologies.sort_by(|a, b| a.name.cmp(&b.name));
+    technologies::validate_prerequisites(&technologies)?;
+    Ok(technologies)
+}
+
+fn write_technologies(path: &Path, technologies: &[Technology]) -> Result<(), IngestError> {
+    let mut json = serde_json::to_string_pretty(technologies).map_err(IngestError::Serialize)?;
     json.push('\n');
     std::fs::write(path, json)
         .map_err(|source| IngestError::WriteOutput { path: path.display().to_string(), source })
@@ -182,11 +226,14 @@ mod tests {
             "out.json",
             "--out-recipes",
             "recipes.json",
+            "--out-technologies",
+            "tech.json",
         ]);
         assert_eq!(args.dump, PathBuf::from("d.json"));
         assert_eq!(args.locale_dir, PathBuf::from("loc"));
         assert_eq!(args.out_prototypes, PathBuf::from("out.json"));
         assert_eq!(args.out_recipes, PathBuf::from("recipes.json"));
+        assert_eq!(args.out_technologies, PathBuf::from("tech.json"));
     }
 
     #[test]
@@ -285,5 +332,56 @@ mod tests {
         assert!(text.ends_with('\n'), "output must end with a newline");
         let back: Vec<Recipe> = serde_json::from_str(&text).unwrap();
         assert_eq!(back, recipes);
+    }
+
+    fn mini_dump_technologies() -> Vec<Technology> {
+        let dump: Value = serde_json::from_str(MINI_DUMP).unwrap();
+        let recipe_locale = locale::load_locale(&fixtures_dir(), "recipe").unwrap();
+        let recipes = build_recipes(&dump, &recipe_locale).unwrap();
+        let known_recipes: HashSet<String> = recipes.iter().map(|r| r.name.clone()).collect();
+        let tech_locale = locale::load_locale(&fixtures_dir(), "technology").unwrap();
+        build_technologies(&dump, &tech_locale, &known_recipes).unwrap()
+    }
+
+    #[test]
+    fn end_to_end_mini_dump_produces_expected_technologies() {
+        let technologies = mini_dump_technologies();
+
+        // Already-sorted order doubles as the sort-by-name assertion.
+        let names: Vec<&str> = technologies.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["automation", "mining-productivity-1", "steel-axe"],
+            "output must be sorted by name"
+        );
+
+        let automation = technologies.iter().find(|t| t.name == "automation").unwrap();
+        assert_eq!(automation.unlocks, vec!["electronic-circuit"]);
+
+        let bonus_only = technologies.iter().find(|t| t.name == "mining-productivity-1").unwrap();
+        assert!(bonus_only.unlocks.is_empty(), "a bonus-only technology must still be ingested, not dropped");
+
+        let steel_axe = technologies.iter().find(|t| t.name == "steel-axe").unwrap();
+        assert!(
+            steel_axe.unlocks.is_empty(),
+            "an unlock naming parameter-0 (filtered out of known_recipes) must be dropped, not an error"
+        );
+    }
+
+    #[test]
+    fn written_technologies_round_trip_back_into_technologies() {
+        // Same rationale as written_recipes_round_trip_back_into_recipes:
+        // serialize the real Technology type so the emitted file cannot
+        // drift from solver's consuming serde definition.
+        let technologies = mini_dump_technologies();
+
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("technologies.json");
+        write_technologies(&path, &technologies).unwrap();
+
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.ends_with('\n'), "output must end with a newline");
+        let back: Vec<Technology> = serde_json::from_str(&text).unwrap();
+        assert_eq!(back, technologies);
     }
 }
