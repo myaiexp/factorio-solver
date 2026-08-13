@@ -54,6 +54,20 @@ from the checkout, so it is re-runnable and machine-independent). The window's
 `factorio-solver` and must stay equal — that triple is what pairs the window
 with the launcher icon on Wayland.
 
+## The Build Gate
+
+`scripts/install-hooks.sh` (once per clone) sets `core.hooksPath` to the tracked
+`scripts/hooks/`, so a commit or a push runs `cargo clippy --workspace
+--all-targets -- -D warnings` and `cargo test --workspace` — about 5s warm.
+`--no-verify` bypasses either.
+
+pre-commit first refuses **untracked or unstaged** files, and that is the part
+that matters: the 2026-07 break was ~10 modules that existed on disk but in no
+commit, so the workspace built for its author and not for anyone else. Checking
+the working tree only means something once the working tree is provably what the
+commit contains. pre-push then re-checks at the publish boundary, which is where
+`deploy`'s branch→master merge — a tree no pre-commit ever saw — first appears.
+
 ## Key Patterns
 
 - **Blueprint string format**: version byte (`0`) + base64 + zlib + JSON. Round-trip fidelity is critical.
