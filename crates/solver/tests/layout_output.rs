@@ -8,8 +8,14 @@ use factorio_grid::prototype;
 use factorio_grid::{EntityCategory, EntityId, Grid};
 
 use factorio_blueprint::{factorio_major_version, BlueprintData};
-use factorio_solver::layout::{generate, validate, LayoutError, BLUEPRINT_VERSION};
+use factorio_solver::layout::{generate, validate, LaneSide, LayoutError, BLUEPRINT_VERSION};
 use factorio_solver::testsupport::{default_cfg, green_circuit_plan};
+
+/// The distinct `(belt-run anchor, lane)` pairs a set of inserters claims.
+/// A run anchor is the belt run's first tile, so two inserters on the same
+/// run and lane collapse to one claim — which is the point: a lane's
+/// throughput is shared by everything that drops onto it.
+type LaneClaims = std::collections::HashSet<((i32, i32), LaneSide)>;
 
 #[test]
 fn generated_blueprint_round_trips() {
@@ -137,10 +143,7 @@ fn delivered_capacity_is_counted_per_run_not_per_tile() {
 /// calling into the private `check_delivered_rate`/`run_anchor` this exists
 /// to exercise — otherwise a bug shared between the check and this helper
 /// could pass both.
-fn product_claims(
-    grid: &Grid,
-    recipe: &str,
-) -> (std::collections::HashSet<((i32, i32), factorio_solver::layout::LaneSide)>, Vec<EntityId>) {
+fn product_claims(grid: &Grid, recipe: &str) -> (LaneClaims, Vec<EntityId>) {
     let mut lanes = std::collections::HashSet::new();
     // A `HashSet` here, not a `Vec`: two mirrored columns can drop onto
     // opposite lanes of the very same shared edge-belt tile, so the same

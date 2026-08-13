@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+# Refuse a commit whose tree does not build, test, and lint clean.
+#
+# The failure this exists to prevent (2026-07 audit) is subtler than "it does
+# not compile": HEAD referenced ~10 module and data files that had never been
+# committed to *any* branch. On the author's machine the workspace built fine,
+# because those files were sitting right there — untracked. A gate that only
+# ran `cargo check` on the working tree would have passed it happily.
+#
+# So the first job is to prove the working tree is the same thing the commit
+# will contain, and only then to check it:
+#
+#   1. no untracked, non-ignored files  — they build here and vanish in the commit
+#   2. no unstaged changes to tracked files — a partial commit records a tree
+#      that was never the one verified
+#   3. clippy + tests (scripts/hooks/check-workspace.sh)
+#
+# Steps 1 and 2 are cheap and exact; they are what makes step 3 mean anything.
+# Step 1 also matches `deploy`'s own dirty-tree gate, so a tree that passes
+# here is already in the state a deploy demands.
+#
+# Bypass with `git commit --no-verify` when you genuinely want a partial or
+# work-in-progress commit. The pre-push hook is the backstop for that.
+
+set -uo pipefail
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+untracked=$(git ls-files --others --exclude-standard)
+if [[ -n "$untracked" ]]; then
+  echo "gate: untracked files present — they would not be in this commit:" >&2
+  printf '  %s\n' $untracked >&2
+  echo "      git add them, delete them, or gitignore them." >&2
+  echo "      (This is the exact shape of the 2026-07 phantom-module break.)" >&2
+  echo "      Bypass: git commit --no-verify" >&2
+  exit 1
+fi
+
+# `git commit -a` stages tracked edits before hooks run, so this only fires on
+# a deliberately partial commit.
+unstaged=$(git diff --name-only)
+if [[ -n "$unstaged" ]]; then
+  echo "gate: unstaged changes to tracked files — the commit would record a" >&2
+  echo "      tree that differs from the one about to be verified:" >&2
+  printf '  %s\n' $unstaged >&2
+  echo "      Stage them (git add -u), or bypass: git commit --no-verify" >&2
+  exit 1
+fi
+
+exec "$(dirname "$0")/check-workspace.sh"

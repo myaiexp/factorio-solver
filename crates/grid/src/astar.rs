@@ -14,21 +14,12 @@ use crate::types::GridPos;
 const SEARCH_MARGIN: i32 = 128;
 
 /// Tuning for [`find_path`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AStarConfig {
     /// Optional cap on total path cost (step count). `None` = no cost limit.
     pub max_cost: Option<u32>,
     /// Permit 8-directional movement (diagonals). Default `false` → 4-directional.
     pub allow_diagonal: bool,
-}
-
-impl Default for AStarConfig {
-    fn default() -> Self {
-        Self {
-            max_cost: None,
-            allow_diagonal: false,
-        }
-    }
 }
 
 /// Frontier entry. Ordered so [`BinaryHeap`] (a max-heap) pops the lowest
@@ -120,10 +111,10 @@ pub fn find_path(
         }
 
         let next_cost = cost + 1;
-        if let Some(limit) = max_cost {
-            if next_cost > limit {
-                continue;
-            }
+        if let Some(limit) = max_cost
+            && next_cost > limit
+        {
+            continue;
         }
 
         for neighbor in neighbors(pos, config.allow_diagonal) {

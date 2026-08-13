@@ -54,6 +54,20 @@ from the checkout, so it is re-runnable and machine-independent). The window's
 `factorio-solver` and must stay equal — that triple is what pairs the window
 with the launcher icon on Wayland.
 
+## The Build Gate
+
+`scripts/install-hooks.sh` (once per clone) sets `core.hooksPath` to the tracked
+`scripts/hooks/`, so a commit or a push runs `cargo clippy --workspace
+--all-targets -- -D warnings` and `cargo test --workspace` — about 5s warm.
+`--no-verify` bypasses either.
+
+pre-commit first refuses **untracked or unstaged** files, and that is the part
+that matters: the 2026-07 break was ~10 modules that existed on disk but in no
+commit, so the workspace built for its author and not for anyone else. Checking
+the working tree only means something once the working tree is provably what the
+commit contains. pre-push then re-checks at the publish boundary, which is where
+`deploy`'s branch→master merge — a tree no pre-commit ever saw — first appears.
+
 ## Key Patterns
 
 - **Blueprint string format**: version byte (`0`) + base64 + zlib + JSON. Round-trip fidelity is critical.
@@ -100,7 +114,7 @@ What exists today:
 - **save** — `SaveFile::open` reads a save zip's `level-init.dat` (version, mod names, prototype id tables) and inflates its `level.dat<N>` chunks lazily in numeric order; `unlocked_recipes(&default_enabled)` locates the player force's recipe-unlock array by calibration search. Entry names are resolved through the save's own directory, which Factorio names after the save. No workspace dependency, and `testsupport::FixtureSave` builds synthetic save zips — nested and deflated the way Factorio writes them — so the tests need no real save.
 - **solver** — the dump-derived recipe (649) and technology (275) registries, `availability` (the `Availability` model, `allows`/`allows_machine`, and `from_save`, the save→set bridge), `tech` (the unlock graph, for explaining a refusal — never for selecting), `chain` (`solve(&ChainGoal) -> ProductionPlan`, gated recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput), `place` (one cell's entities), `tile` (cells into bands), `power`, and pre-emit validation including a delivered-rate check.
 - **dump-ingest** — the manual ingest tool that generates all three data files.
-- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with the save picker, the editable "Available recipes" tick list, belt/pole/inserter/topology controls, Generate + copy-to-clipboard; `persist.rs` saves the panel's inputs between runs.
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with the save picker, the editable "Available recipes" tick list, belt/pole/inserter/topology controls, Generate + copy-to-clipboard; `clipboard/` watches the system clipboard so an in-game export loads with no paste; `persist.rs` saves the panel's inputs and the app settings between runs.
 
 Next logical step: belt routing *between* steps (idea #3362) — the generator
 stacks a producer directly above its consumer but does not connect them, so the
@@ -169,6 +183,10 @@ player wires the block by hand. `crates/grid/src/astar.rs` already has
 - **An override outranks availability, in `solve` as well as in `select_recipe`**: an override already bypasses the hidden/recycling/main-product filters, so naming a locked recipe means the user meant it. `solve` defers through `locked_without_an_override` rather than refusing first — the two disagreed once, and `solve` won the race
 - **Editing the set is subtractive**: entering "only what I can build" seeds it from what is already available, so the switch alone changes no result and the first edit is a removal. A save import replaces the set wholesale and hand edits then correct it — one set, three sources, never two constraints that can disagree
 - **Persist inputs, never derived state**: `result`/`generated`/`pending_grid` come from a solve, and restoring them beside restored inputs they no longer match is a lie on screen. Restore is lenient by construction (`#[serde(default)]` at container level, unknown fields ignored, `Default` routed through `ChainPanel::new()`) so adding a field later cannot wipe a saved setup
+- **The clipboard watcher is gated on what the viewport shows, never on where a string came from**: `FactorioApp::displayed` holds the blueprint string currently on screen whatever loaded it, and a candidate equal to it is declined. That one rule covers both re-copying something already loaded and the self-copy loop — "Copy blueprint" hands the watcher the generated block's own string while the viewport is showing that block. A guard written against the copy button specifically would need re-adding at every future call site that writes to the clipboard
+- **A clipboard load never writes `blueprint_input`**: showing the user what arrived would also overwrite a string they were part-way through typing, and a background poller must not be able to destroy typing. Both load paths go through `load_string`, differing only in the `LoadSource` they report
+- **`arboard` needs its non-default `wayland-data-control` feature**: plain Wayland hands the clipboard only to the *focused* surface, so without it the watcher reads nothing while the game has focus — which is the entire use case. egui-winit already pulls arboard in without it; the ui crate re-declares it to switch the feature on for the shared copy
+- **Clipboard reads happen off the UI thread**: both arboard backends round-trip to another process, and a stall there is a dropped frame. The thread offers candidates over a channel and calls `request_repaint`, so an idle app still notices; `poll` returns the *newest* of a backlog, since replaying them would flash each blueprint through the viewport on the way to the one the user actually copied
 
 ---
 

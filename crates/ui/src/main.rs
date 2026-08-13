@@ -1,5 +1,6 @@
 mod app;
 mod chain_panel;
+mod clipboard;
 mod colors;
 mod entity_draw;
 mod icons;

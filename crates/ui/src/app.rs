@@ -3,10 +3,11 @@ use factorio_blueprint::{decode, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
 use crate::chain_panel::ChainPanel;
+use crate::clipboard::{detect, ClipboardWatcher, WatchStatus};
 use crate::entity_draw::EntityPainter;
 use crate::icons::{IconCache, IconStatus};
 use crate::lod::lod_for_zoom;
-use crate::persist::{self, PanelState};
+use crate::persist::{self, AppSettings, PanelState};
 use crate::viewport::ViewportTransform;
 
 fn direction_name(dir: Direction) -> &'static str {
@@ -32,6 +33,19 @@ fn direction_name(dir: Direction) -> &'static str {
 
 // ── App state ──────────────────────────────────────────────────────────
 
+/// Where the grid on screen came from. Only the status bar reads it, but it
+/// has to be part of the loaded state rather than a separate flag — the two
+/// would otherwise drift the moment a fourth load path appears.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LoadSource {
+    /// Typed or pasted into the top bar and loaded with the button.
+    Pasted,
+    /// Picked up by the clipboard watcher with no interaction at all.
+    Clipboard,
+    /// Handed over by the chain panel's Generate button.
+    Generated,
+}
+
 /// Top-level application state after blueprint loading.
 pub enum AppState {
     /// No blueprint loaded yet.
@@ -41,6 +55,7 @@ pub enum AppState {
         grid: Grid,
         label: Option<String>,
         skipped: Vec<SkippedEntity>,
+        source: LoadSource,
     },
     /// The last load attempt failed.
     Error(String),
@@ -68,6 +83,13 @@ pub struct FactorioApp {
     icons: IconCache,
     /// Production-chain calculator side panel.
     chain: ChainPanel,
+    /// Background clipboard poller — an in-game export loads with no paste.
+    clipboard: ClipboardWatcher,
+    /// The blueprint string the viewport is currently showing, whatever put it
+    /// there. The clipboard watcher compares against this and skips a match,
+    /// which is what stops "Copy blueprint" from reloading the app's own
+    /// output — see `clipboard::detect::should_load`.
+    displayed: Option<String>,
 }
 
 impl FactorioApp {
@@ -77,6 +99,11 @@ impl FactorioApp {
     /// first-run default rather than a fixed size, which is desirable, not a
     /// regression).
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+        let settings = cc
+            .storage
+            .and_then(|s| eframe::get_value::<AppSettings>(s, persist::APP_KEY))
+            .unwrap_or_default();
+
         let mut app = Self {
             blueprint_input: String::new(),
             state: AppState::Empty,
@@ -87,6 +114,8 @@ impl FactorioApp {
             // Detection runs once, here — not per frame and not per entity.
             icons: IconCache::new(None),
             chain: ChainPanel::new(),
+            clipboard: ClipboardWatcher::spawn(&cc.egui_ctx, settings.watch_clipboard()),
+            displayed: None,
         };
         if let Some(storage) = cc.storage
             && let Some(state) = eframe::get_value::<PanelState>(storage, persist::STORAGE_KEY)
@@ -96,9 +125,47 @@ impl FactorioApp {
         app
     }
 
+    /// An app with a hand-fed clipboard watcher and no eframe behind it.
+    /// `FactorioApp::new` needs an `eframe::CreationContext` (not
+    /// constructible outside eframe) and would spawn the real arboard thread,
+    /// which has nothing to read on a machine with no display server.
+    #[cfg(test)]
+    fn for_test(clipboard: ClipboardWatcher) -> Self {
+        Self {
+            blueprint_input: String::new(),
+            state: AppState::Empty,
+            viewport: ViewportTransform::new(),
+            show_grid_lines: true,
+            visible_entities: 0,
+            needs_fit: false,
+            icons: IconCache::new(None),
+            chain: ChainPanel::new(),
+            clipboard,
+            displayed: None,
+        }
+    }
+
+    /// Whether the clipboard watcher is currently armed. Read by
+    /// `AppSettings::capture` on the way to storage.
+    pub fn watching_clipboard(&self) -> bool {
+        self.clipboard.watching()
+    }
+
     /// Decode the current `blueprint_input`, build a grid, and update state.
     fn load_blueprint(&mut self) {
-        let input = self.blueprint_input.trim();
+        let input = self.blueprint_input.trim().to_owned();
+        self.load_string(&input, LoadSource::Pasted);
+    }
+
+    /// Decode one blueprint string into the viewport. The single string→grid
+    /// path: the Load button and the clipboard watcher differ only in the
+    /// `source` they report, so neither can grow behaviour the other lacks.
+    ///
+    /// The clipboard path deliberately does *not* write `blueprint_input` on
+    /// its way through. Doing so would show the user what arrived, but it
+    /// would also overwrite a string they were part-way through typing into
+    /// that field — a background poller must not be able to destroy typing.
+    fn load_string(&mut self, input: &str, source: LoadSource) {
         if input.is_empty() {
             self.state = AppState::Error("No blueprint string provided".into());
             return;
@@ -132,10 +199,12 @@ impl FactorioApp {
         // estimate (e.g. 1280×800) mis-zooms when the window differs in size/aspect.
         self.needs_fit = result.grid.bounding_box().is_some();
 
+        self.displayed = Some(input.to_owned());
         self.state = AppState::Loaded {
             grid: result.grid,
             label,
             skipped: result.skipped,
+            source,
         };
     }
 
@@ -371,9 +440,20 @@ impl eframe::App for FactorioApp {
     /// something this app schedules itself.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, persist::STORAGE_KEY, &PanelState::capture(&self.chain));
+        eframe::set_value(storage, persist::APP_KEY, &AppSettings::capture(self));
     }
 
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        self.ui(ctx);
+    }
+}
+
+impl FactorioApp {
+    /// One frame, without eframe. `eframe::Frame` has no public constructor,
+    /// so a test can only drive the real UI through a plain `egui::Context` —
+    /// which is enough, since nothing here touches the integration. Same split
+    /// as `ChainPanel::ui`, and what `app_tests` runs frames against.
+    fn ui(&mut self, ctx: &egui::Context) {
         // ── Top panel: input controls ──────────────────────────────────
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -394,6 +474,18 @@ impl eframe::App for FactorioApp {
 
                 ui.separator();
                 ui.checkbox(&mut self.show_grid_lines, "Grid lines");
+
+                let mut watching = self.clipboard.watching();
+                if ui
+                    .checkbox(&mut watching, "Watch clipboard")
+                    .on_hover_text(
+                        "Load a blueprint automatically when one is copied — \
+                         export in-game and it appears here.",
+                    )
+                    .changed()
+                {
+                    self.clipboard.set_watching(watching);
+                }
 
                 // Show entity count and label when loaded.
                 if let AppState::Loaded {
@@ -418,12 +510,14 @@ impl eframe::App for FactorioApp {
                 AppState::Empty => {
                     ui.label("Paste a blueprint string and click Load");
                 }
-                AppState::Loaded { skipped, .. } => {
+                AppState::Loaded { skipped, source, .. } => {
                     if skipped.is_empty() {
-                        ui.label(format!(
-                            "Blueprint loaded — {} visible",
-                            self.visible_entities
-                        ));
+                        let origin = match source {
+                            LoadSource::Pasted => "Blueprint loaded",
+                            LoadSource::Clipboard => "Loaded from clipboard",
+                            LoadSource::Generated => "Generated block",
+                        };
+                        ui.label(format!("{origin} — {} visible", self.visible_entities));
                     } else {
                         ui.colored_label(
                             Color32::YELLOW,
@@ -455,6 +549,15 @@ impl eframe::App for FactorioApp {
                      Set FACTORIO_INSTALL_DIR to enable them.",
                 );
             }
+
+            // Same reasoning as the icon notice above: a toggle that is on and
+            // silently does nothing reads as a bug. Say which one it is.
+            if let WatchStatus::Unavailable(reason) = self.clipboard.status() {
+                ui.colored_label(
+                    Color32::from_rgb(180, 180, 180),
+                    format!("Clipboard watching unavailable — {reason}"),
+                );
+            }
         });
 
         // ── Right panel: production-chain calculator ───────────────────
@@ -467,11 +570,24 @@ impl eframe::App for FactorioApp {
         // status bar, and Home-key re-fit all keep working unmodified.
         if let Some(grid) = self.chain.take_generated_grid() {
             self.needs_fit = grid.bounding_box().is_some();
+            // Recording the block's own string here is what makes "Copy
+            // blueprint" safe with the watcher on: the copy then matches what
+            // is already displayed, and `should_load` declines it.
+            self.displayed = self.chain.generated_blueprint_string().map(str::to_owned);
             self.state = AppState::Loaded {
                 grid,
                 label: Some("Generated block".to_string()),
                 skipped: vec![],
+                source: LoadSource::Generated,
             };
+        }
+
+        // Checked after the generate handoff, so a block generated this frame
+        // is already `displayed` and cannot be shadowed by a stale candidate.
+        if let Some(candidate) = self.clipboard.poll()
+            && detect::should_load(&candidate, self.displayed.as_deref())
+        {
+            self.load_string(&candidate, LoadSource::Clipboard);
         }
 
         // ── Central panel: viewport ────────────────────────────────────
@@ -481,69 +597,6 @@ impl eframe::App for FactorioApp {
     }
 }
 
-// ── Tests ────────────────────────────────────────────────────────────────
-
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use factorio_blueprint::Position;
-    use factorio_grid::Grid;
-
-    #[test]
-    fn test_direction_names_cardinal() {
-        assert_eq!(direction_name(Direction::North), "North");
-        assert_eq!(direction_name(Direction::East), "East");
-        assert_eq!(direction_name(Direction::South), "South");
-        assert_eq!(direction_name(Direction::West), "West");
-    }
-
-    #[test]
-    fn test_direction_names_intercardinal() {
-        assert_eq!(direction_name(Direction::NorthEast), "NE");
-        assert_eq!(direction_name(Direction::SouthEast), "SE");
-        assert_eq!(direction_name(Direction::SouthWest), "SW");
-        assert_eq!(direction_name(Direction::NorthWest), "NW");
-        assert_eq!(direction_name(Direction::NorthNorthEast), "NNE");
-        assert_eq!(direction_name(Direction::EastSouthEast), "ESE");
-    }
-
-    /// Verify that viewport frustum culling returns only entities in the visible
-    /// window rather than scanning all entities in the grid.
-    ///
-    /// We place 100×100 = 10,000 transport-belt entities (1×1 each), set the
-    /// "viewport" to a 10×10 region, and assert that query_rect returns ≤ ~121
-    /// entities (11×11 cells with boundary allowance) — not all 10,000.
-    #[test]
-    fn test_viewport_culling_limits_visible_entities() {
-        let mut grid = Grid::new();
-
-        // Place 10,000 transport belts in a 100×100 grid.
-        for row in 0..100i32 {
-            for col in 0..100i32 {
-                // transport-belt is 1×1; center == top-left for odd-sized entities.
-                let center = Position {
-                    x: col as f64 + 0.5,
-                    y: row as f64 + 0.5,
-                };
-                let _ = grid.place("transport-belt", &center, Direction::North, None, None);
-            }
-        }
-
-        assert_eq!(grid.entity_count(), 10_000, "all entities placed");
-
-        // Simulate a viewport that shows only the 10×10 region [20, 30) × [20, 30).
-        let visible = grid.query_rect(20, 20, 29, 29);
-
-        // Should return exactly 100 entities (10×10), not all 10,000.
-        assert!(
-            visible.len() <= 110,
-            "culling should return ≤ 110 entities for a 10×10 view, got {}",
-            visible.len()
-        );
-        assert!(
-            visible.len() >= 90,
-            "culling should return ≥ 90 entities for a 10×10 view, got {}",
-            visible.len()
-        );
-    }
-}
+#[path = "app_tests.rs"]
+mod tests;

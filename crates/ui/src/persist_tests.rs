@@ -157,3 +157,34 @@ fn defaults_match_a_fresh_panel() {
         serde_json::to_string(&PanelState::capture(&ChainPanel::new())).expect("serializes");
     assert_eq!(default_json, fresh_json);
 }
+
+// ── App-level settings ───────────────────────────────────────────────────
+
+use super::AppSettings;
+
+#[test]
+fn watching_defaults_on() {
+    assert!(AppSettings::default().watch_clipboard());
+}
+
+#[test]
+fn app_settings_round_trip_through_serde() {
+    let json = r#"{"watch_clipboard":false}"#;
+    let restored: AppSettings = serde_json::from_str(json).expect("parses");
+    assert!(!restored.watch_clipboard(), "a deliberate off must survive a restart");
+    assert_eq!(serde_json::to_string(&restored).expect("serializes"), json);
+}
+
+/// Same leniency contract as `PanelState`: an old blob missing a setting, and
+/// a blob carrying one this version dropped, must both restore rather than
+/// wipe. Adding a setting later cannot cost the user their saved ones.
+#[test]
+fn app_settings_tolerate_missing_and_unknown_fields() {
+    let empty: AppSettings = serde_json::from_str("{}").expect("an empty blob restores");
+    assert_eq!(empty, AppSettings::default());
+
+    let future: AppSettings =
+        serde_json::from_str(r#"{"watch_clipboard":false,"a_setting_from_2027":7}"#)
+            .expect("an unknown field is ignored, not an error");
+    assert!(!future.watch_clipboard());
+}

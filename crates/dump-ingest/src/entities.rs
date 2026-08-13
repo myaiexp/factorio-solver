@@ -110,8 +110,14 @@ mod tests {
 
     #[test]
     fn tile_size_tolerates_float_noise() {
-        let e = json!({"collision_box": [[-1.19999999999999996, -1.19999999999999996],
-                                          [1.19999999999999996, 1.19999999999999996]]});
+        // The noise has to land the extent *just above* an integer for the
+        // -0.01 to matter at all: ±1.5 is a clean 3.0, one ULP wider is
+        // 3.0000000000000004, and an un-epsilon'd ceil() reads that as 4 tiles.
+        // (An earlier version of this test used 1.19999999999999996, which is
+        // bit-identical to 1.2 — it duplicated the plain collision-box case and
+        // exercised no tolerance whatsoever.)
+        let e = json!({"collision_box": [[-1.5000000000000002, -1.5000000000000002],
+                                          [1.5000000000000002, 1.5000000000000002]]});
         assert_eq!(tile_size(&e), (3, 3));
     }
 

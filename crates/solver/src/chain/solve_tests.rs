@@ -243,9 +243,6 @@ fn everything_still_allows_a_research_locked_machine() {
     assert_eq!(machine.name, "electromagnetic-plant");
 }
 
-/// `select_recipe`'s own contract is unconditional: "an override wins
-/// outright" (see its doc comment, and
-
 /// An override is an explicit instruction, so it survives a fully-locked
 /// candidate set: `select_recipe` honours it without consulting availability
 /// at all, and `solve`'s own locked-item checks defer to it via

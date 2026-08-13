@@ -37,6 +37,21 @@ impl ChainPanel {
         self.pending_grid.take()
     }
 
+    /// The blueprint string for the block currently shown in the panel — the
+    /// same text "Copy blueprint" puts on the clipboard.
+    ///
+    /// The app records it as what the viewport is displaying, so the clipboard
+    /// watcher recognises the app's own output and declines to re-import it.
+    /// Unlike `take_generated_grid` this does not consume: the panel keeps
+    /// showing the string, and the copy button can be pressed any number of
+    /// times.
+    pub fn generated_blueprint_string(&self) -> Option<&str> {
+        match self.generated {
+            Some(Ok(ref block)) => Some(&block.blueprint_string),
+            _ => None,
+        }
+    }
+
     /// Run the block generator against the last solved plan and the current
     /// layout controls. A no-op if the last solve did not succeed: the
     /// button that calls this is disabled in that case, but checking again

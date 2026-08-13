@@ -483,7 +483,7 @@ mod tests {
             ],
         };
 
-        let json = save_to_json(&[t.clone()]).expect("save single template");
+        let json = save_to_json(std::slice::from_ref(&t)).expect("save single template");
 
         // Top-level must be an array with exactly one element
         let value: serde_json::Value =
