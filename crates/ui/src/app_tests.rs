@@ -99,6 +99,39 @@ fn the_toggle_defaults_on_and_survives_a_frame() {
     assert!(app.watching_clipboard());
 }
 
+/// The stamp is unconditional — a healthy launch says which commit it is,
+/// which is the only way to answer "am I running current code?" from inside
+/// the app at all.
+#[test]
+fn the_build_stamp_is_always_on_screen() {
+    let (_tx, watcher) = ClipboardWatcher::detached();
+    let mut app = FactorioApp::for_test(watcher);
+    assert!(painted(&mut app, &build_info::label()));
+}
+
+/// And a fallback build says so loudly. This is the whole feature: a failed
+/// build relaunches the previous binary, and that used to look exactly like a
+/// healthy one — 29 commits old, with nothing on screen to suggest it.
+#[test]
+fn a_stale_build_warns_in_the_status_bar() {
+    let (_tx, watcher) = ClipboardWatcher::detached();
+    let mut app = FactorioApp::for_test(watcher);
+    app.build = FreshnessProbe::ready(build_info::Freshness::Stale { behind: Some(29) });
+    assert!(painted(&mut app, "29 commits behind the checkout"));
+}
+
+/// A probe that has not answered yet must not paint a warning — the app
+/// starts with the answer outstanding, and a "stale" flash on every launch
+/// would train the user to ignore the one that matters.
+#[test]
+fn an_unanswered_probe_paints_the_stamp_and_no_warning() {
+    let (_tx, watcher) = ClipboardWatcher::detached();
+    let mut app = FactorioApp::for_test(watcher);
+    app.build = FreshnessProbe::pending();
+    assert!(painted(&mut app, &build_info::label()));
+    assert!(!painted(&mut app, "behind the checkout"));
+}
+
 #[test]
 fn test_direction_names_cardinal() {
     assert_eq!(direction_name(Direction::North), "North");
