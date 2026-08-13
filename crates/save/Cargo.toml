@@ -1,0 +1,24 @@
+[package]
+name = "factorio-save"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+# Deliberately no workspace crate here — see crate-root doc comment in
+# src/lib.rs for why (the calibration invariant needs solver's recipe
+# registry, so it is passed in as a parameter instead of depended on).
+zip = { version = "2", default-features = false }
+flate2 = "1"
+thiserror = "2"
+
+[features]
+# Fixture builder shared by inline unit tests and (in a later task) tests/.
+testsupport = []
+
+[dev-dependencies]
+# Self dev-dependency: the only way to switch `testsupport` on for the
+# library that integration tests link against. Without it `cargo test`
+# builds the lib with the feature off and `factorio_save::testsupport`
+# does not exist. Mirrors crates/solver/Cargo.toml.
+factorio-save = { path = ".", features = ["testsupport"] }
+tempfile = "3"

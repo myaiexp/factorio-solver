@@ -26,3 +26,6 @@ tempfile = "3.27.0"
 # storage is RON, but the leniency properties under test (missing fields,
 # unknown fields) are format-independent.
 serde_json = "1"
+# For the save-picker's decode test: a synthetic save zip built from the real
+# recipe registry, mirroring crates/solver's own dev-dependency on this.
+factorio-save = { path = "../save", features = ["testsupport"] }

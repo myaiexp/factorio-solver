@@ -7,7 +7,6 @@ use std::collections::{HashMap, HashSet};
 
 use factorio_grid::prototype::{self, EntityPrototype};
 
-use crate::availability::Availability;
 use crate::recipe::Recipe;
 
 pub mod error;
@@ -16,6 +15,12 @@ pub mod solve;
 
 pub use error::ChainError;
 pub use solve::solve;
+
+/// Re-exported so `chain::Availability` keeps resolving — the type itself
+/// lives in `crate::availability`, beside the sources that build one and the
+/// technology lookup that explains a refusal, none of which are chain
+/// concerns.
+pub use crate::availability::Availability;
 
 // ── Goal ──────────────────────────────────────────────────────────────
 
@@ -108,8 +113,9 @@ pub struct ChainGoal {
     pub machines: MachinePolicy,
     /// Item → recipe name, resolving items with more than one producer.
     pub recipe_overrides: HashMap<String, String>,
-    /// What the player can build. Defaults to `Everything`, so every existing
-    /// caller is behaviour-identical apart from the never-unlockable recipes.
+    /// What the player can build — the bus (`available`) says what they
+    /// already *have*, this says what they are able to *craft*. Defaults to
+    /// `Everything`, so every existing caller is unaffected until it opts in.
     pub availability: Availability,
 }
 
@@ -138,8 +144,8 @@ impl ChainGoal {
     }
 
     /// Overrides the default `Everything` — what a specific player can
-    /// actually build, from a save import, a technology projection, or the
-    /// UI's own edited set.
+    /// actually build, from a save import, the UI's own edited set, or a
+    /// future technology projection.
     pub fn with_availability(mut self, availability: Availability) -> Self {
         self.availability = availability;
         self
@@ -186,68 +192,4 @@ pub struct ProductionPlan {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn rate_conversions() {
-        assert_eq!(Rate::ItemsPerSec(45.0).per_sec().unwrap(), 45.0);
-        assert_eq!(Rate::ItemsPerMin(60.0).per_sec().unwrap(), 1.0);
-        // "2 blue belts" == 90/s, from express-transport-belt's throughput of 45.
-        assert_eq!(
-            Rate::Belts { count: 2, tier: "express-transport-belt".into() }.per_sec().unwrap(),
-            90.0
-        );
-        assert_eq!(
-            Rate::Belts { count: 1, tier: "transport-belt".into() }.per_sec().unwrap(),
-            15.0
-        );
-    }
-
-    #[test]
-    fn unknown_belt_tier_errors_rather_than_defaulting() {
-        assert!(matches!(
-            Rate::Belts { count: 1, tier: "not-a-belt".into() }.per_sec(),
-            Err(ChainError::UnknownBeltTier(_))
-        ));
-    }
-
-    #[test]
-    fn a_real_entity_that_is_not_a_belt_is_still_rejected() {
-        // assembling-machine-2 exists but has no belt_throughput — being a
-        // known prototype is not enough.
-        assert!(matches!(
-            Rate::Belts { count: 1, tier: "assembling-machine-2".into() }.per_sec(),
-            Err(ChainError::UnknownBeltTier(_))
-        ));
-    }
-
-    #[test]
-    fn errors_display_actionably() {
-        let e = ChainError::FluidIngredient {
-            recipe: "plastic-bar".into(),
-            fluid: "petroleum-gas".into(),
-        };
-        let s = e.to_string();
-        assert!(s.contains("plastic-bar") && s.contains("petroleum-gas"), "{s}");
-    }
-
-    #[test]
-    fn machine_policy_constructors() {
-        assert_eq!(MachinePolicy::fastest().fallback, MachineFallback::FastestAvailable);
-        assert_eq!(
-            MachinePolicy::all("assembling-machine-2").fallback,
-            MachineFallback::Named("assembling-machine-2".into())
-        );
-        let p = MachinePolicy::fastest().with_preference("electronics", "assembling-machine-2");
-        assert_eq!(p.preferred.get("electronics").unwrap(), "assembling-machine-2");
-    }
-
-    #[test]
-    fn goal_builders_populate_the_boundary() {
-        let g = ChainGoal::new("electronic-circuit", Rate::ItemsPerSec(45.0), &["iron-plate"])
-            .with_override("copper-cable", "copper-cable");
-        assert!(g.available.contains("iron-plate"));
-        assert_eq!(g.recipe_overrides.get("copper-cable").unwrap(), "copper-cable");
-    }
-}
+mod tests;

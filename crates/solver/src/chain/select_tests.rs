@@ -1,6 +1,9 @@
-// Tests for the selection layer: candidate lists, recipe resolution, machine resolution.
+// Tests for recipe selection: candidate lists, `select_recipe`, and
+// availability's effect on both. Machine selection is split out to
+// `select_machine_tests.rs` to keep this file under the length cap.
 use super::*;
 
+/// Builds `Availability::Unlocked` from a slice of recipe names.
 fn unlocked(names: &[&str]) -> Availability {
     Availability::Unlocked(names.iter().map(|n| n.to_string()).collect())
 }
@@ -93,58 +96,6 @@ fn declared_main_product_demotes_the_other_results() {
 }
 
 #[test]
-fn machine_selection_matches_crafting_category() {
-    let recipe = recipe::get("electronic-circuit").expect("electronic-circuit exists");
-    assert_eq!(recipe.category, "electronics");
-    let machine = select_machine(recipe, &MachinePolicy::fastest(), &Availability::Everything)
-        .expect("selects a machine");
-    assert_eq!(machine.name, "electromagnetic-plant");
-}
-
-#[test]
-fn named_fallback_is_used_when_it_covers_the_category() {
-    let recipe = recipe::get("electronic-circuit").expect("electronic-circuit exists");
-    let machine = select_machine(
-        recipe,
-        &MachinePolicy::all("assembling-machine-2"),
-        &Availability::Everything,
-    )
-    .expect("selects a machine");
-    assert_eq!(machine.name, "assembling-machine-2");
-}
-
-#[test]
-fn named_machine_that_cannot_craft_the_category_errors() {
-    let recipe = recipe::get("electronic-circuit").expect("electronic-circuit exists");
-    match select_machine(recipe, &MachinePolicy::all("stone-furnace"), &Availability::Everything) {
-        Err(ChainError::NoMachineForCategory { category, recipe: recipe_name }) => {
-            assert_eq!(category, "electronics");
-            assert_eq!(recipe_name, "electronic-circuit");
-        }
-        other => panic!("expected NoMachineForCategory, got {other:?}"),
-    }
-}
-
-#[test]
-fn preferred_category_beats_the_fallback() {
-    let recipe = recipe::get("electronic-circuit").expect("electronic-circuit exists");
-    let policy = MachinePolicy::all("assembling-machine-2")
-        .with_preference("electronics", "assembling-machine-3");
-    let machine =
-        select_machine(recipe, &policy, &Availability::Everything).expect("selects a machine");
-    assert_eq!(machine.name, "assembling-machine-3");
-}
-
-#[test]
-fn unknown_machine_name_errors() {
-    let recipe = recipe::get("electronic-circuit").expect("electronic-circuit exists");
-    assert!(matches!(
-        select_machine(recipe, &MachinePolicy::all("not-a-machine"), &Availability::Everything),
-        Err(ChainError::UnknownMachine { machine }) if machine == "not-a-machine"
-    ));
-}
-
-#[test]
 fn candidate_order_is_deterministic() {
     let a: Vec<&str> = candidates_for("copper-cable").iter().map(|r| r.name.as_str()).collect();
     let b: Vec<&str> = candidates_for("copper-cable").iter().map(|r| r.name.as_str()).collect();
@@ -204,4 +155,52 @@ fn the_never_unlockable_recipes_were_already_out_of_the_candidate_set() {
             );
         }
     }
+}
+
+/// Both copper-cable producers are locked: `RecipeLocked`, not
+/// `AmbiguousRecipe` — there is nothing to choose between, only something to
+/// unlock.
+#[test]
+fn locked_recipe_errors_with_the_locked_candidates_named() {
+    let a = unlocked(&["iron-plate"]);
+    match select_recipe("copper-cable", &HashMap::new(), &a) {
+        Err(ChainError::RecipeLocked { item, recipes, .. }) => {
+            assert_eq!(item, "copper-cable");
+            assert!(recipes.contains(&"copper-cable".to_string()));
+            assert!(recipes.contains(&"casting-copper-cable".to_string()));
+        }
+        other => panic!("expected RecipeLocked, got {other:?}"),
+    }
+}
+
+#[test]
+fn availability_narrows_ambiguity_down_to_a_single_unlocked_recipe() {
+    let a = unlocked(&["copper-cable"]);
+    let r = select_recipe("copper-cable", &HashMap::new(), &a)
+        .expect("only one unlocked producer remains");
+    assert_eq!(r.name, "copper-cable");
+}
+
+#[test]
+fn availability_can_leave_a_candidate_list_still_ambiguous() {
+    // Both copper-cable producers unlocked: still two candidates, so
+    // still AmbiguousRecipe — availability narrows, it doesn't always
+    // resolve.
+    let a = unlocked(&["copper-cable", "casting-copper-cable"]);
+    match select_recipe("copper-cable", &HashMap::new(), &a) {
+        Err(ChainError::AmbiguousRecipe { candidates, .. }) => {
+            assert_eq!(candidates.len(), 2, "{candidates:?}");
+        }
+        other => panic!("expected AmbiguousRecipe, got {other:?}"),
+    }
+}
+
+#[test]
+fn override_wins_even_when_the_recipe_is_locked() {
+    let a = unlocked(&["iron-plate"]); // copper-cable itself is locked
+    let mut overrides = HashMap::new();
+    overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
+    let r = select_recipe("copper-cable", &overrides, &a)
+        .expect("an explicit override bypasses availability");
+    assert_eq!(r.name, "copper-cable");
 }

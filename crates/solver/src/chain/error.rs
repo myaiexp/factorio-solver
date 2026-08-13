@@ -32,8 +32,11 @@ pub enum ChainError {
     )]
     AmbiguousRecipe { item: String, candidates: Vec<String> },
 
-    #[error("'{item}' cannot be built yet: {}", unlock_hint(.unlocked_by))]
-    NotUnlocked { item: String, unlocked_by: Vec<String> },
+    #[error(
+        "'{item}' has producers ({}), but none are available — {}",
+        .recipes.join(", "), unlock_hint(.unlocked_by)
+    )]
+    RecipeLocked { item: String, recipes: Vec<String>, unlocked_by: Vec<String> },
 
     #[error(
         "no available machine can craft category '{category}' (needed by recipe '{recipe}') — \
@@ -41,8 +44,12 @@ pub enum ChainError {
     )]
     NoMachineForCategory { category: String, recipe: String },
 
-    #[error("machine '{machine}' cannot be built yet: {}", unlock_hint(.unlocked_by))]
-    MachineNotUnlocked { machine: String, unlocked_by: Vec<String> },
+    #[error(
+        "'{machine}' can craft recipe '{recipe}', but is not available — the machine category is \
+         fine, it just cannot be built yet: {}",
+        unlock_hint(.unlocked_by)
+    )]
+    MachineLocked { machine: String, recipe: String, unlocked_by: Vec<String> },
 
     #[error(
         "'{item}' cannot be reached from what is available — it has no recipe and is not a raw \
@@ -106,41 +113,6 @@ mod tests {
     }
 
     #[test]
-    fn not_unlocked_error_names_item_technology_and_both_remedies() {
-        let msg = ChainError::NotUnlocked {
-            item: "copper-cable".into(),
-            unlocked_by: vec!["electronics".into(), "foundry".into()],
-        }
-        .to_string();
-        assert!(msg.contains("copper-cable"), "{msg}");
-        assert!(msg.contains("electronics") && msg.contains("foundry"), "{msg}");
-        assert!(msg.contains("research"), "must state the research remedy: {msg}");
-        assert!(msg.contains("available-recipes list"), "must state the tick-it remedy: {msg}");
-    }
-
-    #[test]
-    fn not_unlocked_error_with_no_unlockers_still_reads_as_a_sentence() {
-        // The eight recipes no technology unlocks are a real case, not a
-        // bug — the message must not trail off just because the list is empty.
-        let msg = ChainError::NotUnlocked { item: "loader".into(), unlocked_by: vec![] }.to_string();
-        assert!(msg.contains("loader"), "{msg}");
-        assert!(!msg.contains("research it"), "no technology exists to research: {msg}");
-        assert!(msg.contains("no technology unlocks it"), "{msg}");
-        assert!(msg.contains("available-recipes list"), "must still state a remedy: {msg}");
-    }
-
-    #[test]
-    fn machine_not_unlocked_error_names_machine_and_technology() {
-        let msg = ChainError::MachineNotUnlocked {
-            machine: "electromagnetic-plant".into(),
-            unlocked_by: vec!["electromagnetic-plant".into()],
-        }
-        .to_string();
-        assert!(msg.contains("electromagnetic-plant"), "{msg}");
-        assert!(msg.contains("research"), "must state the remedy: {msg}");
-    }
-
-    #[test]
     fn no_machine_error_names_category_and_recipe() {
         let msg = ChainError::NoMachineForCategory {
             category: "chemistry".into(),
@@ -154,6 +126,58 @@ mod tests {
     fn belt_tier_error_suggests_real_belt_names() {
         let msg = ChainError::UnknownBeltTier("not-a-belt".into()).to_string();
         assert!(msg.contains("not-a-belt") && msg.contains("express-transport-belt"), "{msg}");
+    }
+
+    #[test]
+    fn recipe_locked_names_the_item_its_producers_the_technology_and_both_remedies() {
+        let msg = ChainError::RecipeLocked {
+            item: "copper-cable".into(),
+            recipes: vec!["copper-cable".into(), "casting-copper-cable".into()],
+            unlocked_by: vec!["electronics".into(), "foundry".into()],
+        }
+        .to_string();
+        assert!(msg.contains("copper-cable") && msg.contains("casting-copper-cable"), "{msg}");
+        assert!(msg.contains("electronics") && msg.contains("foundry"), "names the research: {msg}");
+        assert!(msg.contains("research"), "must state the research remedy: {msg}");
+        assert!(msg.contains("available-recipes list"), "must state the tick-it remedy: {msg}");
+    }
+
+    #[test]
+    fn recipe_locked_with_no_unlockers_still_reads_as_a_sentence() {
+        // The eight recipes no technology unlocks are a real case, not a bug —
+        // the message must not trail off just because the list is empty, and
+        // must not send the player looking for research that does not exist.
+        let msg = ChainError::RecipeLocked {
+            item: "loader".into(),
+            recipes: vec!["loader".into()],
+            unlocked_by: vec![],
+        }
+        .to_string();
+        assert!(msg.contains("loader"), "{msg}");
+        assert!(!msg.contains("research it"), "no technology exists to research: {msg}");
+        assert!(msg.contains("no technology unlocks it"), "{msg}");
+        assert!(msg.contains("available-recipes list"), "must still state a remedy: {msg}");
+    }
+
+    #[test]
+    fn machine_locked_names_the_machine_and_does_not_suggest_a_different_category() {
+        let msg = ChainError::MachineLocked {
+            machine: "electromagnetic-plant".into(),
+            recipe: "electronic-circuit".into(),
+            unlocked_by: vec!["electromagnetic-plant".into()],
+        }
+        .to_string();
+        assert!(
+            msg.contains("electromagnetic-plant") && msg.contains("electronic-circuit"),
+            "{msg}"
+        );
+        assert!(msg.contains("research"), "must state the fix: {msg}");
+        // Distinct remedy from NoMachineForCategory: the category is fine,
+        // so the message must not tell the player to pick a new category.
+        assert!(
+            !msg.contains("pick a machine for that category"),
+            "MachineLocked must not reuse NoMachineForCategory's remedy: {msg}"
+        );
     }
 
     #[test]

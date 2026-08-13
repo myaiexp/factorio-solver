@@ -1,6 +1,6 @@
 # No Active Phase
 
-Phases 1-7 complete. No phase 8 planned yet.
+Phases 1-8 complete. No phase 9 planned yet.
 
 ## Completed phases
 
@@ -11,6 +11,7 @@ Phases 1-7 complete. No phase 8 planned yet.
 - **Phase 5**: Production Chain Calculator — `ChainGoal` → `ProductionPlan`, UI panel (`005-chain-calculator.md`)
 - **Phase 6**: Block Generator — `ProductionPlan` → `Grid` → blueprint string, Generate + copy in the UI (`006-block-generator.md`)
 - **Phase 7**: Columnar Block Topology — cells instead of rows, so a block delivers its target rate instead of half (`007-columnar-block-topology.md`)
+- **Phase 8**: Save-Derived Machine Availability — read the player's unlocked recipes out of a save, so the solver only proposes what they can build (`008-save-derived-availability.md`)
 
 ## Next up
 
@@ -29,12 +30,23 @@ unlock, all live in the backlog (`helm idea list factorio-solver`):
 - **Inserter throughput** (#3360) — Phase 7 sizes belts correctly but still
   assumes an inserter can move whatever its machine needs. A green-circuit
   machine wants 6/s through one arm; a fast inserter carries about 6.4/s.
+- **Availability-aware recipe picker** (#3385) — Phase 8 gates the *solver* but
+  not the UI's own pickers, so a locked recipe is still offered and only
+  dead-ends at Solve.
 - **Blueprint book support** — currently shows an error message, not parsed.
 
 ## Verified, in-game, still outstanding
 
-Phase 7's blocks pass every unit and integration check, including a
-delivered-rate check measured from the placed grid. **The one thing no test
-replaces is pasting a generated block into Factorio and confirming it runs at
-rate** — that is the check that found the original bug, and it has not been
-done for the columnar version.
+Two things no test replaces, both needing a machine with Factorio on it:
+
+- **Pasting a generated block into Factorio and confirming it runs at rate.**
+  Phase 7's blocks pass every unit and integration check, including a
+  delivered-rate check measured from the placed grid — but the check that found
+  the original half-rate bug was a human watching a belt, and it has not been
+  done for the columnar version.
+- **Decoding a real save.** Phase 8 has never run against one; the build
+  machine has no Factorio install. Run
+  `FACTORIO_SAVE_FIXTURE=~/.factorio/saves/2026.zip cargo test -p factorio-save`
+  on the desktop. Until then the `level-init.dat` header layout (version field,
+  mod list) is an inferred guess validated only by fixtures this repo also
+  wrote, and the calibration search has only ever run against synthetic data.

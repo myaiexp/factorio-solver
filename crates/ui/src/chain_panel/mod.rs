@@ -23,6 +23,7 @@ mod logic;
 #[cfg(test)]
 mod render_tests;
 mod results;
+mod save_picker;
 #[cfg(test)]
 mod scroll_tests;
 #[cfg(test)]
@@ -34,6 +35,7 @@ mod topology_tests;
 pub(crate) use availability_controls::AvailabilityMode;
 use generate::GeneratedBlock;
 pub use logic::display_name;
+use save_picker::SavePickerState;
 
 /// Rate unit picked in the UI; converted to a `Rate` at solve time.
 ///
@@ -86,6 +88,10 @@ impl MachineChoice {
 /// won't compile in `persist.rs`; a field that got widened but isn't
 /// persisted is a visible loose end in this struct.
 pub struct ChainPanel {
+    /// What save (if any) gates the recipes/machines the solve is allowed to
+    /// use. Read straight into `build_goal`'s `availability`, never decoded
+    /// there — see `SavePickerState`'s own doc comment.
+    save_picker: SavePickerState,
     /// Doubles as the recipe-picker search query: typing here both names the
     /// goal item and filters the list of recipes shown below it.
     pub(crate) product: String,
@@ -143,6 +149,7 @@ impl ChainPanel {
         // what the generator itself considers the baseline tier.
         let default_layout = LayoutConfig::default();
         Self {
+            save_picker: SavePickerState::new(),
             product: String::new(),
             rate_value: 1.0,
             rate_unit: RateUnit::PerSec,
@@ -208,6 +215,25 @@ impl ChainPanel {
         }
     }
 
+    /// Decode a save and adopt its unlocked-recipe set wholesale, switching
+    /// to `OnlyAvailable` so the import takes effect immediately.
+    ///
+    /// An import and a hand-edit fill the *same* field — that is the whole
+    /// point of keying the gate on a recipe-name set rather than on a source.
+    /// So a save replaces the set outright and the tick list below then edits
+    /// it, which makes manual work corrections on top of an import rather than
+    /// a competing second opinion the solver would have to arbitrate.
+    ///
+    /// A failed read changes nothing but the picker's status line: leaving the
+    /// previous set in place beats replacing it with an empty one that would
+    /// make every recipe look locked.
+    fn adopt_save(&mut self, path: &std::path::Path) {
+        if let Some(set) = self.save_picker.select(path) {
+            self.available_recipes = Some(set);
+            self.availability_mode = AvailabilityMode::OnlyAvailable;
+        }
+    }
+
     /// Switch modes, seeding the set from [`all_available_recipe_names`] the
     /// first time `OnlyAvailable` is entered — so the switch alone changes no
     /// solve result and the user's first edit is a removal. Seeding is keyed
@@ -255,6 +281,14 @@ impl ChainPanel {
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.heading("Production Chain");
+                ui.separator();
+                // First section, ahead of the product/machine pickers: the
+                // save is what `build_goal`'s `availability` comes from, and
+                // the pickers below don't filter by it yet (idea #3385) — a
+                // save loaded *after* picking a locked recipe or machine
+                // gets no warning until Solve. Putting it first at least
+                // answers "is a save loaded" before that choice is made.
+                controls::save_picker(self, ui);
                 ui.separator();
                 controls::product_picker(self, ui);
                 ui.separator();

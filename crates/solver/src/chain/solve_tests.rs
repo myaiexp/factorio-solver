@@ -71,7 +71,7 @@ fn a_locked_intermediate_errors_instead_of_becoming_a_bus_input() {
     .with_availability(unlocked(&["electronic-circuit"]));
 
     match solve(&goal) {
-        Err(ChainError::NotUnlocked { item, unlocked_by }) => {
+        Err(ChainError::RecipeLocked { item, unlocked_by, .. }) => {
             assert_eq!(item, "copper-cable");
             assert_eq!(unlocked_by, vec!["electronics".to_string(), "foundry".to_string()]);
         }
@@ -80,7 +80,7 @@ fn a_locked_intermediate_errors_instead_of_becoming_a_bus_input() {
              availability gate exists to catch, and it just got Ok with copper-cable presumably \
              listed under inputs: {plan:#?}"
         ),
-        other => panic!("expected NotUnlocked, got {other:?}"),
+        other => panic!("expected RecipeLocked, got {other:?}"),
     }
 }
 
@@ -104,11 +104,11 @@ fn a_genuinely_raw_item_still_folds_into_the_bus() {
 fn the_locked_goal_names_its_technology() {
     let goal = ChainGoal::new("foundry", Rate::ItemsPerSec(1.0), &[]).with_availability(unlocked(&[]));
     match solve(&goal) {
-        Err(ChainError::NotUnlocked { item, unlocked_by }) => {
+        Err(ChainError::RecipeLocked { item, unlocked_by, .. }) => {
             assert_eq!(item, "foundry");
             assert_eq!(unlocked_by, vec!["foundry".to_string()]);
         }
-        other => panic!("expected NotUnlocked, got {other:?}"),
+        other => panic!("expected RecipeLocked, got {other:?}"),
     }
 }
 
@@ -202,30 +202,19 @@ fn fastest_available_skips_locked_machines() {
 fn a_named_locked_machine_errors_rather_than_substituting() {
     let recipe = crate::recipe::get("electronic-circuit").expect("electronic-circuit exists");
     match select_machine(recipe, &MachinePolicy::all("electromagnetic-plant"), &unlocked(&[])) {
-        Err(ChainError::MachineNotUnlocked { machine, unlocked_by }) => {
+        Err(ChainError::MachineLocked { machine, unlocked_by, .. }) => {
             assert_eq!(machine, "electromagnetic-plant");
             assert_eq!(unlocked_by, vec!["electromagnetic-plant".to_string()]);
         }
-        other => panic!("expected MachineNotUnlocked, not a silent substitution: {other:?}"),
+        other => panic!("expected MachineLocked, not a silent substitution: {other:?}"),
     }
 }
 
-/// `metallurgy` is covered by exactly one prototype, `foundry`. Locking it
-/// must name the lock (`MachineNotUnlocked`), never `NoMachineForCategory` —
-/// that error's message points at the machine policy, the wrong control
-/// when the real remedy is research.
-#[test]
-fn only_locked_machines_for_a_category_names_the_lock() {
-    let recipe = crate::recipe::get("casting-iron").expect("casting-iron exists");
-    assert_eq!(recipe.category, "metallurgy");
-    match select_machine(recipe, &MachinePolicy::fastest(), &unlocked(&[])) {
-        Err(ChainError::MachineNotUnlocked { machine, unlocked_by }) => {
-            assert_eq!(machine, "foundry");
-            assert_eq!(unlocked_by, vec!["foundry".to_string()]);
-        }
-        other => panic!("expected MachineNotUnlocked naming foundry: {other:?}"),
-    }
-}
+// The no-available-machine-for-a-category case (`metallurgy`, covered only
+// by the locked `foundry`) lives in `select_machine_tests.rs` as
+// `every_machine_for_a_category_locked_names_the_fastest_one` — it exercises
+// `select_machine` directly and belongs beside the rest of that function's
+// coverage, not duplicated here.
 
 /// The existing `named_machine_that_cannot_craft_the_category_errors` case,
 /// but under a restrictive availability, proving the category check still
@@ -252,4 +241,42 @@ fn everything_still_allows_a_research_locked_machine() {
     let machine = select_machine(recipe, &MachinePolicy::fastest(), &Availability::Everything)
         .expect("selects a machine");
     assert_eq!(machine.name, "electromagnetic-plant");
+}
+
+/// `select_recipe`'s own contract is unconditional: "an override wins
+/// outright" (see its doc comment, and
+
+/// An override is an explicit instruction, so it survives a fully-locked
+/// candidate set: `select_recipe` honours it without consulting availability
+/// at all, and `solve`'s own locked-item checks defer to it via
+/// `locked_without_an_override` rather than refusing first. Those two used to
+/// disagree — `solve` refused before `select_recipe` was ever reached, so an
+/// override that worked when called directly failed inside a plan.
+#[test]
+fn an_explicit_override_to_a_locked_recipe_is_still_honoured() {
+    // The machine must be unlocked or this fails for an unrelated reason:
+    // with only "assembling-machine-2" unlocked, nothing else is craftable,
+    // so a missing machine unlock would die at machine selection rather than
+    // proving the recipe override path works.
+    let goal = ChainGoal::new("copper-cable", Rate::ItemsPerSec(1.0), &["copper-plate"])
+        .with_availability(unlocked(&["assembling-machine-2"])) // copper-cable itself locked
+        .with_override("copper-cable", "copper-cable");
+    assert!(solve(&goal).is_ok());
+}
+
+/// The default must be inert: setting `Everything` explicitly yields the
+/// same plan as not setting it at all. Every pre-existing chain and layout
+/// test is the broader form of this assertion and must still pass untouched.
+#[test]
+fn explicitly_setting_everything_changes_nothing() {
+    let base = ChainGoal::new(
+        "electronic-circuit",
+        Rate::ItemsPerSec(1.0),
+        &["iron-plate", "copper-plate"],
+    )
+    .with_override("copper-cable", "copper-cable");
+    let explicit = base.clone().with_availability(Availability::Everything);
+    let (a, b) = (solve(&base).unwrap(), solve(&explicit).unwrap());
+    assert_eq!(a.steps.len(), b.steps.len());
+    assert_eq!(a.inputs, b.inputs);
 }

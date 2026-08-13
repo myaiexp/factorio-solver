@@ -52,10 +52,11 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
     if goal_candidates.is_empty() {
         return Err(ChainError::UnreachableBoundary { item: goal.product.clone() });
     }
-    if available_candidates_for(&goal.product, &goal.availability).is_empty() {
-        return Err(ChainError::NotUnlocked {
+    if locked_without_an_override(goal, &goal.product) {
+        return Err(ChainError::RecipeLocked {
             item: goal.product.clone(),
             unlocked_by: unlockers_of(&goal_candidates),
+            recipes: goal_candidates.iter().map(|r| r.name.clone()).collect(),
         });
     }
 
@@ -85,14 +86,14 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         }
 
         // Satisfy from surplus (an earlier step's over-production) first.
-        if let Some(&have) = surplus.get(&item) {
-            if have > 0.0 {
-                let taken = have.min(demand);
-                *surplus.entry(item.clone()).or_insert(0.0) -= taken;
-                demand -= taken;
-                if demand.abs() < EPSILON {
-                    continue;
-                }
+        if let Some(&have) = surplus.get(&item)
+            && have > 0.0
+        {
+            let taken = have.min(demand);
+            *surplus.entry(item.clone()).or_insert(0.0) -= taken;
+            demand -= taken;
+            if demand.abs() < EPSILON {
+                continue;
             }
         }
 
@@ -106,10 +107,11 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         }
         // Craftable, but not by this player — never a bus input, or the plan
         // looks fine and is not.
-        if available_candidates_for(&item, &goal.availability).is_empty() {
-            return Err(ChainError::NotUnlocked {
+        if locked_without_an_override(goal, &item) {
+            return Err(ChainError::RecipeLocked {
                 item: item.clone(),
                 unlocked_by: unlockers_of(&candidates),
+                recipes: candidates.iter().map(|r| r.name.clone()).collect(),
             });
         }
 
@@ -179,6 +181,20 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         .collect();
 
     Ok(ProductionPlan { steps, inputs: plan_inputs, byproducts, warnings })
+}
+
+/// Whether `item` is craftable in principle but not under `goal.availability`
+/// — the case that must be refused rather than billed to the bus.
+///
+/// An override for `item` suppresses it outright, because `select_recipe`
+/// honours an override without consulting availability at all: an override is
+/// an explicit instruction, and naming a locked recipe means the user meant
+/// it. Without this check the two disagreed, and `solve` won the race by
+/// refusing before `select_recipe` was ever reached — so an override that
+/// worked when called directly failed inside a plan.
+fn locked_without_an_override(goal: &ChainGoal, item: &str) -> bool {
+    !goal.recipe_overrides.contains_key(item)
+        && available_candidates_for(item, &goal.availability).is_empty()
 }
 
 /// Expected units of `item` produced per craft, minus expected units

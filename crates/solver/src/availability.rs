@@ -4,6 +4,8 @@ use std::collections::BTreeSet;
 use crate::recipe::{self, Recipe};
 use crate::tech;
 
+pub mod from_save;
+
 /// Which recipes the player is able to build.
 ///
 /// Deliberately source-agnostic. The set is a set of *recipe names* rather
@@ -64,6 +66,14 @@ impl Availability {
             Availability::Everything => !tech::unlockers_for(&recipe.name).is_empty(),
             Availability::Unlocked(set) => set.contains(&recipe.name),
         }
+    }
+
+    /// [`allows`](Self::allows) by recipe *name*, for callers holding a name
+    /// rather than a `&Recipe`. An unknown name is not a recipe and so is not
+    /// allowed — the safer direction, since the alternative would let a typo
+    /// or a retired name read as buildable.
+    pub fn allows_recipe(&self, recipe: &str) -> bool {
+        recipe::get(recipe).is_some_and(|r| self.allows(r))
     }
 
     /// Whether the machine prototype named `machine` can be obtained.
