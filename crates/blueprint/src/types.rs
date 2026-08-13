@@ -169,6 +169,32 @@ fn is_north(d: &Direction) -> bool {
     *d == Direction::North
 }
 
+// ── Item filter ───────────────────────────────────────────────────────
+
+/// One filter slot on an inserter, loader or filtered container — Factorio's
+/// `BlueprintItemFilter`, mirrored field for field from the runtime docs at
+/// the version this crate targets (2.0.77).
+///
+/// Only `index` is required, and it is **1-based**. Every other field is
+/// optional and genuinely absent in practice: a plain item filter is just
+/// `{"index": 1, "name": "iron-plate"}`, and omitting `quality`/`comparator`
+/// is what makes the filter match an item of *any* quality rather than only
+/// normal. `name` is `Option` rather than `String` because a real blueprint
+/// may carry a quality-only filter, which must parse rather than error.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ItemFilter {
+    pub index: u32,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quality: Option<String>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub comparator: Option<String>,
+}
+
 // ── Entity ────────────────────────────────────────────────────────────
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -200,6 +226,16 @@ pub struct Entity {
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tags: Option<serde_json::Value>,
+
+    /// Whether the entity's `filters` are actually applied. Factorio defaults
+    /// this to **false**, so a `filters` array on its own is stored and
+    /// ignored — an inserter that reads as filtered in the blueprint and
+    /// grabs anything in game. Anything writing `filters` must write this too.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub use_filters: Option<bool>,
+
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filters: Option<Vec<ItemFilter>>,
 
     #[serde(flatten)]
     pub extra: HashMap<String, serde_json::Value>,
@@ -434,6 +470,13 @@ mod tests {
             items: Some(json!({"speed-module": 2})),
             wires: Some(json!([[1, 2, 3, 4]])),
             tags: Some(json!({"custom": "value"})),
+            use_filters: Some(true),
+            filters: Some(vec![ItemFilter {
+                index: 1,
+                name: Some("iron-plate".to_string()),
+                quality: None,
+                comparator: None,
+            }]),
             extra: HashMap::new(),
         };
 
@@ -464,6 +507,39 @@ mod tests {
         assert!(!obj.contains_key("items"));
         assert!(!obj.contains_key("wires"));
         assert!(!obj.contains_key("tags"));
+        // An unfiltered entity must serialize exactly as it did before filters
+        // existed — every blueprint the generator already emits depends on it.
+        assert!(!obj.contains_key("use_filters"));
+        assert!(!obj.contains_key("filters"));
+    }
+
+    /// The wire format, pinned against Factorio's `BlueprintItemFilter`
+    /// (lua-api 2.0.77): `index` is required and 1-based, everything else is
+    /// omitted when absent — so a plain item filter is exactly two keys.
+    #[test]
+    fn test_item_filter_omits_absent_quality_and_comparator() {
+        let f = ItemFilter {
+            index: 1,
+            name: Some("uranium-238".to_string()),
+            quality: None,
+            comparator: None,
+        };
+        assert_eq!(
+            serde_json::to_value(&f).unwrap(),
+            json!({"index": 1, "name": "uranium-238"})
+        );
+    }
+
+    /// `name` is optional in Factorio's own schema, so a quality-only filter
+    /// out of a real blueprint has to parse rather than error.
+    #[test]
+    fn test_item_filter_without_a_name_parses() {
+        let f: ItemFilter =
+            serde_json::from_str(r#"{"index": 2, "quality": "legendary", "comparator": ">="}"#)
+                .unwrap();
+        assert_eq!(f.index, 2);
+        assert_eq!(f.name, None);
+        assert_eq!(f.quality.as_deref(), Some("legendary"));
     }
 
     #[test]

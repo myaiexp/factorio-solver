@@ -40,6 +40,15 @@ pub struct PlacedEntity {
     pub size: (u32, u32),
     pub recipe: Option<String>,
     pub entity_type: Option<String>,
+    /// Item names in this entity's filter slots, in slot order. Empty means
+    /// unfiltered, which is every entity the grid places unless something
+    /// calls [`crate::Grid::set_filters`].
+    ///
+    /// Names only: the blueprint's `ItemFilter` also carries quality and a
+    /// comparator, and the grid deliberately does not model those — nothing
+    /// here reasons about quality, and a half-modelled version would invite
+    /// code that thinks it does.
+    pub filters: Vec<String>,
 }
 
 // ── Footprint geometry ───────────────────────────────────────────────
