@@ -35,8 +35,17 @@ unlock, all live in the backlog (`helm idea list factorio-solver`):
 
 ## Verified, in-game, still outstanding
 
-Three things no test replaces, all needing a machine with Factorio on it:
+Four things no test replaces, all needing a machine with Factorio on it:
 
+- **Pasting a *filtered* inserter and confirming Factorio honours it.** Idea
+  #3377 gives each product of a two-product step its own belt, separated by
+  inserter filters. The wire format is taken from `lua-api.factorio.com/2.0.77`
+  — the version the registries came from — and pinned key-for-key by a test in
+  `crates/grid/src/export.rs`, but nothing here has watched the game parse it.
+  The detail to check first is `use_filters`: it defaults to `false`, so if it
+  were dropped the inserter would look filtered in the blueprint and grab both
+  products in game. Generate a `uranium-processing` block with
+  `ingredients_on: Side::Edge` and look at the two centrifuge output inserters.
 - **Clipboard watching against the real game** (idea #3348, built 2026-08-13).
   The wiring is tested headlessly end to end — a blueprint offered by the
   watcher loads itself, the app's own copy is declined, a half-typed input

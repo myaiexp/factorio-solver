@@ -62,10 +62,46 @@ prototype table has exactly `inserter`, `fast-inserter`, `bulk-inserter`,
 `stack-inserter`, `long-handed-inserter`, `burner-inserter` and no filter
 variant. So no new prototype, no config knob, no change to `LayoutConfig`.
 
-Because a belt slot carries one item on *both* its lanes, the two columns of a
-cell allocate identically and mirror: column A drops `uranium-238` on belt 0's
-west lane, column B on belt 0's east lane. A belt still carries exactly one
-item, which is what the next step (and the player) can actually consume.
+A belt then carries exactly one item on both its lanes — column A fills one
+lane, column B the other — which is what the next step (and the player) can
+actually consume.
+
+### The mirror: allocate to a belt, never to a slot
+
+Getting that right is not automatic, and the obvious formulation is wrong. A
+cell's two columns face their product belts **from opposite sides**, so the
+same *slot index* reaches *different physical belts*:
+
+| | product gutter | belt reached by slot `k` |
+| --- | --- | --- |
+| column A | `gutter_a_right`, `dir: +1` | `spine_x0 + k` |
+| column B | `gutter_b_left`, `dir: -1` | `spine_x0 + s - 1 - k` |
+
+With `s = 2` — the only case that matters, since two products need exactly two
+product belts — those are opposite ends, and 2 has no fixed point under that
+reversal. Assigning items by slot index therefore puts a `uranium-235`-filtered
+inserter and a `uranium-238`-filtered inserter on the *same* belt from opposite
+sides, and every belt comes out 50/50 mixed: the exact failure this feature
+exists to prevent, reintroduced by the mechanism meant to prevent it.
+
+The same reversal governs the **shared edge belt** between adjacent cells when
+products sit on the edge side: cell N's column B and cell N+1's column A face
+that strip from opposite directions, so a step needing two or more cells breaks
+there instead of within a cell.
+
+So the allocation addresses a **physical belt**, never a slot. Canonical
+ordering is ascending x within the product-side belt group; both columns, and
+both sides of a shared edge, agree because they are naming the same strip.
+Each column then derives its own slot:
+
+```rust
+let slot = if gutter.dir > 0 { p } else { n_product_belts - 1 - p };
+```
+
+`CellPlan::product_belts(item)` returns those physical indices, and its doc
+comment has to say so — a future reader "simplifying" it back to slot indices
+reintroduces the bug silently, because it still type-checks and still puts the
+two products on different *slots*.
 
 ### Alternatives considered and rejected
 
@@ -83,7 +119,7 @@ item, which is what the next step (and the player) can actually consume.
 
 ## Changes
 
-### `blueprint` — the filter wire format
+### `blueprint` — the filter wire format  *(shipped in `b572f63`)*
 
 Taken from Factorio's own runtime docs at **the matching version**
 (`lua-api.factorio.com/2.0.77`), not guessed. `BlueprintEntity`'s inserter
@@ -140,7 +176,7 @@ out of the untyped bag without changing the JSON.
 > version-matched docs, but nothing here has watched Factorio parse it. One test
 > pins the emitted JSON verbatim, so a correction is a single edit.
 
-### `grid` — carrying a filter
+### `grid` — carrying a filter  *(shipped in `b572f63`)*
 
 - `PlacedEntity` gains `pub filters: Vec<String>` — empty means unfiltered.
   `Vec`, not `Option<String>`, because a real inserter has up to five slots and
@@ -239,6 +275,22 @@ item are those claimed under `Some(item)`, plus — only when the step has exact
 one positive output — those claimed under `None`. That second clause is what
 keeps single-product behaviour bit-identical while multi-product steps are
 checked per item.
+
+**Per-item rates are not enough on their own.** Under the mirror bug above,
+each product independently accumulates one lane per belt and independently
+satisfies its own rate, so a rate check alone reports success on a block whose
+belts are physically 50/50 mixed. So `validate` also asserts the invariant the
+whole design rests on: **for one recipe, no belt run may be claimed under two
+distinct product filters.** A violation is a hard error (`MixedProductBelt`),
+never a warning — it is a silently-wrong blueprint, the category this module
+exists to make impossible.
+
+This is also why the obvious placement test is worthless. "The two products
+land on different belt slots" passes with the mirror bug present, because slot
+0 ≠ slot 1 at the `CellPlan` level even when both columns cross over. The test
+has to assert on placed geometry: gather every product inserter's `(belt cell,
+filter)` and require each physical belt cell to carry exactly one distinct
+filter across *both* columns.
 
 ## Testing
 
