@@ -54,7 +54,7 @@ pub fn validate(
     check_pole_coverage(grid)?;
     check_delivered_rate(grid, plan, &resolved)?;
 
-    Ok(Validation { warnings: plan.warnings.iter().cloned().collect(), bindings: Vec::new() })
+    Ok(Validation { warnings: plan.warnings.to_vec(), bindings: Vec::new() })
 }
 
 // ── Hard errors ─────────────────────────────────────────────────────

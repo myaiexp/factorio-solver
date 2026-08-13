@@ -469,11 +469,11 @@ mod tests {
 
         // Same cell — should report collision (Ok(false))
         let result = grid.can_place("transport-belt", &pos(0.5, 0.5), Direction::North);
-        assert_eq!(result.unwrap(), false);
+        assert!(!result.unwrap());
 
         // Adjacent cell — should be fine
         let result = grid.can_place("transport-belt", &pos(1.5, 0.5), Direction::North);
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
     }
 
     #[test]
@@ -518,7 +518,7 @@ mod tests {
 
         // Can place in the now-free area
         let can = grid.can_place("stone-furnace", &pos(1.0, 1.0), Direction::North);
-        assert_eq!(can.unwrap(), true);
+        assert!(can.unwrap());
     }
 
     // ── Query tests ─────────────────────────────────────────────────
@@ -913,7 +913,7 @@ mod tests {
 
         // can_place inside bounds
         let result = grid.can_place("transport-belt", &pos(5.5, 5.5), Direction::North);
-        assert_eq!(result.unwrap(), true);
+        assert!(result.unwrap());
 
         // Place 3x3 that extends outside bounds (center at 0.5,0.5 → cells -1..1)
         let result = grid.place(
@@ -1078,18 +1078,20 @@ mod tests {
     /// `PlacedEntity`/`CellState`.
     ///
     /// Per-entity memory breakdown (approximate):
-    ///   - `Option<PlacedEntity>` in `entities` vec:
-    ///       PlacedEntity = EntityId(8) + &'static str ptr(8) + GridPos(8) +
-    ///                      Position(16) + Direction(1+pad≈4) + (u32,u32)(8) +
-    ///                      Option<String>(24) + Option<String>(24) ≈ 104 bytes
-    ///       With Option discriminant overhead: ~112 bytes
-    ///   - `CellState` cells in `HashMap<(i32,i32), CellState>`:
-    ///       Each 1×1 entity occupies 1 cell.
-    ///       HashMap entry ≈ (i32,i32)(8) + CellState(8) + overhead ≈ 40 bytes
-    ///   - SpatialIndex `HashMap<(i32,i32), Vec<EntityId>>` chunk entries:
-    ///       5,000 belts in a ~70×72 area → ceil(70/16)×ceil(72/16) ≈ 20 chunks
-    ///       Each chunk vec entry: 8 bytes per EntityId.
-    ///       Total spatial index ≈ 5000 × 8 = 40 KB (negligible)
+    ///
+    /// ```text
+    /// Option<PlacedEntity> in `entities` vec:
+    ///     PlacedEntity = EntityId(8) + &'static str ptr(8) + GridPos(8) +
+    ///                    Position(16) + Direction(1+pad≈4) + (u32,u32)(8) +
+    ///                    Option<String>(24) + Option<String>(24) ≈ 104 bytes
+    ///     With Option discriminant overhead: ~112 bytes
+    /// CellState cells in HashMap<(i32,i32), CellState>:
+    ///     Each 1×1 entity occupies 1 cell.
+    ///     HashMap entry ≈ (i32,i32)(8) + CellState(8) + overhead ≈ 40 bytes
+    /// SpatialIndex HashMap<(i32,i32), Vec<EntityId>> chunk entries:
+    ///     5,000 belts in a ~70×72 area → ceil(70/16)×ceil(72/16) ≈ 20 chunks
+    ///     Each chunk vec entry: 8 bytes per EntityId.
+    ///     Total spatial index ≈ 5000 × 8 = 40 KB (negligible)
     ///
     /// Estimated total for 5,000 1×1 entities:
     ///   entities vec: 5,000 × 112   =  560 KB
@@ -1097,6 +1099,7 @@ mod tests {
     ///   spatial idx:  5,000 × 8     =   40 KB
     ///   ─────────────────────────────────────
     ///   Total:                      ≈  800 KB  (< 1 MB for 5,000 entities)
+    /// ```
     ///
     /// That works out to ~206 B per live entity, comfortably under the
     /// 384 B/entity budget the assertion enforces (see below).

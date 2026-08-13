@@ -299,10 +299,10 @@ fn binding_names(
             }
         }
     }
-    if cell_term >= column_term {
-        if let Some((name, _)) = product {
-            binding.push(name.clone());
-        }
+    if cell_term >= column_term
+        && let Some((name, _)) = product
+    {
+        binding.push(name.clone());
     }
     binding.join(", ")
 }

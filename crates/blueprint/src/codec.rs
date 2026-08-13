@@ -217,7 +217,7 @@ mod tests {
     fn test_decode_compressed_guard_accepts_at_limit() {
         // A payload that decodes to within the limit must pass the size guard —
         // it fails later as garbage zlib, never as CompressedTooLarge.
-        assert!(MAX_ENCODED_LEN / 4 * 3 <= COMPRESSED_LIMIT);
+        const { assert!(MAX_ENCODED_LEN / 4 * 3 <= COMPRESSED_LIMIT) };
         let blueprint_string = format!("0{}", "A".repeat(MAX_ENCODED_LEN));
 
         assert!(matches!(

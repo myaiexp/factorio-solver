@@ -11,10 +11,10 @@ pub fn detect_install(override_path: Option<&Path>) -> Option<PathBuf> {
     if let Some(path) = override_path {
         return validate_install(path);
     }
-    if let Ok(env_path) = std::env::var("FACTORIO_INSTALL_DIR") {
-        if let Some(install) = validate_install(Path::new(&env_path)) {
-            return Some(install);
-        }
+    if let Ok(env_path) = std::env::var("FACTORIO_INSTALL_DIR")
+        && let Some(install) = validate_install(Path::new(&env_path))
+    {
+        return Some(install);
     }
     candidates().into_iter().find_map(|path| validate_install(&path))
 }
