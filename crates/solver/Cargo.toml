@@ -12,6 +12,11 @@ factorio-grid = { path = "../grid" }
 # The generated Grid goes out as a blueprint string, so the layout phase names
 # BlueprintData/encode directly rather than through grid's re-export.
 factorio-blueprint = { path = "../blueprint" }
+# The one edge from solver to save, in `availability.rs`. It points this way
+# because save's calibration invariant needs the default-enabled recipe set,
+# which lives in solver's registry — so save takes it as a parameter and the
+# graph stays acyclic: ui -> solver -> save.
+factorio-save = { path = "../save" }
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -25,3 +30,8 @@ testsupport = []
 # that the integration tests link against. Without it `cargo test` builds the
 # lib with the feature off and `factorio_solver::testsupport` does not exist.
 factorio-solver = { path = ".", features = ["testsupport"] }
+# For `availability`'s end-to-end test: a synthetic save zip built from the
+# real recipe registry, which is as close to a real save as anything that can
+# be committed gets.
+factorio-save = { path = "../save", features = ["testsupport"] }
+tempfile = "3"
