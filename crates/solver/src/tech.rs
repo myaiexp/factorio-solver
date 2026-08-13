@@ -8,10 +8,14 @@ use serde::{Deserialize, Serialize};
 ///
 /// This graph exists for explanation only — it turns "you cannot build this"
 /// into "this needs `foundry`". Nothing in the solver selects a recipe, a
-/// machine, or a layout based on `Technology`: `chain::solve` resolves
-/// purely from `ChainGoal.available`, and `Recipe::enabled` is informational
-/// rather than a filter (research-locked recipes are legitimate goals).
-/// Wiring an actual consumer of this graph is later work.
+/// machine, or a layout based on `Technology`: `chain::solve` resolves from
+/// `ChainGoal.available` and `ChainGoal.availability` — a recipe-name set,
+/// never a technology set — and `Recipe::enabled` is informational rather
+/// than a filter (research-locked recipes are legitimate goals).
+/// `chain::select` does consult this graph, but only to *explain* a refusal —
+/// `NotUnlocked`/`MachineNotUnlocked` name the technology to research —
+/// while selection itself still keys on the recipe set: the graph explains,
+/// it never gates.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Technology {
     pub name: String,

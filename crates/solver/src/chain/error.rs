@@ -32,11 +32,17 @@ pub enum ChainError {
     )]
     AmbiguousRecipe { item: String, candidates: Vec<String> },
 
+    #[error("'{item}' cannot be built yet: {}", unlock_hint(.unlocked_by))]
+    NotUnlocked { item: String, unlocked_by: Vec<String> },
+
     #[error(
         "no available machine can craft category '{category}' (needed by recipe '{recipe}') — \
          pick a machine for that category in the machine policy"
     )]
     NoMachineForCategory { category: String, recipe: String },
+
+    #[error("machine '{machine}' cannot be built yet: {}", unlock_hint(.unlocked_by))]
+    MachineNotUnlocked { machine: String, unlocked_by: Vec<String> },
 
     #[error(
         "'{item}' cannot be reached from what is available — it has no recipe and is not a raw \
@@ -55,6 +61,21 @@ pub enum ChainError {
          feedback loop that consumes more than it produces, so no steady state exists"
     )]
     DidNotConverge { product: String, iterations: u32 },
+}
+
+/// Renders the "what would unlock this" half of a not-unlocked message.
+/// Empty is real, not a bug: eight recipes have no unlocking technology at
+/// all, so the remedy there is the panel, never research.
+fn unlock_hint(unlocked_by: &[String]) -> String {
+    match unlocked_by {
+        [] => "no technology unlocks it — tick it in the available-recipes list if you have it \
+               anyway"
+            .to_string(),
+        names => format!(
+            "it needs {} — research it, or tick the recipe in the available-recipes list",
+            names.iter().map(|n| format!("'{n}'")).collect::<Vec<_>>().join(" or ")
+        ),
+    }
 }
 
 #[cfg(test)]
@@ -82,6 +103,41 @@ mod tests {
         .to_string();
         assert!(msg.contains("copper-cable") && msg.contains("casting-copper-cable"), "{msg}");
         assert!(msg.contains("override"), "must state the fix: {msg}");
+    }
+
+    #[test]
+    fn not_unlocked_error_names_item_technology_and_both_remedies() {
+        let msg = ChainError::NotUnlocked {
+            item: "copper-cable".into(),
+            unlocked_by: vec!["electronics".into(), "foundry".into()],
+        }
+        .to_string();
+        assert!(msg.contains("copper-cable"), "{msg}");
+        assert!(msg.contains("electronics") && msg.contains("foundry"), "{msg}");
+        assert!(msg.contains("research"), "must state the research remedy: {msg}");
+        assert!(msg.contains("available-recipes list"), "must state the tick-it remedy: {msg}");
+    }
+
+    #[test]
+    fn not_unlocked_error_with_no_unlockers_still_reads_as_a_sentence() {
+        // The eight recipes no technology unlocks are a real case, not a
+        // bug — the message must not trail off just because the list is empty.
+        let msg = ChainError::NotUnlocked { item: "loader".into(), unlocked_by: vec![] }.to_string();
+        assert!(msg.contains("loader"), "{msg}");
+        assert!(!msg.contains("research it"), "no technology exists to research: {msg}");
+        assert!(msg.contains("no technology unlocks it"), "{msg}");
+        assert!(msg.contains("available-recipes list"), "must still state a remedy: {msg}");
+    }
+
+    #[test]
+    fn machine_not_unlocked_error_names_machine_and_technology() {
+        let msg = ChainError::MachineNotUnlocked {
+            machine: "electromagnetic-plant".into(),
+            unlocked_by: vec!["electromagnetic-plant".into()],
+        }
+        .to_string();
+        assert!(msg.contains("electromagnetic-plant"), "{msg}");
+        assert!(msg.contains("research"), "must state the remedy: {msg}");
     }
 
     #[test]

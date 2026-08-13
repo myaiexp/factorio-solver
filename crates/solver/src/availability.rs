@@ -39,10 +39,17 @@ impl Availability {
     /// recipes are `enabled: false` with no technology unlocking them
     /// (loader, fast/express/turbo-loader, infinity-chest, infinity-pipe,
     /// heat-interface, pistol), so no playthrough reaches them; with no
-    /// source to consult they are excluded, which is a live bug fix — they
-    /// are candidates today. But under `Unlocked` the source is
-    /// authoritative: if a save says a recipe is unlocked, a static rule here
+    /// source to consult they are excluded. But under `Unlocked` the source
+    /// is authoritative: if a save says a recipe is unlocked, a rule here
     /// does not overrule it.
+    ///
+    /// That exclusion changes no chain result, and it is worth knowing why
+    /// rather than rediscovering it: all eight are also `hidden: true`, so
+    /// `chain::select::candidates_for` has always dropped them. Where it does
+    /// bite is [`all_available_recipe_names`], the seed the UI offers as a
+    /// tickable list — without it the list would carry eight recipes no
+    /// playthrough can reach, pre-ticked, inviting the user to reason about
+    /// them.
     ///
     /// The exclusion is derived from the technology graph rather than a
     /// hardcoded list of those eight names, so a game update moves it for
@@ -85,6 +92,25 @@ impl Availability {
         }
         !produced_by_something
     }
+}
+
+/// Technology names that would unlock some recipe producing `machine`,
+/// sorted and deduped. Empty when nothing produces it, or when its producers
+/// are unlocked by nothing.
+///
+/// Beside `allows_machine` because it walks the same raw-registry scan and
+/// must stay consistent with it — this is the "why" behind a `false` from
+/// that function, called only once a `MachineNotUnlocked` is already known
+/// to be the outcome, never in the hot search itself.
+pub fn machine_unlockers(machine: &str) -> Vec<String> {
+    let mut names: BTreeSet<String> = BTreeSet::new();
+    for r in recipe::registry().values() {
+        if !r.results.iter().any(|res| res.name == machine) {
+            continue;
+        }
+        names.extend(tech::unlockers_for(&r.name).into_iter().map(str::to_string));
+    }
+    names.into_iter().collect()
 }
 
 /// Every recipe name available under [`Availability::Everything`].
@@ -131,8 +157,9 @@ mod tests {
     #[test]
     fn never_unlockable_recipes_are_excluded_under_everything() {
         // `enabled: false` with no unlocking technology, so no playthrough
-        // reaches them. They are candidates today — excluding them is a live
-        // bug fix, deliberately changing the default's behaviour.
+        // reaches them. They are all `hidden: true` as well, so this changes
+        // no chain result — what it keeps clean is the UI's seeded list,
+        // which would otherwise offer eight unreachable recipes as ticked.
         for name in [
             "loader",
             "fast-loader",
@@ -216,6 +243,19 @@ mod tests {
         for name in hidden_or_recycling {
             assert!(unlocked(&[name]).allows_machine("holmium-plate"), "{name}");
         }
+    }
+
+    #[test]
+    fn machine_unlockers_names_the_technology_behind_the_recipe() {
+        // electromagnetic-plant the machine is produced by exactly one
+        // recipe of the same name, unlocked by the technology of the same
+        // name — a coincidence of naming, not a rule this function relies on.
+        assert_eq!(machine_unlockers("electromagnetic-plant"), vec!["electromagnetic-plant"]);
+    }
+
+    #[test]
+    fn machine_unlockers_is_empty_when_nothing_produces_it() {
+        assert!(machine_unlockers("not-a-prototype-at-all").is_empty());
     }
 
     #[test]

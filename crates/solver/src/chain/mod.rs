@@ -7,6 +7,7 @@ use std::collections::{HashMap, HashSet};
 
 use factorio_grid::prototype::{self, EntityPrototype};
 
+use crate::availability::Availability;
 use crate::recipe::Recipe;
 
 pub mod error;
@@ -107,10 +108,14 @@ pub struct ChainGoal {
     pub machines: MachinePolicy,
     /// Item → recipe name, resolving items with more than one producer.
     pub recipe_overrides: HashMap<String, String>,
+    /// What the player can build. Defaults to `Everything`, so every existing
+    /// caller is behaviour-identical apart from the never-unlockable recipes.
+    pub availability: Availability,
 }
 
 impl ChainGoal {
-    /// A goal with the default machine policy and no overrides.
+    /// A goal with the default machine policy, no overrides, and every
+    /// buildable recipe available (see `Availability::Everything`).
     pub fn new(product: &str, rate: Rate, available: &[&str]) -> Self {
         Self {
             product: product.to_string(),
@@ -118,6 +123,7 @@ impl ChainGoal {
             available: available.iter().map(|s| s.to_string()).collect(),
             machines: MachinePolicy::fastest(),
             recipe_overrides: HashMap::new(),
+            availability: Availability::Everything,
         }
     }
 
@@ -128,6 +134,14 @@ impl ChainGoal {
 
     pub fn with_override(mut self, item: &str, recipe: &str) -> Self {
         self.recipe_overrides.insert(item.to_string(), recipe.to_string());
+        self
+    }
+
+    /// Overrides the default `Everything` — what a specific player can
+    /// actually build, from a save import, a technology projection, or the
+    /// UI's own edited set.
+    pub fn with_availability(mut self, availability: Availability) -> Self {
+        self.availability = availability;
         self
     }
 }
