@@ -4,6 +4,7 @@ members = [
     "crates/blueprint",
     "crates/grid",
     "crates/templates",
+    "crates/save",
     "crates/solver",
     "crates/ui",
     "crates/dump-ingest",
