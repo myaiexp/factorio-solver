@@ -2,6 +2,7 @@ use egui::{Color32, Pos2, Rect, Stroke, Vec2};
 use factorio_blueprint::{decode, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
+use crate::build_info::{self, FreshnessProbe};
 use crate::chain_panel::ChainPanel;
 use crate::clipboard::{detect, ClipboardWatcher, WatchStatus};
 use crate::entity_draw::EntityPainter;
@@ -90,6 +91,9 @@ pub struct FactorioApp {
     /// which is what stops "Copy blueprint" from reloading the app's own
     /// output — see `clipboard::detect::should_load`.
     displayed: Option<String>,
+    /// Whether this binary is the checked-out code. Answered once in the
+    /// background, then painted in the status bar for the rest of the run.
+    build: FreshnessProbe,
 }
 
 impl FactorioApp {
@@ -116,6 +120,7 @@ impl FactorioApp {
             chain: ChainPanel::new(),
             clipboard: ClipboardWatcher::spawn(&cc.egui_ctx, settings.watch_clipboard()),
             displayed: None,
+            build: FreshnessProbe::spawn(&cc.egui_ctx),
         };
         if let Some(storage) = cc.storage
             && let Some(state) = eframe::get_value::<PanelState>(storage, persist::STORAGE_KEY)
@@ -142,6 +147,10 @@ impl FactorioApp {
             chain: ChainPanel::new(),
             clipboard,
             displayed: None,
+            // Fixed rather than probed: the real answer depends on this
+            // machine's git state, so a test asserting on it would pass on a
+            // dev checkout and fail in a sandbox.
+            build: FreshnessProbe::ready(crate::build_info::Freshness::Current),
         }
     }
 
@@ -558,6 +567,29 @@ impl FactorioApp {
                     format!("Clipboard watching unavailable — {reason}"),
                 );
             }
+
+            // Which commit this binary is, always on screen. `launch.sh`
+            // launches the *previous* build when one fails, and from in here
+            // that fallback is indistinguishable from a healthy launch — the
+            // failure notification is a toast in a terminal that closes, this
+            // is not. Right-aligned so it sits out of the way of the status
+            // line above it rather than competing with it.
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let warning = self.build.get().and_then(build_info::Freshness::warning);
+                match warning {
+                    Some(warning) => ui
+                        .colored_label(
+                            Color32::YELLOW,
+                            format!("{} — {warning}", build_info::label()),
+                        )
+                        .on_hover_text(
+                            "This binary was not built from the code that is checked out. \
+                             The launcher falls back to the previous build when a build \
+                             fails — rebuild and check for the error.",
+                        ),
+                    None => ui.colored_label(Color32::from_gray(120), build_info::label()),
+                };
+            });
         });
 
         // ── Right panel: production-chain calculator ───────────────────

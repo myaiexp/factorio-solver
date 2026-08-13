@@ -112,6 +112,20 @@ pub(super) fn save_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
         }
         None => {}
     }
+
+    // The save moved and the reload was not taken silently — the tick list
+    // holds edits that adopting it would discard, or the decode failed
+    // (a half-written zip being the likely one). Either way the decision is
+    // the user's, and Reload goes through the ordinary import path so a real
+    // failure lands in the status line above rather than staying a flag.
+    if panel.save_picker.changed_on_disk {
+        ui.colored_label(egui::Color32::YELLOW, "Save changed on disk");
+        if ui.button("Reload").clicked()
+            && let Some(path) = panel.save_picker.selected.clone()
+        {
+            panel.adopt_save(&path);
+        }
+    }
 }
 
 /// Product text field plus a filtered, scrollable recipe list. Typing

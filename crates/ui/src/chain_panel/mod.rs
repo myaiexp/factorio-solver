@@ -234,6 +234,19 @@ impl ChainPanel {
         }
     }
 
+    /// Take a changed save back off disk, when doing so discards nothing.
+    ///
+    /// Deliberately does *not* touch `availability_mode`, which is the one
+    /// thing that separates this from `adopt_save`. An import is a user
+    /// action and may switch the panel into `OnlyAvailable`; a background
+    /// refresh must not, or a user who deliberately switched back to
+    /// `Everything` would find the gate re-applied by an autosave.
+    fn poll_save_reload(&mut self) {
+        if let Some(set) = self.save_picker.poll(self.available_recipes.as_ref()) {
+            self.available_recipes = Some(set);
+        }
+    }
+
     /// Switch modes, seeding the set from [`all_available_recipe_names`] the
     /// first time `OnlyAvailable` is entered — so the switch alone changes no
     /// solve result and the user's first edit is a removal. Seeding is keyed
@@ -288,6 +301,12 @@ impl ChainPanel {
                 // save loaded *after* picking a locked recipe or machine
                 // gets no warning until Solve. Putting it first at least
                 // answers "is a save loaded" before that choice is made.
+                //
+                // Checked here, ahead of everything the save gates: a change
+                // adopted this frame is already in `available_recipes` by the
+                // time the pickers below filter on it and by the time the
+                // Solve button further down is polled for a click.
+                self.poll_save_reload();
                 controls::save_picker(self, ui);
                 ui.separator();
                 controls::product_picker(self, ui);

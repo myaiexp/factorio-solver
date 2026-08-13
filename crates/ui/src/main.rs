@@ -1,4 +1,5 @@
 mod app;
+mod build_info;
 mod chain_panel;
 mod clipboard;
 mod colors;
