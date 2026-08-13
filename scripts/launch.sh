@@ -55,26 +55,45 @@
   if ((need_build)); then
     echo "Building factorio-ui (release) — the first build takes a few minutes."
 
-    # Pick the first cargo on PATH that actually RUNS, not the first that
+    # Pick the first cargo/rustc on PATH that actually RUNS, not the first that
     # exists. A graphical session's PATH is not a login shell's: omarchy puts
     # rustup's shim directory ahead of /usr/bin, and that rustup has no default
     # toolchain, so `cargo` exited 1 before compiling anything. It read as "the
     # build is broken" because the launcher only invokes cargo when HEAD has
     # moved — every launch in between had nothing to build and looked healthy.
     # A rustup pinned by a rust-toolchain file still wins here: it installs on
-    # demand and answers --version. Only an unusable shim gets skipped.
-    cargo_bin=""
-    while read -r c; do
-      if [[ -x "$c" ]] && "$c" --version >/dev/null 2>&1; then
-        cargo_bin="$c"
-        break
-      fi
-    done < <(type -aP cargo 2>/dev/null; echo /usr/bin/cargo)
+    # demand and answers the probe. Only an unusable shim gets skipped.
+    #
+    # rustc is resolved for the same reason and is NOT optional: cargo shells
+    # out to `rustc -vV` through PATH, so fixing cargo alone just moves the
+    # identical failure one step down and looks like a different bug.
+    first_working() { # <tool> <probe-flag> <last-resort-path>
+      local c
+      while read -r c; do
+        if [[ -x "$c" ]] && "$c" "$2" >/dev/null 2>&1; then
+          printf '%s' "$c"
+          return 0
+        fi
+      done < <(type -aP "$1" 2>/dev/null; echo "$3")
+      return 1
+    }
+    cargo_bin=$(first_working cargo --version /usr/bin/cargo)
+    rustc_bin=$(first_working rustc -vV /usr/bin/rustc)
+
+    # Both channels, because build scripts shell out to rustc themselves: RUSTC
+    # for cargo and anything reading the env, PATH for anything that does not.
+    if [[ -n "$rustc_bin" ]]; then
+      export RUSTC="$rustc_bin"
+      PATH="$(dirname "$rustc_bin"):$PATH"
+    fi
 
     built=0
-    if [[ -z "$cargo_bin" ]]; then
-      echo "No working cargo found. Candidates tried:"
-      type -aP cargo 2>/dev/null || echo "  (none on PATH)"
+    if [[ -z "$cargo_bin" || -z "$rustc_bin" ]]; then
+      [[ -z "$cargo_bin" ]] && echo "No working cargo found on PATH."
+      [[ -z "$rustc_bin" ]] && echo "No working rustc found on PATH."
+      echo "Candidates tried:"
+      type -aP cargo rustc 2>/dev/null || echo "  (none on PATH)"
+      echo "If rustup is installed but empty, run: rustup default stable"
     elif "$cargo_bin" build --release -p factorio-ui; then
       printf '%s' "$head" >"$stamp"
       built=1
