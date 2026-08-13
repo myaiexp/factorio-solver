@@ -54,11 +54,52 @@
   # --- build ----------------------------------------------------------------
   if ((need_build)); then
     echo "Building factorio-ui (release) — the first build takes a few minutes."
-    if cargo build --release -p factorio-ui; then
+
+    # Pick the first cargo on PATH that actually RUNS, not the first that
+    # exists. A graphical session's PATH is not a login shell's: omarchy puts
+    # rustup's shim directory ahead of /usr/bin, and that rustup has no default
+    # toolchain, so `cargo` exited 1 before compiling anything. It read as "the
+    # build is broken" because the launcher only invokes cargo when HEAD has
+    # moved — every launch in between had nothing to build and looked healthy.
+    # A rustup pinned by a rust-toolchain file still wins here: it installs on
+    # demand and answers --version. Only an unusable shim gets skipped.
+    cargo_bin=""
+    while read -r c; do
+      if [[ -x "$c" ]] && "$c" --version >/dev/null 2>&1; then
+        cargo_bin="$c"
+        break
+      fi
+    done < <(type -aP cargo 2>/dev/null; echo /usr/bin/cargo)
+
+    built=0
+    if [[ -z "$cargo_bin" ]]; then
+      echo "No working cargo found. Candidates tried:"
+      type -aP cargo 2>/dev/null || echo "  (none on PATH)"
+    elif "$cargo_bin" build --release -p factorio-ui; then
       printf '%s' "$head" >"$stamp"
-    else
-      note -u critical "Build failed" "Launching the previous build, if there is one."
-      [[ -t 1 ]] && read -rsp $'\nBuild failed. Press enter to close.\n'
+      built=1
+    fi
+
+    if ((!built)); then
+      # Name what the fallback actually is. The old message said "the previous
+      # build, if there is one", so a failed build opened an app that looked
+      # healthy while running a binary 24 commits old — the one failure mode
+      # here worth being loud about, since nothing downstream can detect it.
+      was=$(cat "$stamp" 2>/dev/null)
+      stale="no previous build"
+      if [[ -x "$bin" ]]; then
+        stale="the previous build"
+        if [[ -n "$was" ]]; then
+          stale="the build from ${was:0:7}"
+          n=$(git rev-list --count "$was..$head" 2>/dev/null)
+          [[ -n "$n" && "$n" != 0 ]] && stale+=", $n commits behind"
+        fi
+      fi
+      note -u critical "Build failed" "Launching $stale."
+      [[ -t 1 ]] && read -rsp "
+Build failed — launching $stale.
+Press enter to close.
+"
       [[ -x "$bin" ]] || exit 1
     fi
   fi
