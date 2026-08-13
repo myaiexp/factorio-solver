@@ -163,3 +163,84 @@ fn missing_metadata_is_an_error() {
     }
     assert!(matches!(SaveFile::open_bytes(&buf), Err(SaveError::MissingEntry { .. })));
 }
+
+// ── The save's own directory ────────────────────────────────────────────
+//
+// Factorio nests a save's contents under one folder named after the save, so
+// the entries are `<save name>/level-init.dat`, never bare `level-init.dat`.
+// The reader resolved every entry at the archive root and so could not open a
+// single real save; the fixtures agreed with it, writing flat, which is why 37
+// passing tests said nothing about it. They are nested by default now, so the
+// tests below are about the edges rather than about the ordinary case.
+
+/// The name is the player's, so it cannot be predicted — the reader has to
+/// derive it from the archive. Two unrelated names, both with the characters a
+/// real save name actually carries.
+#[test]
+fn the_save_directory_name_is_derived_not_predicted() {
+    for dir in ["2.0 Easy Factorio No Mods", "-", "my.save (copy) #2"] {
+        let zip = FixtureSave::new().with_save_dir(dir).with_recipes(&["iron-plate"]).build();
+        let s = SaveFile::open_bytes(&zip)
+            .unwrap_or_else(|e| panic!("a save under {dir:?} must open: {e}"));
+        assert_eq!(s.recipes().name(1), Some("iron-plate"), "{dir}");
+    }
+}
+
+/// No real save is flat, but an archive whose entries are all present and
+/// findable has no reason to be refused — the reader requires the entries, not
+/// a particular nesting.
+#[test]
+fn a_flat_archive_is_still_tolerated() {
+    let zip = FixtureSave::new().flat().with_recipes(&["iron-plate"]).build();
+    let s = SaveFile::open_bytes(&zip).expect("a flat archive must still open");
+    assert_eq!(s.recipes().name(1), Some("iron-plate"));
+}
+
+/// The failure that would have been silent. Chunk discovery matched
+/// `level.dat<N>` against the whole entry path, so under a save directory it
+/// found *nothing* — and an empty chunk list is not an error anywhere, it just
+/// reads as a save with no data. Twelve chunks also re-runs the
+/// `level.dat10` / `level.dat2` ordering trap with a prefix in front of it,
+/// where a naive `strip_prefix("level.dat")` would parse `10` out of the
+/// wrong place.
+#[test]
+fn chunks_are_found_and_ordered_under_a_save_directory() {
+    let zip = FixtureSave::new().with_save_dir("A Save").with_chunk_count(12).build();
+    let mut s = SaveFile::open_bytes(&zip).unwrap();
+
+    s.verify_total_size().expect("chunks must be found, and reassemble in numeric order");
+    assert_eq!(
+        s.inflated_chunk_count(),
+        12,
+        "all twelve chunks must be discovered under the save directory"
+    );
+}
+
+/// A save directory whose *name* contains the entry names it holds. The prefix
+/// is stripped by length, so nothing here should confuse it.
+#[test]
+fn a_save_directory_named_after_the_entries_is_not_confused() {
+    let zip = FixtureSave::new().with_save_dir("level.dat0").with_chunk_count(3).build();
+    let mut s = SaveFile::open_bytes(&zip).expect("opens");
+    s.verify_total_size().expect("chunks reassemble");
+    assert_eq!(s.inflated_chunk_count(), 3);
+}
+
+/// End to end through the part that matters: a nested save still decodes its
+/// unlocked-recipe set. Everything above only proves the container reads.
+#[test]
+fn a_nested_save_still_decodes_its_unlocked_recipes() {
+    let zip = FixtureSave::new()
+        .with_save_dir("A Test Save")
+        .with_recipes(&["iron-plate", "beacon", "assembling-machine-3"])
+        .with_unlocked(&["iron-plate", "beacon"])
+        .build();
+
+    let mut s = SaveFile::open_bytes(&zip).unwrap();
+    let unlocked = s
+        .unlocked_recipes(&["iron-plate".to_string()].into_iter().collect())
+        .expect("a nested save must decode its unlock array");
+
+    assert!(unlocked.contains("beacon"));
+    assert!(!unlocked.contains("assembling-machine-3"));
+}

@@ -11,10 +11,23 @@ use crate::error::SaveError;
 /// stream. Sorting the entry names lexicographically would put `level.dat10`
 /// before `level.dat2`, silently corrupting the stream, so this always parses
 /// the numeric suffix and sorts on that.
-pub(crate) fn ordered_chunk_names(archive: &ZipArchive<Cursor<Vec<u8>>>) -> Vec<String> {
+///
+/// `prefix` is the save's own directory (see `SaveFile::entry_prefix`), which
+/// every entry in a real save carries. It is stripped before parsing the
+/// number but kept in the returned names, because those are what
+/// `inflate_chunk` looks up. Matching the number against the *full* path
+/// instead would find nothing in any real save — and silently, since an empty
+/// chunk list reads as "this save has no data" rather than as an error.
+pub(crate) fn ordered_chunk_names(
+    archive: &ZipArchive<Cursor<Vec<u8>>>,
+    prefix: &str,
+) -> Vec<String> {
     let mut chunks: Vec<(u64, String)> = archive
         .file_names()
-        .filter_map(|name| chunk_number(name).map(|n| (n, name.to_string())))
+        .filter_map(|name| {
+            let bare = name.strip_prefix(prefix)?;
+            chunk_number(bare).map(|n| (n, name.to_string()))
+        })
         .collect();
     chunks.sort_by_key(|(n, _)| *n);
     chunks.into_iter().map(|(_, name)| name).collect()
@@ -39,11 +52,17 @@ pub(crate) fn inflate_chunk(
     archive: &mut ZipArchive<Cursor<Vec<u8>>>,
     name: &str,
 ) -> Result<Vec<u8>, SaveError> {
+    // Same rule as `read_entry`: only a genuine absence is `MissingEntry`.
+    // Any other `ZipError` is a different fault and has to say so rather than
+    // be reported as a file that is not there.
     let mut compressed = Vec::new();
-    archive
-        .by_name(name)
-        .map_err(|_| SaveError::MissingEntry { name: name.to_string() })?
-        .read_to_end(&mut compressed)?;
+    match archive.by_name(name) {
+        Ok(mut entry) => entry.read_to_end(&mut compressed)?,
+        Err(zip::result::ZipError::FileNotFound) => {
+            return Err(SaveError::MissingEntry { name: name.to_string() });
+        }
+        Err(e) => return Err(SaveError::Zip(e)),
+    };
 
     let mut out = Vec::new();
     ZlibDecoder::new(&compressed[..])

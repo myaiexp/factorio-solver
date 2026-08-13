@@ -42,13 +42,12 @@ Two things no test replaces, both needing a machine with Factorio on it:
   delivered-rate check measured from the placed grid — but the check that found
   the original half-rate bug was a human watching a belt, and it has not been
   done for the columnar version.
-- **Decoding a real save.** Run on the desktop 2026-08-13 and it **fails** —
-  see idea #3399. `SaveFile::open` looks for `level-init.dat` at the archive
-  root, but Factorio nests a save's contents under a folder named after the
-  save, so the reader has never opened a real one. The header layout and the
-  calibration search remain unvalidated against real data behind that; fix the
-  path resolution first, then re-run
-  `FACTORIO_SAVE_FIXTURE="$HOME/.factorio/saves/2.0 Easy Factorio No Mods.zip" cargo test -p factorio-save`.
+- ~~**Decoding a real save.**~~ **Done 2026-08-13** (idea #3399). The reader
+  opens the player's current save and decodes 659 recipes, 275 technologies and
+  369 unlocked recipes, matching `real_save.rs`'s ground truth exactly — so the
+  inferred `level-init.dat` header layout and the calibration search are both
+  confirmed against real data. Remaining: `mods()` still parses empty
+  (idea #3400), which affects only the "is this vanilla" report.
 - **Driving the availability UI by hand.** Phase 9's headless egui harness
   exercises the real render path and the reported case end to end, but nobody
   has clicked the tick list in a running window, and panel persistence is

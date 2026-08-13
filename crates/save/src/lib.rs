@@ -60,13 +60,15 @@ impl SaveFile {
     pub fn open_bytes(bytes: &[u8]) -> Result<Self, SaveError> {
         let mut archive = ZipArchive::new(Cursor::new(bytes.to_vec()))?;
 
-        let init_bytes = read_entry(&mut archive, "level-init.dat")?;
+        let prefix = entry_prefix(&archive)?;
+
+        let init_bytes = read_entry(&mut archive, &format!("{prefix}{LEVEL_INIT}"))?;
         let init = init::parse(&init_bytes)?;
 
-        let metadata_bytes = read_entry(&mut archive, "level.datmetadata")?;
+        let metadata_bytes = read_entry(&mut archive, &format!("{prefix}{LEVEL_METADATA}"))?;
         let metadata_total = parse_metadata_total(&metadata_bytes)?;
 
-        let chunk_names = chunks::ordered_chunk_names(&archive);
+        let chunk_names = chunks::ordered_chunk_names(&archive, &prefix);
 
         Ok(Self {
             archive,
@@ -136,12 +138,57 @@ impl SaveFile {
     }
 }
 
+/// The required entry, and the one that anchors [`entry_prefix`].
+const LEVEL_INIT: &str = "level-init.dat";
+/// Holds the declared total size of the inflated `level.dat<N>` stream.
+const LEVEL_METADATA: &str = "level.datmetadata";
+
+/// The directory every entry in this save is nested under, with its trailing
+/// slash — `"A Test Save/"`, or `""` for a flat archive.
+///
+/// Factorio writes a save's contents under a single folder named after the
+/// save, so the required entry is `<save name>/level-init.dat` and never bare
+/// `level-init.dat`. The folder carries the player's own name for the save, so
+/// it cannot be predicted or hardcoded; it is derived from the archive by
+/// finding the entry whose basename is `level-init.dat` and keeping everything
+/// before it. Reading a save has to key on the archive's own structure, not on
+/// a layout the reader hopes for.
+///
+/// A flat archive is tolerated (prefix `""`) rather than rejected: nothing is
+/// gained by refusing an archive whose entries are all present and findable,
+/// and the tolerance keeps the requirement honest — this reader needs the
+/// *entries*, not a particular nesting.
+///
+/// Ties break toward the shallowest match, so an archive that somehow carried
+/// a second, deeper `level-init.dat` still resolves to the outer save rather
+/// than to whichever the central directory happened to list first.
+fn entry_prefix(archive: &ZipArchive<Cursor<Vec<u8>>>) -> Result<String, SaveError> {
+    let init = archive
+        .file_names()
+        .filter(|name| name.rsplit('/').next() == Some(LEVEL_INIT))
+        .min_by_key(|name| name.matches('/').count())
+        .ok_or_else(|| SaveError::MissingEntry { name: LEVEL_INIT.to_string() })?;
+    Ok(init[..init.len() - LEVEL_INIT.len()].to_string())
+}
+
+/// Reads one entry by its full name.
+///
+/// Only a genuine "not in this archive" becomes `MissingEntry`; every other
+/// `ZipError` is propagated as itself. Collapsing them all into `MissingEntry`
+/// is how this crate spent its whole life reporting a real save's deflated
+/// `level-init.dat` as absent — the entry was right there, the reader just
+/// could not decompress it, and the error said the opposite.
 fn read_entry(
     archive: &mut ZipArchive<Cursor<Vec<u8>>>,
     name: &str,
 ) -> Result<Vec<u8>, SaveError> {
-    let mut file =
-        archive.by_name(name).map_err(|_| SaveError::MissingEntry { name: name.to_string() })?;
+    let mut file = match archive.by_name(name) {
+        Ok(file) => file,
+        Err(zip::result::ZipError::FileNotFound) => {
+            return Err(SaveError::MissingEntry { name: name.to_string() });
+        }
+        Err(e) => return Err(SaveError::Zip(e)),
+    };
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
     Ok(buf)

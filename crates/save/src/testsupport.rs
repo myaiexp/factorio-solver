@@ -37,6 +37,10 @@ pub struct FixtureSave {
     include_player_force: bool,
     corrupt_metadata_total: bool,
     duplicate_satisfying_alignment: bool,
+    /// Directory every entry is nested under, named after the save — the
+    /// shape Factorio actually writes. `None` puts entries at the archive
+    /// root, which no real save does and which only the tolerance test wants.
+    save_dir: Option<String>,
 }
 
 impl FixtureSave {
@@ -57,6 +61,33 @@ impl FixtureSave {
             include_player_force: true,
             corrupt_metadata_total: false,
             duplicate_satisfying_alignment: false,
+            // Nested by default, because every real save is. A flat fixture
+            // is what let the reader ship unable to open one: it agreed with
+            // the code instead of with Factorio.
+            save_dir: Some("A Test Save".to_string()),
+        }
+    }
+
+    /// Put entries at the archive root instead of under a save directory.
+    /// No real save looks like this; it exists so the reader's tolerance of
+    /// the flat shape stays covered.
+    pub fn flat(mut self) -> Self {
+        self.save_dir = None;
+        self
+    }
+
+    /// Nest under a specific directory name, for asserting the reader keys on
+    /// the archive's own structure rather than on a name it expects.
+    pub fn with_save_dir(mut self, name: &str) -> Self {
+        self.save_dir = Some(name.to_string());
+        self
+    }
+
+    /// Full entry name for `name`, honouring `save_dir`.
+    fn entry(&self, name: &str) -> String {
+        match &self.save_dir {
+            Some(dir) => format!("{dir}/{name}"),
+            None => name.to_string(),
         }
     }
 
@@ -134,13 +165,30 @@ impl FixtureSave {
             let opts = SimpleFileOptions::default().compression_method(CompressionMethod::Stored);
 
             if self.include_level_init {
-                write_entry(&mut w, opts, "level-init.dat", &self.build_level_init());
+                // Deflated, matching Factorio: it stores the level.dat chunks
+                // uncompressed (their contents are zlib'd separately) but
+                // compresses level-init.dat. A fixture that wrote everything
+                // Stored is what let the reader ship without zip's `deflate`
+                // feature, reporting a real save's level-init.dat as missing.
+                let deflated =
+                    SimpleFileOptions::default().compression_method(CompressionMethod::Deflated);
+                write_entry(
+                    &mut w,
+                    deflated,
+                    &self.entry("level-init.dat"),
+                    &self.build_level_init(),
+                );
             }
-            write_entry(&mut w, opts, "level.datmetadata", &declared_total.to_le_bytes());
+            write_entry(
+                &mut w,
+                opts,
+                &self.entry("level.datmetadata"),
+                &declared_total.to_le_bytes(),
+            );
 
             for (i, chunk) in level_dat_chunks.iter().enumerate() {
                 let compressed = zlib_compress(chunk);
-                write_entry(&mut w, opts, &format!("level.dat{i}"), &compressed);
+                write_entry(&mut w, opts, &self.entry(&format!("level.dat{i}")), &compressed);
             }
 
             w.finish().expect("in-memory zip write cannot fail");

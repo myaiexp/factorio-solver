@@ -76,20 +76,28 @@ can actually build — from a save file, from a hand-edited tick list, or both,
 since the two fill the same recipe-name set. A refusal names the technology to
 research. The chain panel's inputs survive a restart.
 
-> **Unverified**: the save decoder does **not** work against a real save — see
-> idea #3399. Run 2026-08-13 on the desktop, `SaveFile::open` fails because it
-> looks for `level-init.dat` at the archive root while Factorio nests a save's
-> contents under a folder named after the save. Everything behind that (the
-> inferred header layout, the calibration search) is still validated only by
-> fixtures this repo also wrote. Hand-editing the set is unaffected and is the
-> working path today.
+> **Verified against a real save 2026-08-13.** The reader opens the player's
+> current save (2.0.77) and decodes 659 recipes, 275 technologies and 369
+> unlocked recipes — matching the ground truth in
+> `crates/save/tests/real_save.rs` exactly. Getting there took three fixes
+> (idea #3399): entries are nested under a folder named after the save, the
+> `zip` crate needs its non-default `deflate` feature because Factorio
+> compresses `level-init.dat`, and every `ZipError` was being reported as
+> `MissingEntry`, which hid the second behind the first. Run it yourself with
+> `FACTORIO_SAVE_FIXTURE=<a save> cargo test -p factorio-save`.
+>
+> One piece is still wrong: `SaveFile::mods()` parses empty, because a
+> variable-length scenario section sits between the version header and the mod
+> list (idea #3400, which carries the decoded layout). Contained by design —
+> `init.rs` locates the id tables by search, so a mod-list mismatch corrupts
+> only `mods()`, and that is used solely to answer "is this vanilla".
 
 What exists today:
 
 - **blueprint** — Factorio blueprint string codec (version byte + base64 + zlib + JSON) with round-trip fidelity, plus a CLI.
 - **grid** — 2D spatial engine: placement/collision, chunk-based spatial index, A* routing (`find_path`), ASCII render, blueprint `import`/`export`, entity classification (`EntityCategory`), and the dump-derived prototype registry (169 entities).
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
-- **save** — `SaveFile::open` reads a save zip's `level-init.dat` (version, mod names, prototype id tables) and inflates its `level.dat<N>` chunks lazily in numeric order; `unlocked_recipes(&default_enabled)` locates the player force's recipe-unlock array by calibration search. No workspace dependency, and `testsupport::FixtureSave` builds synthetic save zips so the tests need no real save.
+- **save** — `SaveFile::open` reads a save zip's `level-init.dat` (version, mod names, prototype id tables) and inflates its `level.dat<N>` chunks lazily in numeric order; `unlocked_recipes(&default_enabled)` locates the player force's recipe-unlock array by calibration search. Entry names are resolved through the save's own directory, which Factorio names after the save. No workspace dependency, and `testsupport::FixtureSave` builds synthetic save zips — nested and deflated the way Factorio writes them — so the tests need no real save.
 - **solver** — the dump-derived recipe (649) and technology (275) registries, `availability` (the `Availability` model, `allows`/`allows_machine`, and `from_save`, the save→set bridge), `tech` (the unlock graph, for explaining a refusal — never for selecting), `chain` (`solve(&ChainGoal) -> ProductionPlan`, gated recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput), `place` (one cell's entities), `tile` (cells into bands), `power`, and pre-emit validation including a delivered-rate check.
 - **dump-ingest** — the manual ingest tool that generates all three data files.
 - **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with the save picker, the editable "Available recipes" tick list, belt/pole/inserter/topology controls, Generate + copy-to-clipboard; `persist.rs` saves the panel's inputs between runs.

@@ -7,7 +7,11 @@ edition.workspace = true
 # Deliberately no workspace crate here — see crate-root doc comment in
 # src/lib.rs for why (the calibration invariant needs solver's recipe
 # registry, so it is passed in as a parameter instead of depended on).
-zip = { version = "2", default-features = false }
+# `deflate` is NOT in the default-features-off set, and a real save needs it:
+# Factorio stores the `level.dat<N>` chunks uncompressed (it zlib-compresses
+# their contents itself) but *deflates* `level-init.dat`. Without this feature
+# the reader opens synthetic fixtures happily and no real save at all.
+zip = { version = "2", default-features = false, features = ["deflate"] }
 flate2 = "1"
 thiserror = "2"
 
