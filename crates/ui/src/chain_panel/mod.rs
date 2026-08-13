@@ -16,6 +16,7 @@ mod logic;
 #[cfg(test)]
 mod render_tests;
 mod results;
+mod save_picker;
 #[cfg(test)]
 mod scroll_tests;
 #[cfg(test)]
@@ -23,6 +24,7 @@ mod topology_tests;
 
 use generate::GeneratedBlock;
 pub use logic::display_name;
+use save_picker::SavePickerState;
 
 /// Rate unit picked in the UI; converted to a `Rate` at solve time.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +53,10 @@ impl MachineChoice {
 
 /// All panel input state plus the last solve result.
 pub struct ChainPanel {
+    /// What save (if any) gates the recipes/machines the solve is allowed to
+    /// use. Read straight into `build_goal`'s `availability`, never decoded
+    /// there — see `SavePickerState`'s own doc comment.
+    save_picker: SavePickerState,
     /// Doubles as the recipe-picker search query: typing here both names the
     /// goal item and filters the list of recipes shown below it.
     product: String,
@@ -94,6 +100,7 @@ impl ChainPanel {
         // what the generator itself considers the baseline tier.
         let default_layout = LayoutConfig::default();
         Self {
+            save_picker: SavePickerState::new(),
             product: String::new(),
             rate_value: 1.0,
             rate_unit: RateUnit::PerSec,
@@ -125,8 +132,9 @@ impl ChainPanel {
             }
         };
         let available: Vec<&str> = self.available.iter().map(String::as_str).collect();
-        let mut goal =
-            ChainGoal::new(&self.product, rate, &available).with_machines(self.machine.to_policy());
+        let mut goal = ChainGoal::new(&self.product, rate, &available)
+            .with_machines(self.machine.to_policy())
+            .with_availability(self.save_picker.availability.clone());
         for (item, recipe) in &self.overrides {
             goal = goal.with_override(item, recipe);
         }
@@ -164,6 +172,14 @@ impl ChainPanel {
             .show(ui, |ui| {
                 ui.heading("Production Chain");
                 ui.separator();
+                // First section, ahead of the product/machine pickers: the
+                // save is what `build_goal`'s `availability` comes from, and
+                // the pickers below don't filter by it yet (idea #3385) — a
+                // save loaded *after* picking a locked recipe or machine
+                // gets no warning until Solve. Putting it first at least
+                // answers "is a save loaded" before that choice is made.
+                controls::save_picker(self, ui);
+                ui.separator();
                 controls::product_picker(self, ui);
                 ui.separator();
                 controls::rate_controls(self, ui);
@@ -186,75 +202,4 @@ impl ChainPanel {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn panel_with(product: &str, available: &[&str]) -> ChainPanel {
-        let mut p = ChainPanel::new();
-        p.product = product.to_string();
-        p.available = available.iter().map(|s| s.to_string()).collect();
-        p
-    }
-
-    #[test]
-    fn goal_uses_items_per_sec_unit() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::PerSec;
-        p.rate_value = 45.0;
-        assert_eq!(p.build_goal().rate, Rate::ItemsPerSec(45.0));
-    }
-
-    #[test]
-    fn goal_uses_items_per_min_unit() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::PerMin;
-        p.rate_value = 120.0;
-        assert_eq!(p.build_goal().rate, Rate::ItemsPerMin(120.0));
-    }
-
-    #[test]
-    fn goal_uses_belts_unit_with_tier() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::Belts;
-        p.rate_value = 2.0;
-        p.belt_tier = "express-transport-belt".to_string();
-        assert_eq!(
-            p.build_goal().rate,
-            Rate::Belts { count: 2, tier: "express-transport-belt".to_string() }
-        );
-    }
-
-    #[test]
-    fn goal_carries_available_list() {
-        let p = panel_with("electronic-circuit", &["iron-plate", "copper-plate"]);
-        let goal = p.build_goal();
-        assert!(goal.available.contains("iron-plate"));
-        assert!(goal.available.contains("copper-plate"));
-    }
-
-    #[test]
-    fn goal_carries_overrides() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
-        let goal = p.build_goal();
-        assert_eq!(goal.recipe_overrides.get("copper-cable").unwrap(), "copper-cable");
-    }
-
-    /// The number a human checks on screen: 45/s electronic circuits from
-    /// plates, on assembling-machine-2, needs 30 machines making circuits
-    /// and 45 making the copper cable they consume.
-    #[test]
-    fn end_to_end_electronic_circuit_plan_matches_expected_machine_counts() {
-        let mut p = panel_with("electronic-circuit", &["iron-plate", "copper-plate"]);
-        p.rate_unit = RateUnit::PerSec;
-        p.rate_value = 45.0;
-        p.machine = MachineChoice::Named("assembling-machine-2".to_string());
-        p.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
-
-        let plan = solve(&p.build_goal()).expect("plan resolves with the override in place");
-        let counts: Vec<u32> = plan.steps.iter().map(|s| s.machines_needed).collect();
-        assert!(counts.contains(&30), "expected a 30-machine step, got {counts:?}");
-        assert!(counts.contains(&45), "expected a 45-machine step, got {counts:?}");
-        assert_eq!(plan.steps.len(), 2, "only electronic-circuit and copper-cable should run");
-    }
-}
+mod tests;

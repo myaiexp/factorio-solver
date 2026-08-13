@@ -1,10 +1,100 @@
 // Input controls for the chain panel: product picker, rate, bus contents,
-// and machine policy. Each function owns one section of `ChainPanel::ui`.
+// machine policy, and the save picker. Each function owns one section of
+// `ChainPanel::ui`.
+use std::path::PathBuf;
+
 use factorio_grid::prototype;
 use factorio_solver::recipe;
 
 use super::logic::{belt_tier_names, crafting_machine_names, filtered_recipes, recipe_product_item};
 use super::{display_name, ChainPanel, MachineChoice, RateUnit};
+
+/// Points the solver at a save's unlocked-recipe set: a dropdown of saves
+/// found in `~/.factorio/saves`, newest first, present only when that scan
+/// found something (a missing `~/.factorio` — routine on a machine with no
+/// Factorio install — simply leaves it out and the manual field remains); a
+/// Rescan control for a save written after the panel started; a manual path
+/// field plus a Load button for saves kept elsewhere; and a Clear control
+/// back to unrestricted. Scanning/decoding lives in
+/// `save_picker::SavePickerState` — this only wires that state to widgets.
+pub(super) fn save_picker(panel: &mut ChainPanel, ui: &mut egui::Ui) {
+    ui.label(egui::RichText::new("Save (recipe availability)").strong());
+
+    if !panel.save_picker.entries.is_empty() {
+        let current_label = panel
+            .save_picker
+            .selected
+            .as_ref()
+            .map(|selected| {
+                panel
+                    .save_picker
+                    .entries
+                    .iter()
+                    .find(|e| &e.path == selected)
+                    .map(|e| e.label.clone())
+                    // A selection outside the scanned list (loaded via the
+                    // manual field) has no dropdown label of its own — show
+                    // the path instead of pretending nothing is selected.
+                    .unwrap_or_else(|| selected.display().to_string())
+            })
+            .unwrap_or_else(|| "None".to_string());
+
+        let mut chosen: Option<PathBuf> = None;
+        egui::ComboBox::from_id_salt("chain_save_picker").selected_text(current_label).show_ui(
+            ui,
+            |ui| {
+                for entry in &panel.save_picker.entries {
+                    let is_selected = panel.save_picker.selected.as_deref() == Some(entry.path.as_path());
+                    if ui.selectable_label(is_selected, &entry.label).clicked() {
+                        chosen = Some(entry.path.clone());
+                    }
+                }
+            },
+        );
+        // Applied after the dropdown closes, not inside it: `select` needs
+        // `&mut panel.save_picker` while the loop above still borrows
+        // `panel.save_picker.entries`.
+        if let Some(path) = chosen {
+            panel.save_picker.select(&path);
+        }
+    }
+
+    ui.horizontal(|ui| {
+        // Short labels, deliberately kept off the text field's row below: at
+        // the panel's un-resized default width (200px, `SidePanel::right`'s
+        // own default) a `text_edit_singleline` claims essentially the whole
+        // row on its own, which pushed a same-row Clear button past the
+        // panel's clip rect — painted nowhere and clickable never, the same
+        // failure mode `scroll_tests.rs` guards against vertically.
+        if ui.button("Rescan").clicked() {
+            panel.save_picker.rescan();
+        }
+        if ui.button("Clear").clicked() {
+            panel.save_picker.clear();
+        }
+    });
+
+    // Full width to itself, then its Load button on the next line — see the
+    // comment above for why they aren't packed into one row.
+    ui.text_edit_singleline(&mut panel.save_picker.manual_path);
+    if ui.button("Load").clicked() && !panel.save_picker.manual_path.trim().is_empty() {
+        let path = PathBuf::from(panel.save_picker.manual_path.trim());
+        panel.save_picker.select(&path);
+    }
+
+    match &panel.save_picker.status {
+        Some(Ok(count)) => {
+            ui.label(format!("{count} recipes unlocked"));
+        }
+        // Shown in full — `SaveError`'s messages are written to be read
+        // verbatim (e.g. `CalibrationFailed` names the remedy), so truncating
+        // here would cut off the fix along with the problem.
+        Some(Err(msg)) => {
+            ui.colored_label(egui::Color32::RED, msg.as_str());
+        }
+        None => {}
+    }
+}
 
 /// Product text field plus a filtered, scrollable recipe list. Typing
 /// filters the list; clicking an entry sets `product` to that recipe's
