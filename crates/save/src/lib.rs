@@ -1,6 +1,6 @@
 // Crate root: opens a Factorio save and exposes level-init.dat + lazy chunks.
 //
-// No workspace-crate dependency, by design: a later task decodes the player
+// No workspace-crate dependency, by design: `force.rs` decodes the player
 // force's recipe-unlock array by searching for the alignment that satisfies
 // an invariant built from `solver`'s default-enabled recipe set. Depending on
 // `solver` here to get that set would invert the crate graph
@@ -13,6 +13,7 @@ use zip::ZipArchive;
 
 mod chunks;
 mod error;
+mod force;
 mod init;
 
 #[cfg(any(test, feature = "testsupport"))]
@@ -21,6 +22,7 @@ pub mod testsupport;
 mod tests;
 
 pub use error::SaveError;
+pub use force::Calibration;
 pub use init::{IdTable, Version};
 
 /// An open Factorio save: the zip container, the eagerly-parsed
@@ -43,6 +45,10 @@ pub struct SaveFile {
     mods: Vec<String>,
     recipes: IdTable,
     technologies: IdTable,
+    // Cached by `unlocked_recipes` (see force.rs) so a second call decodes
+    // against the already-accepted (stride, offset) instead of re-running
+    // the calibration search.
+    calibration: Option<Calibration>,
 }
 
 impl SaveFile {
@@ -72,6 +78,7 @@ impl SaveFile {
             mods: init.mods,
             recipes: init.recipes,
             technologies: init.technologies,
+            calibration: None,
         })
     }
 
@@ -94,8 +101,9 @@ impl SaveFile {
     }
 
     /// Number of `level.dat<N>` chunks inflated so far. Test-facing but
-    /// public: a later task's lazy-inflation guard asserts a load only
-    /// inflates the chunks it needed, never the whole stream.
+    /// public: `force.rs`'s lazy-inflation guard asserts that decoding the
+    /// unlock array inflates only the chunks it needed, never the whole
+    /// stream.
     pub fn inflated_chunk_count(&self) -> usize {
         self.inflated_count
     }
