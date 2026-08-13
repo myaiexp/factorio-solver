@@ -167,3 +167,63 @@ fn the_reported_case_solves_with_no_overrides() {
         ]
     );
 }
+
+// ── Reloading a save that changed on disk ──────────────────────────────
+
+/// The auto-reload, through the real frame rather than through `poll`: the
+/// game writes a new save while the panel is open, and the next frame the
+/// panel draws already knows about the newly researched recipe. This is the
+/// wiring the unit tests cannot see — a `poll` nobody calls passes every one
+/// of them.
+#[test]
+fn a_save_rewritten_while_the_panel_is_open_is_picked_up_by_the_next_frame() {
+    use super::save_picker::{fixture_save, write_at};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("save.zip");
+    write_at(&path, &fixture_save(&[]), 1_700_000_000);
+
+    let mut panel = ChainPanel::new();
+    panel.adopt_save(&path);
+    assert_eq!(
+        panel.available_recipes.as_ref().map(|set| set.contains("beacon")),
+        Some(false),
+        "the imported save has not researched it"
+    );
+
+    write_at(&path, &fixture_save(&["beacon"]), 1_700_000_100);
+    let _ = painted_text(&mut panel);
+
+    assert!(
+        panel.available_recipes.as_ref().is_some_and(|set| set.contains("beacon")),
+        "the frame did not pick the change up"
+    );
+}
+
+/// And when adopting it would cost hand edits, the frame offers the choice
+/// instead of taking it.
+#[test]
+fn a_changed_save_that_would_discard_edits_paints_a_reload_button() {
+    use super::save_picker::{fixture_save, write_at};
+
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("save.zip");
+    write_at(&path, &fixture_save(&[]), 1_700_000_000);
+
+    let mut panel = ChainPanel::new();
+    panel.adopt_save(&path);
+    // The user unticks one of the imported recipes.
+    let removed = panel.available_recipes.as_ref().unwrap().iter().next().cloned().unwrap();
+    panel.available_recipes.as_mut().unwrap().remove(&removed);
+
+    write_at(&path, &fixture_save(&["beacon"]), 1_700_000_100);
+    let joined = painted_text(&mut panel).join(" | ");
+
+    assert!(joined.contains("Save changed on disk"), "{joined}");
+    assert!(joined.contains("Reload"), "no Reload button painted: {joined}");
+    assert!(
+        !panel.available_recipes.as_ref().unwrap().contains("beacon"),
+        "and nothing was adopted behind the user's back"
+    );
+}
+

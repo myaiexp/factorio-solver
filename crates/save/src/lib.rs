@@ -52,13 +52,21 @@ pub struct SaveFile {
 }
 
 impl SaveFile {
+    /// Hands the file's bytes straight to the archive rather than going
+    /// through [`open_bytes`](Self::open_bytes), which has to copy what it is
+    /// lent. A mid-game save runs to tens of megabytes and the panel reopens
+    /// one every time it changes on disk, so the copy this skips is a real
+    /// one — the peak is the file, not twice the file.
     pub fn open(path: &Path) -> Result<Self, SaveError> {
-        let bytes = std::fs::read(path)?;
-        Self::open_bytes(&bytes)
+        Self::from_owned_bytes(std::fs::read(path)?)
     }
 
     pub fn open_bytes(bytes: &[u8]) -> Result<Self, SaveError> {
-        let mut archive = ZipArchive::new(Cursor::new(bytes.to_vec()))?;
+        Self::from_owned_bytes(bytes.to_vec())
+    }
+
+    fn from_owned_bytes(bytes: Vec<u8>) -> Result<Self, SaveError> {
+        let mut archive = ZipArchive::new(Cursor::new(bytes))?;
 
         let prefix = entry_prefix(&archive)?;
 

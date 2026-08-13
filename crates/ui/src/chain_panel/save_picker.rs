@@ -51,6 +51,22 @@ pub fn default_saves_dir() -> Option<PathBuf> {
     std::env::home_dir().map(|home| home.join(".factorio").join("saves"))
 }
 
+/// What a file looked like at a point in time. Both halves are needed:
+/// mtime granularity is a filesystem property (a whole second on some), so a
+/// quick rewrite can land on the same timestamp, while a save rewritten with
+/// no net size change is routine. Together they catch what either alone
+/// misses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct FileSig {
+    modified: SystemTime,
+    len: u64,
+}
+
+fn file_sig(path: &Path) -> Option<FileSig> {
+    let meta = fs::metadata(path).ok()?;
+    Some(FileSig { modified: meta.modified().ok()?, len: meta.len() })
+}
+
 /// Panel-side state for the save picker: what was found on disk, what's
 /// selected, and the outcome of decoding it.
 pub struct SavePickerState {
@@ -63,10 +79,25 @@ pub struct SavePickerState {
     /// one `available_recipes`, so an import and a hand-edit are the same
     /// state rather than two that can disagree — and so the tick list below
     /// can correct an import rather than being overruled by it. Decoding
-    /// happens once, on selection: `build_goal` runs on every Solve click and
+    /// happens on selection and afterwards only when the file itself changes
+    /// (see [`poll`](Self::poll)): `build_goal` runs on every Solve click and
     /// re-inflating a save there would be work for an answer that cannot have
     /// changed.
     pub status: Option<Result<usize, String>>,
+    /// The signature of `selected` at the last decode *attempt*, successful or
+    /// not. Recording the attempt rather than the success is what stops a
+    /// corrupt or half-written save from being re-read on every frame — a
+    /// failing file is read once per distinct signature, not once per frame.
+    attempted: Option<FileSig>,
+    /// The set the last *successful* decode produced. Kept solely to tell an
+    /// untouched import from a hand-edited one, which is what decides whether
+    /// a reload can be taken silently.
+    imported: Option<BTreeSet<String>>,
+    /// The file changed and the change was not adopted — because adopting it
+    /// would discard hand edits, or because decoding it failed. The UI turns
+    /// this into a Reload button; clicking it goes through `select` and so
+    /// reports the real error if there is one.
+    pub changed_on_disk: bool,
 }
 
 impl Default for SavePickerState {
@@ -84,6 +115,9 @@ impl SavePickerState {
             selected: None,
             manual_path: String::new(),
             status: None,
+            attempted: None,
+            imported: None,
+            changed_on_disk: false,
         }
     }
 
@@ -102,13 +136,72 @@ impl SavePickerState {
     /// a worse outcome than simply not changing the constraint.
     pub fn select(&mut self, path: &Path) -> Option<BTreeSet<String>> {
         self.selected = Some(path.to_path_buf());
+        // Read before decoding, so a save rewritten *during* the decode is
+        // seen as changed on the next poll rather than being recorded as
+        // already-read. The other order loses that write silently.
+        self.attempted = file_sig(path);
+        self.changed_on_disk = false;
         match from_save::unlocked_from_save(path) {
             Ok(set) => {
                 self.status = Some(Ok(set.len()));
+                self.imported = Some(set.clone());
                 Some(set)
             }
             Err(e) => {
                 self.status = Some(Err(e.to_string()));
+                None
+            }
+        }
+    }
+
+    /// Adopt the selected save again when it has changed on disk — Factorio
+    /// autosaves every few minutes, and the availability decoded at import
+    /// otherwise goes quietly stale for the rest of a play session.
+    ///
+    /// Returns the new set only when taking it silently costs nothing: the
+    /// caller's `current` set must still be exactly what the last import
+    /// produced. A hand edit outranks an automatic reload — the tick list
+    /// exists to *correct* an import, so overwriting a correction with no
+    /// interaction and nothing on screen would be the one way this feature
+    /// could destroy user input. In that case, and when the decode fails
+    /// (a half-written zip, most likely), `changed_on_disk` is raised instead
+    /// and the user gets a Reload button.
+    ///
+    /// Cheap enough to call every frame: an unchanged file costs one `stat`,
+    /// and the expensive path is gated behind a signature that has actually
+    /// moved.
+    pub fn poll(&mut self, current: Option<&BTreeSet<String>>) -> Option<BTreeSet<String>> {
+        let path = self.selected.clone()?;
+        // Unreadable *right now* — mid-rename, or on a mount that went away.
+        // Nothing to decide yet; the next poll will see it.
+        let sig = file_sig(&path)?;
+        if Some(sig) == self.attempted {
+            return None;
+        }
+
+        if current != self.imported.as_ref() {
+            // Deliberately does not record `sig`: the moment the user reverts
+            // the edit, this same change becomes adoptable again.
+            self.changed_on_disk = true;
+            return None;
+        }
+
+        self.attempted = Some(sig);
+        match from_save::unlocked_from_save(&path) {
+            Ok(set) => {
+                self.status = Some(Ok(set.len()));
+                self.imported = Some(set.clone());
+                self.changed_on_disk = false;
+                Some(set)
+            }
+            Err(_) => {
+                // `status` is left alone: the set the panel is still using
+                // came from the previous successful read and its count is
+                // still true of it. Overwriting it with this error would
+                // describe a set that is not in use. The flag is the trace —
+                // silence here would leave availability stale with nothing on
+                // screen to say so.
+                self.changed_on_disk = true;
                 None
             }
         }
@@ -121,6 +214,9 @@ impl SavePickerState {
     pub fn clear(&mut self) {
         self.selected = None;
         self.status = None;
+        self.attempted = None;
+        self.imported = None;
+        self.changed_on_disk = false;
     }
 }
 
@@ -128,130 +224,40 @@ fn scan_default_dir() -> Vec<SaveEntry> {
     default_saves_dir().map(|dir| scan_saves(&dir)).unwrap_or_default()
 }
 
+/// A synthetic save whose unlocked set is every default-enabled recipe plus
+/// `extra`. The defaults are not optional — they *are* the calibration
+/// invariant `factorio-save` searches with — so `extra` is the only free
+/// variable a test has. Lives here rather than in `mod tests` below because
+/// `render_tests` drives the same fixture through real frames.
 #[cfg(test)]
-mod tests {
-    use std::time::Duration;
+pub(super) fn fixture_save(extra: &[&str]) -> Vec<u8> {
+    let all: Vec<String> = factorio_solver::recipe::registry().keys().cloned().collect();
+    let all_refs: Vec<&str> = all.iter().map(String::as_str).collect();
 
-    use super::*;
+    let mut unlocked: BTreeSet<String> = from_save::default_enabled().into_iter().collect();
+    unlocked.extend(extra.iter().map(|s| s.to_string()));
+    let unlocked_refs: Vec<&str> = unlocked.iter().map(String::as_str).collect();
 
-    fn write_zip(dir: &Path, stem: &str) {
-        // Contents are irrelevant to scan_saves, which only reads directory
-        // metadata — a real zip is only needed once decoding is exercised.
-        fs::write(dir.join(format!("{stem}.zip")), b"placeholder").unwrap();
-    }
-
-    /// Stamps an explicit mtime rather than relying on write order plus a
-    /// sleep: mtime granularity is a filesystem property (a second on some,
-    /// nanoseconds on ext4), so writes ordered by a short sleep can land on
-    /// the same timestamp and make the sort order a coin flip.
-    fn write_zip_at(dir: &Path, stem: &str, secs_since_epoch: u64) {
-        write_zip(dir, stem);
-        let path = dir.join(format!("{stem}.zip"));
-        fs::File::options()
-            .write(true)
-            .open(&path)
-            .unwrap()
-            .set_modified(SystemTime::UNIX_EPOCH + Duration::from_secs(secs_since_epoch))
-            .unwrap();
-    }
-
-    #[test]
-    fn scan_returns_saves_newest_first() {
-        let dir = tempfile::tempdir().unwrap();
-        // Written in an order that does *not* match the expected result, so
-        // the assertion cannot pass on directory order alone.
-        write_zip_at(dir.path(), "middle", 1_700_000_100);
-        write_zip_at(dir.path(), "newest", 1_700_000_200);
-        write_zip_at(dir.path(), "oldest", 1_700_000_000);
-
-        let entries = scan_saves(dir.path());
-        assert_eq!(
-            entries.iter().map(|e| e.label.as_str()).collect::<Vec<_>>(),
-            vec!["newest", "middle", "oldest"]
-        );
-    }
-
-    #[test]
-    fn scan_of_a_missing_directory_is_empty_not_an_error() {
-        assert!(scan_saves(Path::new("/nonexistent")).is_empty());
-    }
-
-    #[test]
-    fn scan_ignores_non_zip_files() {
-        let dir = tempfile::tempdir().unwrap();
-        write_zip(dir.path(), "a");
-        fs::write(dir.path().join("notes.txt"), b"hi").unwrap();
-        fs::create_dir(dir.path().join("b")).unwrap();
-
-        let entries = scan_saves(dir.path());
-        assert_eq!(entries.len(), 1);
-        assert_eq!(entries[0].label, "a");
-    }
-
-    #[test]
-    fn default_saves_dir_does_not_panic_and_points_under_dot_factorio() {
-        // $HOME is set in this environment (there is no ~/.factorio, but
-        // there is a home directory), so this exercises the real path rather
-        // than only the None branch.
-        if let Some(dir) = default_saves_dir() {
-            assert!(dir.ends_with("saves"), "{dir:?}");
-            assert!(dir.to_string_lossy().contains(".factorio"), "{dir:?}");
-        }
-    }
-
-    #[test]
-    fn a_failed_load_surfaces_the_error_and_adopts_nothing() {
-        let mut state = SavePickerState::default();
-        assert!(
-            state.select(Path::new("/nonexistent/save.zip")).is_none(),
-            "a failed read must hand back no set, so the caller leaves the existing one alone"
-        );
-        assert!(matches!(state.status, Some(Err(_))));
-    }
-
-    /// End to end over a synthetic save whose recipe table is the *real*
-    /// registry, mirroring `factorio_solver::availability::from_save`'s own
-    /// round-trip test — the fixture must carry every `default_enabled()`
-    /// name as unlocked or calibration fails by design.
-    #[test]
-    fn a_successful_load_returns_the_unlocked_set_and_the_count() {
-        let all: Vec<String> = factorio_solver::recipe::registry().keys().cloned().collect();
-        let all_refs: Vec<&str> = all.iter().map(String::as_str).collect();
-
-        let mut expected: BTreeSet<String> =
-            from_save::default_enabled().into_iter().collect();
-        expected.insert("beacon".to_string());
-        let unlocked: Vec<&str> = expected.iter().map(String::as_str).collect();
-
-        let zip = factorio_save::testsupport::FixtureSave::new()
-            .with_recipes(&all_refs)
-            .with_unlocked(&unlocked)
-            .build();
-
-        let dir = tempfile::tempdir().unwrap();
-        let path = dir.path().join("save.zip");
-        fs::write(&path, zip).unwrap();
-
-        let mut state = SavePickerState::default();
-        let got = state.select(&path).expect("the real registry must calibrate uniquely");
-
-        assert_eq!(state.selected.as_deref(), Some(path.as_path()));
-        assert_eq!(state.status, Some(Ok(expected.len())));
-        assert_eq!(got, expected);
-    }
-
-    #[test]
-    fn clearing_forgets_the_selection_and_the_status_together() {
-        let mut state = SavePickerState {
-            entries: Vec::new(),
-            selected: Some(PathBuf::from("/some/save.zip")),
-            manual_path: String::new(),
-            status: Some(Ok(1)),
-        };
-
-        state.clear();
-
-        assert!(state.selected.is_none());
-        assert!(state.status.is_none());
-    }
+    factorio_save::testsupport::FixtureSave::new()
+        .with_recipes(&all_refs)
+        .with_unlocked(&unlocked_refs)
+        .build()
 }
+
+/// Write `bytes` and stamp an explicit mtime. Two writes a few milliseconds
+/// apart can share a timestamp — mtime granularity is a filesystem property —
+/// so change detection tested against write order alone is a coin flip.
+#[cfg(test)]
+pub(super) fn write_at(path: &Path, bytes: &[u8], secs_since_epoch: u64) {
+    fs::write(path, bytes).unwrap();
+    fs::File::options()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_modified(SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(secs_since_epoch))
+        .unwrap();
+}
+
+#[cfg(test)]
+#[path = "save_picker_tests.rs"]
+mod tests;
