@@ -65,7 +65,23 @@ pub fn from_blueprint(blueprint: &Blueprint) -> ImportResult {
             entity.recipe.clone(),
             entity.entity_type.clone(),
         ) {
-            Ok(_) => {}
+            Ok(id) => {
+                // Names only — the grid models no quality — and a quality-only
+                // filter slot therefore contributes nothing rather than an
+                // empty name. `use_filters` is not consulted: a blueprint that
+                // carries filter names with the flag off still describes those
+                // slots, and export writes the flag back on from scratch.
+                let names: Vec<String> = entity
+                    .filters
+                    .iter()
+                    .flatten()
+                    .filter_map(|f| f.name.clone())
+                    .collect();
+                if !names.is_empty() {
+                    grid.set_filters(id, names)
+                        .expect("the id was just returned by place");
+                }
+            }
             Err(GridError::UnknownPrototype(name)) => {
                 skipped.push(SkippedEntity {
                     entity_number: entity.entity_number,
@@ -146,6 +162,64 @@ mod tests {
         let entity = result.grid.entities().next().unwrap();
         assert_eq!(entity.prototype_name, "transport-belt");
         assert_eq!(entity.direction, Direction::East);
+    }
+
+    #[test]
+    fn test_import_reads_filter_names() {
+        let mut inserter = make_entity(1, "inserter", 0.5, 0.5, Direction::North);
+        inserter.use_filters = Some(true);
+        inserter.filters = Some(vec![
+            factorio_blueprint::ItemFilter {
+                index: 1,
+                name: Some("uranium-235".to_string()),
+                quality: None,
+                comparator: None,
+            },
+            // A quality-only slot carries no item name, so it contributes
+            // nothing rather than an empty string.
+            factorio_blueprint::ItemFilter {
+                index: 2,
+                name: None,
+                quality: Some("legendary".to_string()),
+                comparator: Some("=".to_string()),
+            },
+        ]);
+
+        let result = from_blueprint(&make_blueprint(vec![inserter]));
+        let placed = result.grid.entities().next().unwrap();
+        assert_eq!(placed.filters, vec!["uranium-235".to_string()]);
+    }
+
+    #[test]
+    fn test_import_leaves_an_unfiltered_entity_unfiltered() {
+        let bp = make_blueprint(vec![make_entity(1, "inserter", 0.5, 0.5, Direction::North)]);
+        let result = from_blueprint(&bp);
+        assert!(result.grid.entities().next().unwrap().filters.is_empty());
+    }
+
+    /// grid -> blueprint -> grid is stable for filters, so a block that is
+    /// exported and re-imported still separates its products.
+    #[test]
+    fn test_filters_survive_a_grid_blueprint_grid_round_trip() {
+        let mut grid = Grid::new();
+        let id = grid
+            .place(
+                "inserter",
+                &Position { x: 0.5, y: 0.5 },
+                Direction::North,
+                None,
+                None,
+            )
+            .unwrap();
+        grid.set_filters(id, vec!["jelly".to_string(), "jellynut-seed".to_string()])
+            .unwrap();
+
+        let bp = crate::export::to_blueprint(&grid, None, 2u64 << 48);
+        let back = from_blueprint(&bp);
+        assert_eq!(
+            back.grid.entities().next().unwrap().filters,
+            vec!["jelly".to_string(), "jellynut-seed".to_string()]
+        );
     }
 
     #[test]

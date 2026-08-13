@@ -58,6 +58,22 @@ pub fn plan_containing_kovarex() -> ProductionPlan {
     chain::solve(&goal).expect("a self-consuming recipe still resolves as ratios")
 }
 
+/// A single-step `uranium-processing` plan — no `kovarex-enrichment-process`
+/// step alongside it. Unlike `plan_containing_kovarex`, this is safe to run
+/// all the way through `layout::generate`: `layout::build` runs
+/// `reject_if_cyclic` over *every* step in a plan, and kovarex's own step
+/// (consumes and produces uranium-235) fails that check and would refuse the
+/// whole plan before `uranium-processing` was ever sized. Use this one for
+/// anything exercising the two-product cell end to end; use
+/// `plan_containing_kovarex` only for the sizing-level `uranium-processing`
+/// tests that take a bare `&ProductionStep` and never call `generate`.
+pub fn uranium_processing_plan() -> ProductionPlan {
+    let goal = ChainGoal::new("uranium-238", Rate::ItemsPerSec(1.0), &["uranium-ore"])
+        .with_override("uranium-238", "uranium-processing");
+
+    chain::solve(&goal).expect("uranium-processing resolves against a flat ore bus")
+}
+
 /// Find a step by its recipe name, for tests that only care about one step
 /// out of a multi-step plan.
 pub fn step<'a>(plan: &'a ProductionPlan, recipe: &str) -> &'a ProductionStep {
@@ -107,6 +123,16 @@ mod tests {
     fn kovarex_plan_actually_contains_kovarex() {
         let plan = plan_containing_kovarex();
         assert!(plan.steps.iter().any(|s| s.recipe.name == "kovarex-enrichment-process"));
+    }
+
+    /// The property `uranium_processing_plan`'s own doc comment depends on:
+    /// exactly one step, and it is not kovarex, so `reject_if_cyclic` never
+    /// fires and `generate` can run this plan all the way through.
+    #[test]
+    fn uranium_processing_plan_has_exactly_one_step() {
+        let plan = uranium_processing_plan();
+        assert_eq!(plan.steps.len(), 1, "{plan:#?}");
+        assert_eq!(plan.steps[0].recipe.name, "uranium-processing");
     }
 
     #[test]

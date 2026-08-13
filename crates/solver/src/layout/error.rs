@@ -60,15 +60,20 @@ pub enum LayoutError {
     TooManyIngredientsForLanes { recipe: String, ingredients: Vec<String>, lanes: u32 },
 
     /// A cell column owns its product lanes outright — there is no shared
-    /// product belt the way ingredients share a spine — so a recipe with
-    /// more than one item result has no column to put the second one in.
+    /// product belt the way ingredients share a spine — so each product needs
+    /// a whole belt to itself, separated from the others by an inserter
+    /// filter (`place::place_cell`). `spine_belts`/`edge_belts` cap out at 2
+    /// belts a side (`CellTopology::validate`), so a recipe with three or
+    /// more item results always refuses here, however the topology is
+    /// configured — there is no widening that helps past the cap.
     #[error(
-        "recipe `{recipe}` yields {} products ({}) but a cell column owns its product lanes \
-         outright, with nowhere to put a second one — declare one of them available so it \
-         comes off the bus as its own block",
+        "recipe `{recipe}` yields {} products ({}) but the product side of a cell only has \
+         {belts} belt(s) to give them, one each — move products to the wider side \
+         (`ingredients_on`), widen it (`spine_belts`/`edge_belts`), or declare one of them \
+         available so it comes off the bus as its own block",
         .products.len(), .products.join(", ")
     )]
-    MultipleProducts { recipe: String, products: Vec<String> },
+    TooManyProductsForBelts { recipe: String, products: Vec<String>, belts: u32 },
 
     /// `rate` is the per-machine rate the chain calculator already computed;
     /// `lane` is what a single lane of the configured belt tier carries. When
@@ -133,6 +138,24 @@ pub enum LayoutError {
     #[error("the `{recipe}` machine at ({x}, {y}) is outside every pole's supply area")]
     Unpowered { recipe: String, x: i32, y: i32 },
 
+    /// A single physical belt run must carry at most one filtered item —
+    /// `place_cell` gives every product of a multi-product step a whole belt
+    /// to itself, filtered, precisely so two items never land on the same
+    /// one. A live violation means the two machine columns' independent
+    /// physical-belt addressing has drifted apart (the mirror-image bug a
+    /// design review caught: a column's gutter faces its belts from one side
+    /// or the other, so an untranslated belt index reaches the belts in
+    /// reverse order for one of the two columns) — `check_no_mixed_product_belts`
+    /// re-derives the claim from the placed grid rather than trusting
+    /// `cell.rs`'s own arithmetic, the same posture as every other check in
+    /// this module.
+    #[error(
+        "recipe `{recipe}`'s belt at ({x}, {y}) is claimed by output inserters filtered for more \
+         than one item ({}), so it would carry a mix instead of one product",
+        .items.join(", ")
+    )]
+    MixedProductBelt { recipe: String, items: Vec<String>, x: i32, y: i32 },
+
     /// The rate solver's own `wanted` for this step, against `delivered` —
     /// the lane capacity actually reachable by the placed output inserters
     /// for it, counted from the grid. This is the check that would have
@@ -180,13 +203,15 @@ mod tests {
     }
 
     #[test]
-    fn multiple_products_names_them() {
-        let e = LayoutError::MultipleProducts {
+    fn too_many_products_for_belts_names_them_and_the_belt_count() {
+        let e = LayoutError::TooManyProductsForBelts {
             recipe: "uranium-processing".into(),
             products: vec!["uranium-235".into(), "uranium-238".into()],
+            belts: 1,
         };
         let s = e.to_string();
         assert!(s.contains("uranium-processing") && s.contains("uranium-238"), "{s}");
+        assert!(s.contains('1'), "the belt count should be in the message: {s}");
     }
 
     #[test]
@@ -219,6 +244,19 @@ mod tests {
         };
         let s = e.to_string();
         assert!(s.contains("electronic-circuit") && s.contains("45") && s.contains("22.5"), "{s}");
+    }
+
+    #[test]
+    fn mixed_product_belt_names_the_recipe_and_every_item() {
+        let e = LayoutError::MixedProductBelt {
+            recipe: "uranium-processing".into(),
+            items: vec!["uranium-235".into(), "uranium-238".into()],
+            x: 4,
+            y: 2,
+        };
+        let s = e.to_string();
+        assert!(s.contains("uranium-processing") && s.contains("uranium-235") && s.contains("uranium-238"), "{s}");
+        assert!(s.contains('4') && s.contains('2'), "the belt's coordinates should be in the message: {s}");
     }
 
     #[test]

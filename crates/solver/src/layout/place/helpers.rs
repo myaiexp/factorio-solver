@@ -5,7 +5,7 @@
 // vertical belt column, and the gutter-inserter placement the far-lane rule
 // rests on.
 use factorio_grid::prototype::{effective_size, EntityPrototype};
-use factorio_grid::Grid;
+use factorio_grid::{EntityId, Grid};
 
 use factorio_blueprint::{Direction, Position};
 
@@ -57,20 +57,23 @@ pub(super) fn inserter_direction(
 /// Place `proto` with its top-left at `top_left`. `Grid::place` wants a
 /// centre; this is the one place that does the top-left -> centre
 /// conversion, using the entity's size as rotated by `direction`.
+///
+/// Returns the placed `EntityId` so a caller that needs to mutate the entity
+/// afterwards — `place_gutter_inserter` setting a product filter — can, even
+/// though most callers (machines, belts) have nothing to do with it.
 pub(super) fn place_at(
     grid: &mut Grid,
     proto: &EntityPrototype,
     top_left: (i32, i32),
     direction: Direction,
     recipe: Option<String>,
-) -> Result<(), LayoutError> {
+) -> Result<EntityId, LayoutError> {
     let (w, h) = effective_size(proto, direction);
     let center = Position {
         x: top_left.0 as f64 + w as f64 / 2.0,
         y: top_left.1 as f64 + h as f64 / 2.0,
     };
-    grid.place(&proto.name, &center, direction, recipe, None)?;
-    Ok(())
+    Ok(grid.place(&proto.name, &center, direction, recipe, None)?)
 }
 
 /// One belt entity per row from `y0` to `y0 + height - 1` at column `x`, all
@@ -99,7 +102,8 @@ pub(super) enum Role {
 
 /// Places one inserter in gutter tile `at`, reaching belt slot `slot`
 /// (0 = adjacent) in the direction `dir` (`+1`/`-1` along x) points from the
-/// gutter toward the belts.
+/// gutter toward the belts. Returns its `EntityId` so a product inserter on a
+/// multi-product step can be given a filter afterwards.
 ///
 /// Distance `slot + 1` selects `cfg.inserter` (1) or `cfg.long_inserter` (2)
 /// — and mirrors onto the machine side too, which is why a long inserter
@@ -112,7 +116,7 @@ pub(super) fn place_gutter_inserter(
     dir: i32,
     slot: u32,
     role: Role,
-) -> Result<(), LayoutError> {
+) -> Result<EntityId, LayoutError> {
     let d = slot as i32 + 1;
     let proto = if d == 1 { cfg.inserter } else { cfg.long_inserter };
     let belt_delta = dir * d;

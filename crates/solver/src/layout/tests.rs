@@ -5,7 +5,7 @@
 // `place/tests.rs`, `power/tests.rs`, `validate/tests.rs`).
 use super::*;
 use crate::chain::{self, ChainGoal, MachinePolicy, Rate};
-use crate::testsupport::{default_cfg, green_circuit_plan, plan_containing_kovarex};
+use crate::testsupport::{default_cfg, green_circuit_plan, plan_containing_kovarex, uranium_processing_plan};
 
 #[test]
 fn cyclic_step_is_rejected_by_name() {
@@ -26,12 +26,13 @@ fn acyclic_plan_is_accepted() {
 }
 
 /// Multi-output is not cyclic. `uranium-processing` yields two different
-/// items from one ore; only *self*-consumption has no topology. (It is
-/// still refused by `generate` today — a cell column owns its product
-/// lanes outright, so two results have nowhere to go — but that is
-/// `MultipleProducts`, a different check for a different reason.) It sits
-/// in the same plan as the kovarex step above, so a check that confused
-/// the two would reject both.
+/// items from one ore; only *self*-consumption has no topology. (It can
+/// still be refused by `generate` — a cell column owns its product lanes
+/// outright, so two results need a topology with at least two belts on the
+/// product side, and the default topology's product side has only one — but
+/// that is `TooManyProductsForBelts`, a different check for a different
+/// reason.) It sits in the same plan as the kovarex step above, so a check
+/// that confused the two would reject both.
 #[test]
 fn a_multi_output_step_is_not_mistaken_for_a_cycle() {
     let plan = plan_containing_kovarex();
@@ -151,19 +152,45 @@ fn cyclic_and_fluid_refusals_still_fire() {
 }
 
 /// A cell column owns its product lanes outright, so a recipe with two
-/// results — like `uranium-processing` — has no column for the second
-/// one. Deliberate regression from the row topology, pinned here so a
-/// future change does not silently reopen the old (broken) two-lane
-/// product belt this design replaced.
+/// results — like `uranium-processing` — needs a product side wide enough
+/// to give each one a whole belt. The default topology's product side (the
+/// 1-belt edge) isn't, so it still refuses — by belt count now, not by
+/// product count outright, which is what a topology with a wider product
+/// side (`a_uranium_processing_plan_generates_and_validates`, below) exists
+/// to prove.
 #[test]
 fn a_multi_product_step_refuses_through_generate() {
-    let goal = ChainGoal::new("uranium-238", Rate::ItemsPerSec(1.0), &["uranium-ore"])
-        .with_override("uranium-238", "uranium-processing");
-    let plan = chain::solve(&goal).expect("uranium-processing resolves against a flat ore bus");
+    let plan = uranium_processing_plan();
     match generate(&plan, &default_cfg()) {
-        Err(LayoutError::MultipleProducts { recipe, .. }) => {
+        Err(LayoutError::TooManyProductsForBelts { recipe, products, belts }) => {
             assert_eq!(recipe, "uranium-processing");
+            assert_eq!(products.len(), 2);
+            assert_eq!(belts, 1, "the default topology's product side is the 1-belt edge");
         }
-        other => panic!("expected MultipleProducts, got {other:?}"),
+        other => panic!("expected TooManyProductsForBelts, got {other:?}"),
     }
+}
+
+/// End to end: `uranium-processing`'s two products need a topology with at
+/// least two belts on the product side, so this flips products onto the
+/// 2-belt spine (same flip the `cell`/`place` unit tests use). Exercises
+/// the whole pipeline — `build`, then `validate`, including
+/// `check_no_mixed_product_belts` and the per-product delivered-rate check
+/// — on a real centrifuge, now that `validate::is_machine` recognises one
+/// (it didn't before this feature: `EntityCategory`'s name-substring match
+/// has no rule for "centrifuge", so a centrifuge-based block used to pass
+/// validation without a single assertion running).
+#[test]
+fn a_uranium_processing_plan_generates_and_validates() {
+    let plan = uranium_processing_plan();
+    let cfg = default_cfg()
+        .with_topology(CellTopology { ingredients_on: Side::Edge, ..CellTopology::default() });
+
+    let (grid, report) = generate_with_report(&plan, &cfg).expect("uranium-processing should lay out");
+    assert!(
+        grid.entities().any(|e| e.prototype_name == "centrifuge"),
+        "the plan should have selected a centrifuge, uranium-processing's only crafting machine"
+    );
+    assert!(coverage_gaps(&grid).is_empty());
+    assert!(report.bindings.iter().any(|(recipe, _)| recipe == "uranium-processing"));
 }
