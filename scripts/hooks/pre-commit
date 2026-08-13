@@ -17,10 +17,12 @@
 #
 # Steps 1 and 2 are cheap and exact; they are what makes step 3 mean anything.
 # Step 1 also matches `deploy`'s own dirty-tree gate, so a tree that passes
-# here is already in the state a deploy demands.
+# here is already in the state a deploy demands. Step 3 records the tree, which
+# is what lets `deploy`'s later merge commit over the same tree skip instantly.
 #
 # Bypass with `git commit --no-verify` when you genuinely want a partial or
-# work-in-progress commit. The pre-push hook is the backstop for that.
+# work-in-progress commit. Nothing re-checks it later — pre-push only reports
+# what it finds, since it has 15 seconds to work in (see that hook).
 
 set -uo pipefail
 

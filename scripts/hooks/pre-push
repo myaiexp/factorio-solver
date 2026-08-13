@@ -1,29 +1,27 @@
 #!/usr/bin/env bash
-# Refuse to publish a tree that does not build, test, and lint clean.
+# Report whether the tree being published was ever gated. Never builds.
 #
-# pre-commit is the primary gate; this is the one that closes its two holes:
+# This hook deliberately does no work. `deploy` wraps its push in
+# `timeout 15` (PUSH_TIMEOUT, raised only for repos using the forgejo deploy
+# marker — this one does not), and a cold `cargo clippy --workspace` in the
+# main checkout is minutes. An earlier version of this hook ran the full gate
+# here and killed a real deploy: the branch landed on master and the push never
+# happened. Building inside a 15-second budget is not a thing that can be made
+# to work, so the checking lives in pre-commit and pre-merge-commit, which have
+# no such budget.
 #
-#   * a merge commit never runs pre-commit (git runs pre-merge-commit, and for
-#     a conflicted merge the resolution is the only thing checked). `deploy`
-#     merges the worktree branch onto master, so the tree that actually reaches
-#     origin is one no pre-commit ever saw.
-#   * `--no-verify` exists, and work-in-progress commits use it.
-#
-# Push is the last boundary before other machines pull this, so it is the right
-# place for the backstop.
-#
-# What can be verified: only the working tree, since building an arbitrary
-# pushed commit would need a temp checkout and a cold cargo cache (minutes, on
-# every push). So the check runs when the tree is clean and HEAD is among the
-# commits being pushed — which is exactly the `deploy` path, as deploy refuses
-# a dirty tree itself. Anything else is reported as unverified rather than
-# quietly waved through.
-#
-# Bypass with `git push --no-verify`.
+# What is left is a lookup, which costs nothing and still catches the one path
+# no git hook covers: `deploy-land` replays a single commit onto a moved base
+# with `git cherry-pick`, and cherry-pick fires no hook at all — not
+# pre-commit, not pre-merge-commit (measured, not assumed). The resulting tree
+# is therefore unverified, and this says so out loud rather than letting it
+# leave silently. It warns instead of refusing, because refusing would turn
+# every such land into a manual push for a tree that is usually fine.
 
 set -uo pipefail
 
 cd "$(git rev-parse --show-toplevel)" || exit 1
+. "$(dirname "$0")/stamp.sh"
 
 head=$(git rev-parse HEAD)
 zero='0000000000000000000000000000000000000000'
@@ -31,29 +29,22 @@ zero='0000000000000000000000000000000000000000'
 # stdin: <local ref> <local sha> <remote ref> <remote sha>, one line per ref.
 pushing_head=0
 while read -r _local_ref local_sha _remote_ref _remote_sha; do
-  [[ "$local_sha" == "$zero" ]] && continue  # a branch deletion pushes nothing
-  [[ "$local_sha" == "$head" ]] && pushing_head=1
+  [ "$local_sha" = "$zero" ] && continue # a branch deletion pushes nothing
+  [ "$local_sha" = "$head" ] && pushing_head=1
 done
 
-if ((!pushing_head)); then
-  echo "gate: pushing a commit that is not HEAD — not verified." >&2
-  echo "      Check it out and re-push if you want the gate to see it." >&2
+if [ "$pushing_head" -eq 0 ]; then
+  echo "gate: pushing something that is not HEAD — cannot say whether it was verified." >&2
   exit 0
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  echo "gate: working tree is dirty, so it is not the tree being pushed — not verified." >&2
+tree=$(git rev-parse "HEAD^{tree}")
+if tree_is_verified "$tree"; then
+  echo "gate: ok (verified tree $tree)"
   exit 0
 fi
 
-# The tree is clean at HEAD, so HEAD's sha identifies exactly what was checked.
-# deploy pushes to every remote in turn and the hook fires once per remote;
-# without this the same 5s of clippy+tests would run for each.
-stamp="target/.gate-verified"
-if [[ -f "$stamp" && "$(cat "$stamp" 2>/dev/null)" == "$head" ]]; then
-  echo "gate: ok (already verified $head)"
-  exit 0
-fi
-
-"$(dirname "$0")/check-workspace.sh" || exit 1
-mkdir -p "$(dirname "$stamp")" && printf '%s' "$head" >"$stamp"
+echo "gate: WARNING — this tree was never gated, pushing anyway." >&2
+echo "      Most likely a cherry-pick land, which fires no git hook." >&2
+echo "      Check it with scripts/hooks/check-workspace.sh." >&2
+exit 0

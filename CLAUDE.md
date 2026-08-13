@@ -57,16 +57,29 @@ with the launcher icon on Wayland.
 ## The Build Gate
 
 `scripts/install-hooks.sh` (once per clone) sets `core.hooksPath` to the tracked
-`scripts/hooks/`, so a commit or a push runs `cargo clippy --workspace
---all-targets -- -D warnings` and `cargo test --workspace` — about 5s warm.
-`--no-verify` bypasses either.
+`scripts/hooks/`, so committing runs `cargo clippy --workspace --all-targets --
+-D warnings` and `cargo test --workspace` — about 5s warm. `--no-verify`
+bypasses it.
 
 pre-commit first refuses **untracked or unstaged** files, and that is the part
 that matters: the 2026-07 break was ~10 modules that existed on disk but in no
 commit, so the workspace built for its author and not for anyone else. Checking
 the working tree only means something once the working tree is provably what the
-commit contains. pre-push then re-checks at the publish boundary, which is where
-`deploy`'s branch→master merge — a tree no pre-commit ever saw — first appears.
+commit contains.
+
+Which hook covers which of `deploy`'s land paths was **measured, not assumed**:
+a fast-forward fires nothing (the tree is the branch tip's, already gated), a
+`--no-ff` merge fires `pre-merge-commit`, and a **cherry-pick fires no hook at
+all** — so a single commit replayed onto a moved base is the one ungated path,
+and `pre-push` warns when it sees a tree nothing verified. `pre-push` does no
+building on purpose: `deploy` allows a push 15 seconds, an earlier version ran
+the full gate there, and it killed a real deploy — the branch landed on master
+and the push never happened.
+
+The gate remembers **trees**, not commits (`scripts/hooks/stamp.sh`, stored in
+the shared git dir). A merge onto an unmoved master is a new sha over the same
+tree pre-commit just built, so the land costs nothing instead of a cold rebuild
+in the main checkout.
 
 ## Key Patterns
 

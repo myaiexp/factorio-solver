@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Gate the merge commit `deploy` creates when it lands a session branch.
+#
+# pre-commit cannot see this tree: git runs *this* hook for an automatic merge
+# commit, never pre-commit. So without it, the one commit that actually reaches
+# origin is the one nothing checked — which is precisely the shape of the
+# 2026-07 break.
+#
+# A clean merge has already written its result to both the index and the
+# working tree by the time this runs, so `check-workspace.sh` is looking at the
+# right thing. When master has not moved, that tree is the branch tip's own and
+# the stamp from pre-commit makes this instant.
+#
+# `git merge` has no timeout around it, which is why the gate lives here and not
+# in pre-push: `deploy` allows a push 15 seconds, and a cold `cargo clippy` in
+# the main checkout is minutes. A veto here fails the land instead, which
+# deploy-land handles by aborting the merge and leaving the main checkout clean.
+#
+# Bypass with `git merge --no-verify`.
+
+exec "$(dirname "$0")/check-workspace.sh"

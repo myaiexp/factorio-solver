@@ -13,10 +13,11 @@ set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-chmod +x scripts/hooks/pre-commit scripts/hooks/pre-push scripts/hooks/check-workspace.sh
+chmod +x scripts/hooks/*
 git config core.hooksPath scripts/hooks
 
 echo "hooks installed: core.hooksPath = $(git config core.hooksPath)"
-echo "  pre-commit — untracked/unstaged check, then clippy + tests"
-echo "  pre-push   — clippy + tests on the tree being published"
-echo "Bypass either with --no-verify."
+echo "  pre-commit        — untracked/unstaged check, then clippy + tests"
+echo "  pre-merge-commit  — same checks on the merge tree \`deploy\` lands"
+echo "  pre-push          — reports whether the pushed tree was ever gated"
+echo "Bypass any of them with --no-verify."
