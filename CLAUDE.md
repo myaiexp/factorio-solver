@@ -54,6 +54,37 @@ from the checkout, so it is re-runnable and machine-independent). The window's
 `factorio-solver` and must stay equal — that triple is what pairs the window
 with the launcher icon on Wayland.
 
+## Where Sessions Run
+
+**On the desktop, not the VPS** (`projects.execution='remote-native'`, `machine=desktop`,
+`remote_path=/home/mse/Projects/factorio-solver`). Helm SSH-spawns `claude -p` there in a
+worktree under `.worktrees/<id>`. The reason is not disk: the deliverable is an egui window
+that reads icons live from a Factorio install and is verified against real saves, so on the
+VPS every UI change was unverifiable in principle. Full rationale, including the tooling the
+desktop needed and what it still lacks (`rtk`): `.claude/plans/2026-08-13-remote-native-desktop-design.md`.
+
+Two consequences that bite:
+
+- **`deploy` does not exist on the desktop.** Land by hand: commit on the session branch,
+  merge to `master` in the main checkout, `git push origin`. No service, no update logging.
+- **Helm's archive pre-flight fails open for remote projects**, so nothing refuses to archive
+  a session holding unlanded commits — it deletes the branch. Land before you finish, every
+  time; there is no net behind you here.
+
+`.helmcontext` bridges `target/debug` from the main checkout into each worktree, so sessions
+share one 2.1 GB build cache instead of 4.6 GB each (idea #3381, three VPS disk alerts).
+Release is deliberately **not** bridged — `scripts/launch.sh` runs `target/release/factorio-ui`
+behind the desktop icon, and sharing it would let a session's half-built binary launch as master.
+
+**Fallback when the desktop is down** (it reaches the VPS over a reverse SSH tunnel — no
+tunnel, no sessions): the VPS clone at `~/Projects/solvers/factorio-solver` is kept for this.
+`UPDATE projects SET execution='local' WHERE name='factorio-solver';` switches to it —
+`path` and `remote_path` are separate columns — and `'remote-native'` switches back. Fetch
+first; neither checkout pulls automatically. A VPS session can do all crate logic and the
+full suite (`real_save.rs` early-returns without `FACTORIO_SAVE_FIXTURE`), but cannot run the
+UI, read icons, or test a save — and it builds its own 4.6 GB target, since `worktreeBridge`
+is remote-only.
+
 ## The Build Gate
 
 `scripts/install-hooks.sh` (once per clone) sets `core.hooksPath` to the tracked

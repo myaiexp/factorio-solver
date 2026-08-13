@@ -1,0 +1,20 @@
+---
+# Sessions for this project run on the DESKTOP (projects.execution='remote-native'),
+# because the deliverable is an egui window that reads icons out of a live Factorio
+# install and is verified against real saves — none of which exists on the VPS.
+#
+# Each session gets its own worktree under .worktrees/<id>, and a full Rust target
+# dir is 4.6 GB. Bridging symlinks the main checkout's build cache into every
+# worktree so there is ONE copy on disk instead of one per session (this is what
+# took the VPS to a critical-disk alert three times; see idea #3381).
+#
+# DEBUG ONLY, deliberately. `scripts/launch.sh` runs target/release/factorio-ui —
+# the binary behind the desktop icon. Sharing release would let a session's
+# half-finished build become what that icon launches, and the launcher's staleness
+# check (binary + .launch-stamp) cannot tell that apart from its own build. Every
+# session command (cargo test / clippy / run) is debug, so debug is where the
+# 2.1 GB of sharing actually is; a session that needs release builds its own and
+# archiving reclaims it.
+worktreeBridge:
+  - target/debug
+---
