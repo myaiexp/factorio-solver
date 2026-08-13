@@ -19,6 +19,13 @@ eframe = { version = "0.33", features = ["persistence"] }
 egui = "0.33"
 image = { version = "0.25", default-features = false, features = ["png"] }
 serde = { version = "1", features = ["derive"] }
+# Already in the tree via egui-winit, but only for egui's own copy/paste and
+# without "wayland-data-control". That feature is what lets the watcher read
+# the clipboard while the *game* holds focus: plain Wayland hands the clipboard
+# only to the focused surface, and wlr-data-control is the protocol that exists
+# to lift that (it is how clipboard managers work). arboard prefers it whenever
+# WAYLAND_DISPLAY is set and falls back to X11 otherwise, so this is additive.
+arboard = { version = "3.6", default-features = false, features = ["wayland-data-control"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"

@@ -1,11 +1,13 @@
 // Saves and restores the chain panel's *inputs* (not its solve/generate
-// results) across app runs, via eframe's key-value storage.
+// results) and the app-level settings across app runs, via eframe's
+// key-value storage.
 use std::collections::{BTreeSet, HashMap};
 
 use factorio_solver::layout::CellTopology;
 use factorio_solver::recipe;
 use serde::{Deserialize, Serialize};
 
+use crate::app::FactorioApp;
 use crate::chain_panel::{AvailabilityMode, ChainPanel, MachineChoice, RateUnit};
 
 #[cfg(test)]
@@ -14,6 +16,44 @@ mod tests;
 
 /// Storage key for the panel blob.
 pub const STORAGE_KEY: &str = "factorio_solver_panel";
+
+/// Storage key for the app-level settings blob. A second key rather than a
+/// field on `PanelState`, because these are not the chain panel's inputs and
+/// folding them in would make the panel's own restore rules (filtering retired
+/// recipe names, reseeding an availability mode) apply to things they have no
+/// business touching.
+pub const APP_KEY: &str = "factorio_solver_app";
+
+/// App-level settings that outlive a run.
+///
+/// Same leniency contract as `PanelState`: `#[serde(default)]` at the
+/// container level, unknown fields ignored, so a later version adding a
+/// setting cannot wipe a saved one.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct AppSettings {
+    watch_clipboard: bool,
+}
+
+impl Default for AppSettings {
+    /// Watching defaults **on**: the whole point is that an in-game export
+    /// needs no interaction, and a feature you have to find a checkbox for
+    /// first is one you will not remember exists. Turning it off is a
+    /// deliberate choice, which is exactly why it is worth persisting.
+    fn default() -> Self {
+        Self { watch_clipboard: true }
+    }
+}
+
+impl AppSettings {
+    pub fn capture(app: &FactorioApp) -> Self {
+        Self { watch_clipboard: app.watching_clipboard() }
+    }
+
+    pub fn watch_clipboard(&self) -> bool {
+        self.watch_clipboard
+    }
+}
 
 /// The chain panel's persisted inputs.
 ///
