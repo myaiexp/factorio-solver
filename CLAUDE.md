@@ -81,6 +81,16 @@ the shared git dir). A merge onto an unmoved master is a new sha over the same
 tree pre-commit just built, so the land costs nothing instead of a cold rebuild
 in the main checkout.
 
+Both cargo invocations pass `--locked`, and **`Cargo.lock` is tracked** (the
+scaffold `.gitignore` ignored it, which is the library default; this workspace
+ships a binary). The two go together: cargo rewrites the lockfile during
+*resolution*, before it compiles and long after pre-commit's unstaged check has
+passed — so staging a manifest change alone used to land the old lockfile
+beside a build done against the new one, a commit describing a dependency graph
+nothing verified. `--locked` makes cargo refuse instead, and the hook prints the
+remedy (`cargo metadata … && git add Cargo.lock`) since cargo's own advice is to
+drop the flag.
+
 ## Key Patterns
 
 - **Blueprint string format**: version byte (`0`) + base64 + zlib + JSON. Round-trip fidelity is critical.

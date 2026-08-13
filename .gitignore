@@ -1,7 +1,12 @@
 # Rust
 /target/
 **/*.rs.bk
-Cargo.lock
+# Cargo.lock is deliberately NOT ignored. The scaffold that wrote this file
+# ignored it (the library default), but this workspace ships a binary —
+# factorio-ui is the whole point — and for a binary the lockfile is what makes
+# a build reproducible. Without it, `scripts/launch.sh` pulling on the desktop
+# can resolve different versions than a checkout elsewhere, with no commit in
+# between to explain the difference.
 
 # IDE
 .idea/

@@ -43,13 +43,28 @@ run() {
   if ! output=$("$@" 2>&1); then
     printf '%s\n' "$output" >&2
     echo "gate: $label FAILED." >&2
+    # Cargo's own advice for this one is "remove the --locked flag", which is
+    # the opposite of what should happen here. Say what to do instead.
+    if printf '%s' "$output" | grep -q -- '--locked was passed'; then
+      echo >&2
+      echo "gate: a manifest changed without its lockfile. Refresh and stage it:" >&2
+      echo "        cargo metadata --format-version 1 >/dev/null && git add Cargo.lock" >&2
+    fi
     exit 1
   fi
 }
 
+# `--locked` is not belt-and-braces, it closes a hole this gate would otherwise
+# open. Cargo rewrites Cargo.lock during *resolution* — before it compiles
+# anything, and long after the unstaged check above has passed. Measured: stage
+# a Cargo.toml that adds a dependency, commit, and the tree that lands carries
+# the OLD lockfile while everything clippy and the tests just proved was built
+# against the new one. The commit then describes a dependency graph that was
+# never verified, which is the exact failure this gate exists to prevent, dressed
+# up as a pass. With --locked cargo refuses to rewrite and says so instead.
 run "cargo clippy --workspace --all-targets -D warnings" \
-  cargo clippy --workspace --all-targets --quiet -- -D warnings
-run "cargo test --workspace" cargo test --workspace --quiet
+  cargo clippy --locked --workspace --all-targets --quiet -- -D warnings
+run "cargo test --workspace" cargo test --locked --workspace --quiet
 
 record_verified_tree "$tree"
 echo "gate: ok"
