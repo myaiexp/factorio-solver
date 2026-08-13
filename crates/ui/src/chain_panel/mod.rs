@@ -1,14 +1,20 @@
 // Side panel that drives the production-chain calculator: pick a product, a
 // rate, what's already on the bus, and a machine policy, and see how many
 // machines each recipe in the chain needs.
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use factorio_grid::Grid;
+use factorio_solver::availability::{all_available_recipe_names, Availability};
 use factorio_solver::chain::{solve, ChainError, ChainGoal, MachinePolicy, ProductionPlan, Rate};
 use factorio_solver::layout::{CellTopology, LayoutConfig};
 
+mod availability_controls;
+#[cfg(test)]
+mod availability_tests;
 mod controls;
 mod generate;
+#[cfg(test)]
+mod goal_tests;
 #[cfg(test)]
 mod harness;
 mod layout_controls;
@@ -21,6 +27,7 @@ mod scroll_tests;
 #[cfg(test)]
 mod topology_tests;
 
+use availability_controls::AvailabilityMode;
 use generate::GeneratedBlock;
 pub use logic::display_name;
 
@@ -59,6 +66,20 @@ pub struct ChainPanel {
     belt_tier: String,
     available: Vec<String>,
     available_input: String,
+    /// Everything vs. an edited "what I can build" set. Orthogonal to
+    /// `available` above — that pair is the bus, this trio is the
+    /// availability gate, and the near-identical names are exactly why a
+    /// field here called plain `available_*` would be a landmine. Read
+    /// through `availability()`, never matched on directly, so nothing else
+    /// has to know `AvailabilityMode` exists.
+    availability_mode: AvailabilityMode,
+    /// The edited set. `None` means "never seeded" — the state a fresh panel
+    /// starts in. That is *not* the same as `Some(empty set)`, which is what
+    /// the user gets by ticking `OnlyAvailable` and then unticking every
+    /// recipe on purpose; conflating the two would make `set_availability_mode`
+    /// re-seed over a deliberate "nothing" and silently discard the edit.
+    available_recipes: Option<BTreeSet<String>>,
+    availability_query: String,
     machine: MachineChoice,
     show_hidden_recycling: bool,
     /// Item -> recipe name. Populated from the ambiguous-recipe error UI as
@@ -100,6 +121,9 @@ impl ChainPanel {
             belt_tier: "transport-belt".to_string(),
             available: Vec::new(),
             available_input: String::new(),
+            availability_mode: AvailabilityMode::Everything,
+            available_recipes: None,
+            availability_query: String::new(),
             machine: MachineChoice::Fastest,
             show_hidden_recycling: false,
             overrides: HashMap::new(),
@@ -125,12 +149,48 @@ impl ChainPanel {
             }
         };
         let available: Vec<&str> = self.available.iter().map(String::as_str).collect();
-        let mut goal =
-            ChainGoal::new(&self.product, rate, &available).with_machines(self.machine.to_policy());
+        let mut goal = ChainGoal::new(&self.product, rate, &available)
+            .with_machines(self.machine.to_policy())
+            .with_availability(self.availability());
         for (item, recipe) in &self.overrides {
             goal = goal.with_override(item, recipe);
         }
         goal
+    }
+
+    /// The `Availability` the current state describes: unrestricted in
+    /// `Everything` mode, the edited set in `OnlyAvailable`.
+    ///
+    /// Private, not `pub(super)` — `super` from this file is the crate root,
+    /// so `pub(super)` would leak it further out than `AvailabilityMode` in
+    /// its return type, which clippy rejects. Private already reaches every
+    /// descendant, tests included.
+    fn availability(&self) -> Availability {
+        match self.availability_mode {
+            AvailabilityMode::Everything => Availability::Everything,
+            // `unwrap_or_default` reads an unseeded `None` as an empty set —
+            // reachable only if `availability_mode` were ever set without
+            // going through `set_availability_mode` below, which never
+            // happens today. Treat it as the conservative answer (allow
+            // only what `enabled: true` already grants for free) rather than
+            // a case to paper over with a fallback to `Everything`.
+            AvailabilityMode::OnlyAvailable => {
+                Availability::Unlocked(self.available_recipes.clone().unwrap_or_default())
+            }
+        }
+    }
+
+    /// Switch modes, seeding the set from [`all_available_recipe_names`] the
+    /// first time `OnlyAvailable` is entered — so the switch alone changes no
+    /// solve result and the user's first edit is a removal. Seeding is keyed
+    /// on `available_recipes.is_none()`, not on the mode being entered again,
+    /// so toggling back to `Everything` and returning preserves whatever the
+    /// user already unticked instead of re-seeding over it.
+    fn set_availability_mode(&mut self, mode: AvailabilityMode) {
+        if mode == AvailabilityMode::OnlyAvailable && self.available_recipes.is_none() {
+            self.available_recipes = Some(all_available_recipe_names());
+        }
+        self.availability_mode = mode;
     }
 
     /// Re-run the calculator against the current panel state.
@@ -172,6 +232,8 @@ impl ChainPanel {
                 ui.separator();
                 controls::machine_selector(self, ui);
                 ui.separator();
+                availability_controls::show(self, ui);
+                ui.separator();
                 if ui.button("Solve").clicked() {
                     self.solve();
                 }
@@ -182,79 +244,5 @@ impl ChainPanel {
                 ui.separator();
                 generate::show(self, ui);
             });
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn panel_with(product: &str, available: &[&str]) -> ChainPanel {
-        let mut p = ChainPanel::new();
-        p.product = product.to_string();
-        p.available = available.iter().map(|s| s.to_string()).collect();
-        p
-    }
-
-    #[test]
-    fn goal_uses_items_per_sec_unit() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::PerSec;
-        p.rate_value = 45.0;
-        assert_eq!(p.build_goal().rate, Rate::ItemsPerSec(45.0));
-    }
-
-    #[test]
-    fn goal_uses_items_per_min_unit() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::PerMin;
-        p.rate_value = 120.0;
-        assert_eq!(p.build_goal().rate, Rate::ItemsPerMin(120.0));
-    }
-
-    #[test]
-    fn goal_uses_belts_unit_with_tier() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.rate_unit = RateUnit::Belts;
-        p.rate_value = 2.0;
-        p.belt_tier = "express-transport-belt".to_string();
-        assert_eq!(
-            p.build_goal().rate,
-            Rate::Belts { count: 2, tier: "express-transport-belt".to_string() }
-        );
-    }
-
-    #[test]
-    fn goal_carries_available_list() {
-        let p = panel_with("electronic-circuit", &["iron-plate", "copper-plate"]);
-        let goal = p.build_goal();
-        assert!(goal.available.contains("iron-plate"));
-        assert!(goal.available.contains("copper-plate"));
-    }
-
-    #[test]
-    fn goal_carries_overrides() {
-        let mut p = panel_with("electronic-circuit", &[]);
-        p.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
-        let goal = p.build_goal();
-        assert_eq!(goal.recipe_overrides.get("copper-cable").unwrap(), "copper-cable");
-    }
-
-    /// The number a human checks on screen: 45/s electronic circuits from
-    /// plates, on assembling-machine-2, needs 30 machines making circuits
-    /// and 45 making the copper cable they consume.
-    #[test]
-    fn end_to_end_electronic_circuit_plan_matches_expected_machine_counts() {
-        let mut p = panel_with("electronic-circuit", &["iron-plate", "copper-plate"]);
-        p.rate_unit = RateUnit::PerSec;
-        p.rate_value = 45.0;
-        p.machine = MachineChoice::Named("assembling-machine-2".to_string());
-        p.overrides.insert("copper-cable".to_string(), "copper-cable".to_string());
-
-        let plan = solve(&p.build_goal()).expect("plan resolves with the override in place");
-        let counts: Vec<u32> = plan.steps.iter().map(|s| s.machines_needed).collect();
-        assert!(counts.contains(&30), "expected a 30-machine step, got {counts:?}");
-        assert!(counts.contains(&45), "expected a 45-machine step, got {counts:?}");
-        assert_eq!(plan.steps.len(), 2, "only electronic-circuit and copper-cable should run");
     }
 }
