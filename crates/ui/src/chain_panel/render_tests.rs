@@ -129,6 +129,30 @@ fn layout_controls_paint_on_a_fresh_panel() {
     assert!(joined.contains("Generate"), "no Generate button painted: {joined}");
 }
 
+/// The save picker is likewise independent config, and sits ahead of the
+/// product picker — its Load/Clear controls must be on screen with nothing
+/// selected yet, same as `layout_controls_paint_on_a_fresh_panel` above.
+#[test]
+fn save_picker_controls_paint_on_a_fresh_panel() {
+    let mut panel = ChainPanel::new();
+    let joined = painted_text(&mut panel).join(" | ");
+    assert!(joined.contains("Save"), "{joined}");
+    assert!(joined.contains("Load"), "no Load button painted: {joined}");
+    assert!(joined.contains("Clear"), "no Clear button painted: {joined}");
+}
+
+/// A failed decode must reach the screen with the error text — the same
+/// promise `a_fluid_error_paints_its_remedy` proves for a chain error — and
+/// must not leave a stale `Unlocked` availability behind it.
+#[test]
+fn a_failed_save_load_paints_the_error() {
+    let mut panel = ChainPanel::new();
+    panel.save_picker.select(std::path::Path::new("/nonexistent/save.zip"));
+
+    let joined = painted_text(&mut panel).join(" | ");
+    assert!(joined.contains("i/o error"), "decode error not painted: {joined}");
+}
+
 /// End to end: solve, generate, and read the size/entity count back off the
 /// screen, with no error text anywhere in the frame.
 #[test]

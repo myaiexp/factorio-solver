@@ -18,3 +18,6 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 tempfile = "3.27.0"
+# For the save-picker's decode test: a synthetic save zip built from the real
+# recipe registry, mirroring crates/solver's own dev-dependency on this.
+factorio-save = { path = "../save", features = ["testsupport"] }

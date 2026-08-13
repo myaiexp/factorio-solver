@@ -18,6 +18,7 @@ factorio-solver/
 │   ├── blueprint/          # Blueprint string parsing/encoding + CLI
 │   ├── grid/               # 2D spatial engine: placement, collision, spatial index, A*, import/export
 │   ├── templates/          # Template extraction from grid regions + IoPoint model + JSON persistence
+│   ├── save/               # Factorio save reader: level-init.dat + the player force's unlocked recipes
 │   ├── solver/             # Recipe registry + chain calculator + block generator
 │   ├── dump-ingest/        # Dev tool: Factorio data dump -> prototypes.json + recipes.json
 │   └── ui/                 # egui frontend — viewport, culling, LOD, colors, tooltips
@@ -32,9 +33,15 @@ builds and runs with no Factorio install present.
 
 ```
 ui → solver → templates → grid → blueprint
+       └────→ save
 ```
 
 Each crate is independently testable. UI is the thinnest layer — all logic lives in lower crates.
+
+`save` depends on no workspace crate. The edge points solver→save rather than
+the reverse because save's calibration invariant needs the default-enabled
+recipe set, which lives in solver's registry — so save takes it as a parameter
+and the graph stays acyclic.
 
 ## Running It
 
@@ -61,18 +68,27 @@ with the launcher icon on Wayland.
 
 ## Current Phase
 
-**Phase 7 — Columnar Block Topology** (complete; see
-`.claude/plans/2026-08-11-columnar-block-topology-design.md` and
-`phases/007-columnar-block-topology.md`). The app goes goal → plan → grid →
-pasteable blueprint string end to end, and the block now delivers its target
-rate rather than half of it. What exists today:
+**Phase 8 — Save-Derived Machine Availability** (complete in code, **never run
+against a real save**; see `.claude/plans/2026-08-13-save-derived-availability-design.md`
+and `phases/008-save-derived-availability.md`). The app goes goal → plan → grid
+→ pasteable blueprint string end to end, and can now restrict itself to the
+recipes and machines a chosen save has actually unlocked.
+
+> **Unverified**: the build machine has no Factorio install, so the save decoder
+> has only ever run against synthetic fixtures this repo also wrote. Run
+> `FACTORIO_SAVE_FIXTURE=<a real save> cargo test -p factorio-save` on a machine
+> with saves before trusting it — that test is the only check on the inferred
+> `level-init.dat` header layout and on the calibration search against real data.
+
+What exists today:
 
 - **blueprint** — Factorio blueprint string codec (version byte + base64 + zlib + JSON) with round-trip fidelity, plus a CLI.
 - **grid** — 2D spatial engine: placement/collision, chunk-based spatial index, A* routing (`find_path`), ASCII render, blueprint `import`/`export`, entity classification (`EntityCategory`), and the dump-derived prototype registry (169 entities).
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
-- **solver** — the dump-derived recipe registry (649 recipes), `chain` (`solve(&ChainGoal) -> ProductionPlan`, recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput), `place` (one cell's entities), `tile` (cells into bands), `power`, and pre-emit validation including a delivered-rate check.
+- **save** — `SaveFile::open` reads a save zip's `level-init.dat` (version, mod names, prototype id tables) and inflates its `level.dat<N>` chunks lazily in numeric order; `unlocked_recipes(&default_enabled)` locates the player force's recipe-unlock array by calibration search. No workspace dependency, and `testsupport::FixtureSave` builds synthetic save zips so the tests need no real save.
+- **solver** — the dump-derived recipe registry (649 recipes), `chain` (`solve(&ChainGoal) -> ProductionPlan`, recipe/machine selection, `Availability`, the rate solver), `availability` (the save→`Availability` bridge) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput), `place` (one cell's entities), `tile` (cells into bands), `power`, and pre-emit validation including a delivered-rate check.
 - **dump-ingest** — the manual ingest tool that generates both data files.
-- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with belt/pole/inserter/topology controls, Generate + copy-to-clipboard.
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with the save picker, belt/pole/inserter/topology controls, Generate + copy-to-clipboard.
 
 Next logical step: belt routing *between* steps (idea #3362) — the generator
 stacks a producer directly above its consumer but does not connect them, so the
@@ -126,6 +142,13 @@ player wires the block by hand. `crates/grid/src/astar.rs` already has
 - **`BLUEPRINT_VERSION` stamps 2.0.77 into every generated blueprint**: `from_blueprint` reads the major version to decide whether directions are 1.x-encoded, so a too-low stamp gets our own 2.0 directions rewritten on re-import
 - **Layout validation re-derives rather than trusts**: the connectivity and delivered-rate checks recompute each inserter's reach from prototype data and deliberately do not share `place`'s rotation helper — a bug in a shared helper would pass both the placement and the check meant to catch it
 - **Delivered capacity is counted per belt *run*, never per belt tile**: a whole run carries one lane's throughput in total and every inserter along it shares that, so a per-tile count would scale with belt length and let every block pass trivially — which is precisely how the half-rate bug shipped
+- **The unlock array's stride and offset are never hardcoded, and the calibration invariant must not be weakened.** Stride was measured at 7 on 2.0.8/2.0.28/2.0.32 and 6 on 2.0.60/2.0.77; the offset varies per save *within* one version (+67, +181, +134). The layout is found by searching for the `(stride, offset)` where **every** default-enabled recipe decodes as enabled — which yields exactly one hit on every 2.0 save measured. A weaker check ("the common starting recipes are present") is satisfied by an alignment off by exactly one record, and the investigation's first decode failed in precisely that way and rationalised its 38-recipe residual as correct gating. Zero candidates is `CalibrationFailed`, more than one is `CalibrationAmbiguous`; there is no best-guess fallback
+- **`default_enabled` is a parameter of `save`, never something it reads**: the set lives in `solver`'s registry, so reading it inside `save` would invert the crate graph. This is the whole reason `save` has no workspace dependency
+- **Availability filters inside `select_recipe`, never inside `candidates_for`.** `solve` uses `candidates_for(&item).is_empty()` as its *raw-resource* test, so filtering there would make an intermediate whose only recipes are locked look like iron ore and get silently billed to `plan.inputs` — a silent wrong answer instead of a loud one. The asymmetry that hides it: the goal item has its own emptiness check, so only intermediates would be corrupted. Filtering after the count is also a gain — a locked alternative no longer makes an item look ambiguous, so availability sometimes *resolves* an `AmbiguousRecipe`
+- **A locked *named* machine is an error (`MachineLocked`), a locked *fallback* candidate is skipped**: the fastest-available search silently picking assembling-machine-2 over a locked 3 is the point of the feature, while a machine the user named is a claim worth surfacing — the same rule as a named machine that cannot craft the category. `MachineLocked` is deliberately distinct from `NoMachineForCategory`, whose remedy ("pick a machine for that category") is wrong advice when the category is fine
+- **An explicit recipe override wins even over a locked recipe** — an override is a deliberate user statement, and the override path bypasses candidate selection entirely
+- **`level-init.dat`'s category-table format is measured; its header is not.** `[u8 len][category][u16 count]` then `count` × `[u8 len][name][u16 id]` parsed on ~50 real saves from 1.0.0 to 2.0.77. The version field and mod-list encoding in front of it were never confirmed, which is why the recipe/technology tables are located by **searching** for their length-prefixed category name rather than by an offset the header parse computed — a wrong header assumption can then only corrupt `mods()`, never the id tables
+- **Chunks are ordered by numeric suffix, never lexicographically** (`level.dat10` sorts before `level.dat2` as a string), and inflated lazily — the force's array completes inside the first chunk on every save measured (1 of 62 through 1 of 132), so inflating the whole stream would do 60–130× the needed work. That deliberately makes the total byte count unknowable, which is why the `level.datmetadata` size check is an explicit `verify_total_size` rather than a load precondition
 
 ---
 
