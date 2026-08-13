@@ -33,6 +33,15 @@ pub enum IngestError {
     #[error("recipe '{name}' has field '{field}' with an unexpected JSON type: {value}")]
     UnexpectedRecipeFieldType { name: String, field: String, value: String },
 
+    #[error("technology '{name}' is missing required field '{field}'")]
+    MissingTechnologyField { name: String, field: String },
+
+    #[error("technology '{name}' has field '{field}' with an unexpected JSON type: {value}")]
+    UnexpectedTechnologyFieldType { name: String, field: String, value: String },
+
+    #[error("technology '{technology}' lists prerequisite '{prerequisite}', which is not a known technology")]
+    UnknownPrerequisite { technology: String, prerequisite: String },
+
     #[error("failed to serialize prototypes to JSON: {0}")]
     Serialize(#[source] serde_json::Error),
 
@@ -79,5 +88,16 @@ mod tests {
         let err = IngestError::UnexpectedIngredientShape { name: "weird-recipe".into(), field: "ingredients".into() };
         let msg = err.to_string();
         assert!(msg.contains("weird-recipe") && msg.contains("ingredients"), "got: {msg}");
+    }
+
+    #[test]
+    fn unknown_prerequisite_error_names_technology_and_prerequisite() {
+        let err = IngestError::UnknownPrerequisite {
+            technology: "foundry".into(),
+            prerequisite: "calcite-processing".into(),
+        };
+        let msg = err.to_string();
+        assert!(msg.contains("foundry"), "message should name the technology: {msg}");
+        assert!(msg.contains("calcite-processing"), "message should name the prerequisite: {msg}");
     }
 }

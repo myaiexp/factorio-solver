@@ -1,0 +1,23 @@
+[
+  {
+    "name": "calcite-processing",
+    "display_name": "Calcite processing"
+  },
+  {
+    "name": "foundry",
+    "display_name": "Foundry",
+    "prerequisites": [
+      "calcite-processing",
+      "tungsten-carbide"
+    ],
+    "unlocks": [
+      "foundry",
+      "casting-iron",
+      "casting-copper-cable"
+    ]
+  },
+  {
+    "name": "tungsten-carbide",
+    "display_name": "Tungsten carbide"
+  }
+]
