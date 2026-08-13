@@ -75,14 +75,14 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
         }
 
         // Satisfy from surplus (an earlier step's over-production) first.
-        if let Some(&have) = surplus.get(&item) {
-            if have > 0.0 {
-                let taken = have.min(demand);
-                *surplus.entry(item.clone()).or_insert(0.0) -= taken;
-                demand -= taken;
-                if demand.abs() < EPSILON {
-                    continue;
-                }
+        if let Some(&have) = surplus.get(&item)
+            && have > 0.0
+        {
+            let taken = have.min(demand);
+            *surplus.entry(item.clone()).or_insert(0.0) -= taken;
+            demand -= taken;
+            if demand.abs() < EPSILON {
+                continue;
             }
         }
 
@@ -93,7 +93,7 @@ pub fn solve(goal: &ChainGoal) -> Result<ProductionPlan, ChainError> {
             continue;
         }
 
-        let recipe = select_recipe(&item, &goal.recipe_overrides)?;
+        let recipe = select_recipe(&item, &goal.recipe_overrides, &goal.availability)?;
 
         // A fluid the player hasn't declared available can't be routed by
         // this solver (no pipes here) — the boundary must stop before it.
@@ -183,7 +183,7 @@ fn build_steps(
 ) -> Result<Vec<ProductionStep>, ChainError> {
     let mut steps = Vec::with_capacity(crafts.len());
     for (recipe, crafts_per_sec) in crafts.values().copied() {
-        let machine = select_machine(recipe, &goal.machines)?;
+        let machine = select_machine(recipe, &goal.machines, &goal.availability)?;
         let per_machine_rate = machine.crafting_speed.unwrap_or(1.0) / recipe.energy_required;
         let exact_count = crafts_per_sec / per_machine_rate;
         let inputs = recipe
@@ -276,33 +276,4 @@ fn topologically_order(steps: Vec<ProductionStep>) -> Vec<ProductionStep> {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::chain::Rate;
-
-    #[test]
-    fn net_yield_nets_production_against_consumption() {
-        let kovarex = crate::recipe::get("kovarex-enrichment-process").expect("exists");
-        assert!((net_yield(kovarex, "uranium-235") - 1.0).abs() < 1e-9);
-        assert!((net_yield(kovarex, "uranium-238") - (-3.0)).abs() < 1e-9);
-    }
-
-    #[test]
-    fn net_yield_uses_probability_not_bare_amount() {
-        let uranium_processing = crate::recipe::get("uranium-processing").expect("exists");
-        // Both results declare amount 1; only probability carries the split.
-        assert!((net_yield(uranium_processing, "uranium-235") - 0.007).abs() < 1e-9);
-        assert!((net_yield(uranium_processing, "uranium-238") - 0.993).abs() < 1e-9);
-    }
-
-    /// A recipe whose own item nets to zero-or-negative must be rejected
-    /// before dividing, not iterated toward. Using kovarex directly for
-    /// U-238 demand (5 consumed, 2 produced, net -3) exercises this with
-    /// real registry data rather than a synthetic fixture.
-    #[test]
-    fn a_recipe_that_nets_negative_for_its_own_item_does_not_converge() {
-        let goal = ChainGoal::new("uranium-238", Rate::ItemsPerSec(1.0), &["uranium-ore"])
-            .with_override("uranium-238", "kovarex-enrichment-process");
-        assert!(matches!(solve(&goal), Err(ChainError::DidNotConverge { .. })));
-    }
-}
+mod tests;
