@@ -9,11 +9,15 @@ use factorio_solver::layout::{CellTopology, LayoutConfig};
 
 mod controls;
 mod generate;
+#[cfg(test)]
+mod harness;
 mod layout_controls;
 mod logic;
 #[cfg(test)]
 mod render_tests;
 mod results;
+#[cfg(test)]
+mod scroll_tests;
 #[cfg(test)]
 mod topology_tests;
 
@@ -144,25 +148,40 @@ impl ChainPanel {
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui) {
-        ui.heading("Production Chain");
-        ui.separator();
-        controls::product_picker(self, ui);
-        ui.separator();
-        controls::rate_controls(self, ui);
-        ui.separator();
-        controls::available_list(self, ui);
-        ui.separator();
-        controls::machine_selector(self, ui);
-        ui.separator();
-        if ui.button("Solve").clicked() {
-            self.solve();
-        }
-        ui.separator();
-        results::show(self, ui);
-        ui.separator();
-        layout_controls::show(self, ui);
-        ui.separator();
-        generate::show(self, ui);
+        // The body scrolls because its height is data-dependent — a row per
+        // step, per input, per bus item — so any long enough chain is taller
+        // than the window. An egui panel clips its overflow instead of
+        // scrolling it, which left everything below the steps table, Generate
+        // included, painted nowhere and clickable never.
+        //
+        // `auto_shrink` off on both axes: the sections below size themselves
+        // from `available_width`, and a scroll area left to shrink to its
+        // content would hand them the width of the widest row rather than the
+        // width of the panel the user dragged out.
+        egui::ScrollArea::vertical()
+            .id_salt("chain_panel_body")
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.heading("Production Chain");
+                ui.separator();
+                controls::product_picker(self, ui);
+                ui.separator();
+                controls::rate_controls(self, ui);
+                ui.separator();
+                controls::available_list(self, ui);
+                ui.separator();
+                controls::machine_selector(self, ui);
+                ui.separator();
+                if ui.button("Solve").clicked() {
+                    self.solve();
+                }
+                ui.separator();
+                results::show(self, ui);
+                ui.separator();
+                layout_controls::show(self, ui);
+                ui.separator();
+                generate::show(self, ui);
+            });
     }
 }
 

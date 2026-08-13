@@ -5,7 +5,8 @@
 // past that.
 use factorio_solver::layout::Side;
 
-use super::render_tests::{painted_text, solved_green_circuit_panel};
+use super::harness::painted_text;
+use super::render_tests::solved_green_circuit_panel;
 use super::ChainPanel;
 
 /// The topology controls are independent config, like the belt/pole/inserter

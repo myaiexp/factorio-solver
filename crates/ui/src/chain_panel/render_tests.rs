@@ -2,55 +2,12 @@
 // frame and read back the text it actually paints.
 //
 // `build_goal` tests prove the maths reaches the solver; these prove the
-// numbers reach the screen. egui needs no window or GPU to lay out a frame,
-// so this is the whole render path — widgets, tables, error UI — with no
-// compositor involved.
-use egui::epaint::Shape;
-use egui::{pos2, vec2, Context, RawInput, Rect};
+// numbers reach the screen. The frame-driving itself lives in `harness.rs`,
+// shared with `topology_tests` and `scroll_tests`.
 use factorio_blueprint::decode;
 
+use super::harness::painted_text;
 use super::{ChainPanel, MachineChoice, RateUnit};
-
-/// Lays out one frame of the panel and returns every string it painted.
-/// `pub(super)` so `topology_tests.rs`, a sibling test module split out to
-/// keep this file under the project's line cap, can drive the same real
-/// render path rather than reimplementing it.
-pub(super) fn painted_text(panel: &mut ChainPanel) -> Vec<String> {
-    let ctx = Context::default();
-    // Tall enough that a solved-and-generated panel's full content — steps
-    // table, block-generator controls, and the generated block's own stats —
-    // stays inside the `SidePanel`'s clip rect. egui's `Label` skips painting
-    // (and so skips adding a `Shape::Text`) for a rect outside the clip rect
-    // as a layout-cost optimization, so anything shorter here silently drops
-    // the tail of the panel from `output.shapes` with no panic to flag it.
-    let input = || RawInput {
-        screen_rect: Some(Rect::from_min_size(pos2(0.0, 0.0), vec2(1280.0, 2400.0))),
-        ..Default::default()
-    };
-
-    // Two frames: the first loads fonts and sizes the panel, and egui only
-    // has real geometry to lay text into from the second onward.
-    let _warmup = ctx.run(input(), |ctx| {
-        egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
-    });
-    let output = ctx.run(input(), |ctx| {
-        egui::SidePanel::right("chain_panel").show(ctx, |ui| panel.ui(ui));
-    });
-
-    let mut found = Vec::new();
-    for clipped in &output.shapes {
-        collect(&clipped.shape, &mut found);
-    }
-    found
-}
-
-fn collect(shape: &Shape, out: &mut Vec<String>) {
-    match shape {
-        Shape::Text(text) => out.push(text.galley.text().to_string()),
-        Shape::Vec(shapes) => shapes.iter().for_each(|s| collect(s, out)),
-        _ => {}
-    }
-}
 
 fn green_circuit_panel() -> ChainPanel {
     let mut panel = ChainPanel::new();
