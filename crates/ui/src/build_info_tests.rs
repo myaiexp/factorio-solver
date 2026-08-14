@@ -88,8 +88,25 @@ fn a_checkout_reports_current_stale_by_distance_and_stale_by_absence() {
     // repository holds.
     assert_eq!(compare(repo(), &"0".repeat(40)), Freshness::Stale { behind: None });
 
+    // The distance is asserted as a *property*, never as a constant: `HEAD~1` is
+    // one step along the first parent, but `rev-list --count HEAD~1..HEAD` counts
+    // everything the merge brought in, so on a merge commit an ancestor one step
+    // back is legitimately 3 behind. This project lands with `--no-ff` merges, so
+    // master's HEAD is routinely a merge and a hardcoded 1 fails on history shape
+    // rather than on a real regression — it did, at 37538fe. What must hold is
+    // that an ancestor counts, and that a further one counts further.
     if let Some(parent) = git_in(repo(), &["rev-parse", "HEAD~1"]) {
-        assert_eq!(compare(repo(), &parent), Freshness::Stale { behind: Some(1) });
+        let Freshness::Stale { behind: Some(near) } = compare(repo(), &parent) else {
+            panic!("an ancestor must report a counted distance, not {:?}", compare(repo(), &parent));
+        };
+        assert!(near >= 1, "an ancestor is at least one commit behind, got {near}");
+
+        if let Some(grandparent) = git_in(repo(), &["rev-parse", "HEAD~2"]) {
+            let Freshness::Stale { behind: Some(far) } = compare(repo(), &grandparent) else {
+                panic!("an ancestor must report a counted distance");
+            };
+            assert!(far > near, "HEAD~2 must count further behind than HEAD~1, got {far} vs {near}");
+        }
     }
 }
 
