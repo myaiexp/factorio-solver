@@ -1,0 +1,9 @@
+[package]
+name = "factorio-repo-docs"
+version.workspace = true
+edition.workspace = true
+publish = false
+
+# Tests only: holds CLAUDE.md to its size limits. No app crate depends on it,
+# and it depends on none — it reads the repo's own files and nothing else.
+[dependencies]

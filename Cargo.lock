@@ -1172,6 +1172,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "factorio-repo-docs"
+version = "0.1.0"
+
+[[package]]
 name = "factorio-save"
 version = "0.1.0"
 dependencies = [

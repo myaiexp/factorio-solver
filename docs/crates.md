@@ -1,0 +1,11 @@
+# What Exists, Crate by Crate
+
+The full module inventory of the crates whose summary in `CLAUDE.md` is a pointer.
+
+> The sections below were moved verbatim out of `CLAUDE.md` on 2026-09-18 (idea #4770), which now keeps only a pointer to each. This doc is the record: add new detail here, not to `CLAUDE.md`.
+
+## save, solver, ui
+
+- **save** — `SaveFile::open` reads a save zip's `level-init.dat` (version, mod names, prototype id tables) and inflates its `level.dat<N>` chunks lazily in numeric order; `unlocked_recipes(&default_enabled)` locates the player force's recipe-unlock array by calibration search. Entry names are resolved through the save's own directory, which Factorio names after the save. No workspace dependency, and `testsupport::FixtureSave` builds synthetic save zips — nested and deflated the way Factorio writes them — so the tests need no real save.
+- **solver** — the dump-derived recipe (649) and technology (275) registries, `availability` (the `Availability` model, `allows`/`allows_machine`, and `from_save`, the save→set bridge), `tech` (the unlock graph, for explaining a refusal — never for selecting), `chain` (`solve(&ChainGoal) -> ProductionPlan`, gated recipe/machine selection, the rate solver) and `layout` (`generate(&ProductionPlan, &LayoutConfig) -> Grid`): `lane` (the far-lane rule), `cell` (sizing a cell from belt throughput, ingredient lanes and product belts alike), `place` (one cell's entities, product inserters filtered when a step has two products), `tile` (cells into bands), `power`, and pre-emit validation including a per-product delivered-rate check and a mixed-belt check.
+- **ui** — egui viewport with pan/zoom, frustum culling, level-of-detail rendering (`lod.rs`), entity coloring, hover tooltips, and the chain panel (`chain_panel/`) with the save picker (which re-reads its save when the game rewrites it), the editable "Available recipes" tick list, belt/pole/inserter/topology controls, Generate + copy-to-clipboard; `clipboard/` watches the system clipboard so an in-game export loads with no paste; `persist.rs` saves the panel's inputs and the app settings between runs; `build_info.rs` + `build.rs` stamp the commit into the binary and warn when it is not the checked-out one.
