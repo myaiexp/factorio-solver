@@ -4,7 +4,7 @@
 
 ## High Priority
 
-<!-- Ideas that should be addressed soon or in the next phase -->
+<!-- Ideas that should be addressed soon -->
 
 ## Future
 

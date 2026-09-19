@@ -112,11 +112,9 @@ flag. Why: `docs/build-gate.md`.
 
 ---
 
-## Current Phase
+## Current State
 
-**Phase 9 — Recipe Availability Gate** (complete; see
-`.claude/plans/2026-08-13-recipe-availability-gate-design.md` and
-`phases/009-recipe-availability-gate.md`). The app goes goal → plan → grid →
+The app goes goal → plan → grid →
 pasteable blueprint string end to end, and restricts itself to what the player
 can actually build — from a save file, from a hand-edited tick list, or both,
 since the two fill the same recipe-name set. A refusal names the technology to
@@ -140,11 +138,12 @@ What exists today:
 Next logical step: belt routing *between* steps (idea #3362) — the generator
 stacks a producer directly above its consumer but does not connect them, so the
 player wires the block by hand. `crates/grid/src/astar.rs` already has
-`find_path`. See `phases/current.md` for the other candidates.
+`find_path`. The other candidates are in the backlog (`helm idea list factorio-solver`).
+Checks that need the real game and have not been done: `docs/in-game-checks.md`.
 
 > **Note (2026-07):** a code audit found ~10 documented modules that had never been committed, so the workspace did not compile; the build gate exists because of it. Full note: `docs/build-gate.md`.
 
-### Decisions from previous phases
+### Decisions
 
 Each topic's decisions live in its subdoc, which is the record. Add new
 decisions there, not here; a new topic doc gets one pointer below.
@@ -165,30 +164,18 @@ This project splits documentation to minimize context usage. Follow these rules:
 
 | File                           | Purpose                                                        | When to read                                                  |
 | ------------------------------ | -------------------------------------------------------------- | ------------------------------------------------------------- |
-| `CLAUDE.md` (this file)        | Project identity, structure, patterns, current phase pointer   | Auto-loaded every session                                     |
-| `phases/current.md`    | Index: which phase is active, what is done, what is next       | Read when starting phase work                                 |
-| `phases/NNN-name.md`   | One file per phase, kept after completion                      | Only if you need historical context                           |
-| `ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning next phase or brainstorming                     |
-| `.claude/plans/`               | Design docs and implementation plans from brainstorming        | When implementing or reviewing designs                        |
+| `CLAUDE.md` (this file)        | Project identity, structure, patterns, current state           | Auto-loaded every session                                     |
+| `ideas.md`             | Future feature ideas, tech debt, and enhancements              | When planning or brainstorming                                |
+| `.claude/plans/`               | Design docs and implementation plans; `phase-NNN-*.md` are the completed build phases 1–9 | When implementing or reviewing designs                        |
 | `.claude/references/`          | Domain reference material (specs, external docs, data sources) | When you need domain knowledge                                |
 | `.claude/references/factorio-solver-plan.md` | Full concept/architecture doc with all phases and tech details | Reference for architecture decisions, data structures, solver |
 | `.claude/[freeform].md`        | Project-specific context docs (architecture, deployment, etc.) | As referenced from this file                                  |
 | `docs/<topic>.md`              | Topic records moved out of this file: decisions, rationale, verified facts | When a pointer here names one                                 |
 
-### Phase transitions
-
-When a phase is completed:
-
-1. **Condense** — extract lasting decisions from the active phase file into the matching `docs/<topic>.md` subdoc, 1-2 lines each. This file gets a pointer only when a new topic doc is created, and must stay within the limits `crates/repo-docs` tests.
-2. **Archive** — move the phase out of `current.md`'s "Next up" into its "Completed phases" list. The phase file stays.
-3. **Start fresh** — create the next numbered phase file and point `current.md` at it.
-4. **Update this file** — update the "Current Phase" section above.
-5. **Prune** — remove anything from this file that was phase-specific and no longer applies.
-
 ### What goes where
 
-- **This file**: project-wide truths (stack, structure, patterns, conventions). Things that are true regardless of which phase you're in.
+- **This file**: project-wide truths (stack, structure, patterns, conventions).
 - **Topic docs** (`docs/*.md`): the record for each topic this file points to. New detail goes there, never back into this file.
-- **Phase doc**: goals, requirements, architecture decisions, implementation notes, and anything specific to the current body of work.
+- **Plans** (`.claude/plans/`): the design and plan for a body of work, kept after it ships.
 - **Concept doc** (`.claude/references/factorio-solver-plan.md`): full architecture reference — crate details, data structures, phased build order, technical risks.
 - **Process rules**: delegation and modularization standards live in `~/.claude/process.md` (global, not per-project).
