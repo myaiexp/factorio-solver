@@ -22,13 +22,10 @@
 
 ### Added
 
-- Centered empty-state guidance in the blueprint viewport — first-time users now see welcome text, load/paste instructions, and keyboard shortcut hints instead of a blank canvas
 - Grid-to-Blueprint export (`to_blueprint`) for full round-trip capability: blueprints can now be imported, modified, and exported back to a blueprint string
-- `Display` implementation for the `Direction` enum, plus utility methods: `opposite()`, `rotate_cw()`, `rotate_ccw()`, and cardinal direction checks
 
 ### Changed
 
-- Expanded `EntityCategory` coverage to classify all 78 registered prototype groups — chests, turrets, walls, gates, mining drills, solar panels, accumulators, roboports, labs, and train stops no longer render as grey `?`
 - Unified duplicated entity classification logic into the `grid` crate, eliminating the divergence between `grid/render.rs` and `ui/colors.rs`
 
 ### Fixed
