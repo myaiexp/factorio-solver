@@ -15,6 +15,19 @@ building on purpose: `deploy` allows a push 15 seconds, an earlier version ran
 the full gate there, and it killed a real deploy — the branch landed on master
 and the push never happened.
 
+## A test must not depend on the history shape
+
+The gate remembers verified *trees* (`scripts/hooks/stamp.sh`), so a merge
+whose tree it already built is skipped. A test that reads git history
+(`rev-parse HEAD~1`, `rev-list --count`) can change result at such a merge
+without the tree changing, and the gate certifies it green unrun — `37538fe`
+left `master` red exactly that way. So any test reading history asserts a
+*property* that holds for every shape (fast-forward, cherry-pick, `--no-ff`
+merge), never a count or a parent: `crates/ui/src/build_info_tests.rs` is the
+pattern and today the only such test. Keying the stamp on HEAD as well would
+cost every land a cold rebuild in the main checkout, which is what the tree key
+exists to avoid.
+
 ## `--locked` and the tracked `Cargo.lock`
 
 Both cargo invocations pass `--locked`, and **`Cargo.lock` is tracked** (the
