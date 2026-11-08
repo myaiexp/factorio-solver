@@ -132,7 +132,7 @@ What exists today:
 - **templates** — template _extraction_ from a grid region (`extract_template`), the `Template`/`TemplateEntity`/`IoPoint`/`IoRole` model, and JSON persistence (`save_to_json`/`load_from_json`). There is **no** built-in template library or UI browser (previously documented but never implemented).
 - **save** — reads a save's `level-init.dat` and the player force's unlocked recipes by calibration search; no workspace dependency, and `testsupport::FixtureSave` builds synthetic saves. Detail: `docs/crates.md`.
 - **solver** — the recipe and technology registries, `availability`, `tech`, `chain` (`solve`) and `layout` (`generate`, plus pre-emit validation). Module map: `docs/crates.md`.
-- **dump-ingest** — the manual ingest tool that generates all three data files.
+- **dump-ingest** — the manual ingest tool that generates all three data files. Command: `docs/crates.md`.
 - **ui** — egui viewport, the chain panel (save picker, tick list, Generate + copy), the clipboard watcher, persistence and the build stamp. Module map: `docs/crates.md`.
 
 Next logical step: belt routing *between* steps (idea #3362) — the generator
