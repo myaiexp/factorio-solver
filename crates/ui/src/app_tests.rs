@@ -1,9 +1,11 @@
 // Headless frame tests for the app shell: the load paths that feed the
 // viewport, and the pure helpers around them.
 use super::*;
-use factorio_blueprint::{fixtures, Position};
+use factorio_blueprint::{fixtures, Direction, Position};
 use factorio_grid::Grid;
 
+use super::viewport_render::direction_name;
+use crate::build_info;
 use crate::clipboard::Message;
 
 /// Every string the app paints, after driving `FactorioApp::ui` for real

@@ -2,6 +2,7 @@
 // wiring, and an end-to-end machine-count check. Moved out of `mod.rs`
 // verbatim to keep that file under the project's 300-line cap.
 use super::*;
+use factorio_solver::availability::Availability;
 
 fn panel_with(product: &str, available: &[&str]) -> ChainPanel {
     let mut p = ChainPanel::new();
