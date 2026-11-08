@@ -278,4 +278,6 @@ fn reject_if_cyclic(step: &ProductionStep) -> Result<(), LayoutError> {
 }
 
 #[cfg(test)]
+mod pole_rows_tests;
+#[cfg(test)]
 mod tests;
