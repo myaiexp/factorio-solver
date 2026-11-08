@@ -9,6 +9,30 @@ use factorio_grid::{Grid, GridPos};
 use crate::chain::ProductionStep;
 use crate::layout::{cell_width, place_cell, size_step, CellTopology, LayoutError, ResolvedConfig, STEP_GAP};
 
+/// What one placed step asks of the player: why its cells are the size they
+/// are, and what it has to be fed. Reported per step by `generate_with_report`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct StepSizing {
+    pub recipe: String,
+    pub cells: u32,
+    /// The stream(s) that capped machines per cell (`CellPlan::bound_by`);
+    /// empty for a step with no ingredients and no products.
+    pub bound_by: String,
+    /// One per item ingredient, in the step's own order.
+    pub feeds: Vec<Feed>,
+}
+
+/// One ingredient a step consumes, as a total rate across all its cells and
+/// as the number of full belts of the configured tier that rate fills. The
+/// generator does not wire steps together, so every feed is a belt the
+/// player has to bring to the block, from the bus or from an upstream step.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Feed {
+    pub item: String,
+    pub per_sec: f64,
+    pub belts: f64,
+}
+
 /// Cells a placed step occupies, measured from its origin. Mirrors the
 /// deleted `rows::StepExtent`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,17 +47,17 @@ pub struct StepExtent {
 /// wrapping into a new band below whenever the next cell would push the
 /// current one past `topo.target_width`.
 ///
-/// Returns the binding stream(s) alongside the extent — `size_step` is
-/// called exactly once here, so this is the single place that knows the
-/// answer; a second caller re-deriving it (e.g. for display) could disagree
-/// with what was actually placed.
+/// Returns the step's sizing alongside the extent — `size_step` is called
+/// exactly once here, so this is the single place that knows the answer; a
+/// second caller re-deriving it (e.g. for display) could disagree with what
+/// was actually placed.
 pub fn place_step(
     grid: &mut Grid,
     step: &ProductionStep,
     cfg: &ResolvedConfig,
     topo: &CellTopology,
     origin: GridPos,
-) -> Result<(StepExtent, String), LayoutError> {
+) -> Result<(StepExtent, StepSizing), LayoutError> {
     let sized = size_step(step, cfg.belt, topo)?;
     let machines = step.machines_needed.max(1);
 
@@ -75,5 +99,16 @@ pub fn place_step(
 
     total_width = total_width.max(band_width);
     total_height += band_height;
-    Ok((StepExtent { width: total_width, height: total_height }, sized.bound_by))
+    // `size_step` already refused fluids and every belt tier `resolve` accepts
+    // has a throughput, so `belts` is always finite.
+    let belt = cfg.belt.belt_throughput.expect("ResolvedConfig guarantees a belt throughput");
+    let feeds = step
+        .inputs
+        .iter()
+        .filter(|r| r.per_sec > 0.0)
+        .map(|r| Feed { item: r.item.clone(), per_sec: r.per_sec, belts: r.per_sec / belt })
+        .collect();
+    let sizing =
+        StepSizing { recipe: step.recipe.name.clone(), cells: sized.cells, bound_by: sized.bound_by, feeds };
+    Ok((StepExtent { width: total_width, height: total_height }, sizing))
 }

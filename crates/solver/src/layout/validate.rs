@@ -24,18 +24,19 @@ use factorio_grid::prototype;
 use factorio_grid::{EntityCategory, Grid, GridPos, PlacedEntity};
 
 use crate::chain::ProductionPlan;
-use crate::layout::{LayoutConfig, LayoutError};
+use crate::layout::{LayoutConfig, LayoutError, StepSizing};
 
 mod delivery;
 mod runs;
 use delivery::{check_delivered_rate, check_no_mixed_product_belts};
 
 /// Soft findings. Warnings never block emission; errors always do.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Validation {
     pub warnings: Vec<String>,
-    /// Per step, the stream that capped how many machines fit in one cell —
-    /// the knob-turning hint `CellPlan::bound_by` computes. `(recipe, bound_by)`.
+    /// Per step, in plan order: the stream that capped how many machines fit
+    /// in one cell — the knob-turning hint `CellPlan::bound_by` computes —
+    /// and what the step must be fed.
     ///
     /// `validate` itself never sizes a step (that's `cell::size_step`, run
     /// once per step inside `tile::place_step` during `build`), so this is
@@ -43,7 +44,7 @@ pub struct Validation {
     /// `generate_with_report` fills it in from what `build` actually placed,
     /// rather than this function re-deriving a second, possibly-disagreeing
     /// answer to the same sizing question.
-    pub bindings: Vec<(String, String)>,
+    pub steps: Vec<StepSizing>,
 }
 
 pub fn validate(
@@ -59,7 +60,7 @@ pub fn validate(
     check_no_mixed_product_belts(grid)?;
     check_delivered_rate(grid, plan, &resolved)?;
 
-    Ok(Validation { warnings: plan.warnings.to_vec(), bindings: Vec::new() })
+    Ok(Validation { warnings: plan.warnings.to_vec(), steps: Vec::new() })
 }
 
 // ── Hard errors ─────────────────────────────────────────────────────

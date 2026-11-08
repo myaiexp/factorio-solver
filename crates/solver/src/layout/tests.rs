@@ -192,7 +192,7 @@ fn a_uranium_processing_plan_generates_and_validates() {
         "the plan should have selected a centrifuge, uranium-processing's only crafting machine"
     );
     assert!(coverage_gaps(&grid).is_empty());
-    assert!(report.bindings.iter().any(|(recipe, _)| recipe == "uranium-processing"));
+    assert!(report.steps.iter().any(|s| s.recipe == "uranium-processing"));
 }
 
 /// A burner machine needs a fuel inserter and a fuel lane, which the
@@ -230,4 +230,21 @@ fn a_burner_inserter_is_refused_at_resolve() {
             other => panic!("expected BurnerInserter, got {other:?}"),
         }
     }
+}
+
+/// The report says what each step must be fed, so a player pasting the block
+/// knows "this needs 3 full belts of copper cable here". Green circuits at
+/// 45/s eat 135/s of cable and 45/s of iron plate — 3 and 1 express belts.
+#[test]
+fn the_report_states_each_steps_feed_in_belts() {
+    let plan = green_circuit_plan();
+    let (_grid, report) = generate_with_report(&plan, &default_cfg()).unwrap();
+    let circuit = report.steps.iter().find(|s| s.recipe == "electronic-circuit").expect("circuit step reported");
+    assert!(circuit.cells >= 1);
+    assert!(!circuit.bound_by.is_empty());
+    let feed = |item: &str| circuit.feeds.iter().find(|f| f.item == item).unwrap_or_else(|| panic!("{item} feed"));
+    assert!((feed("copper-cable").per_sec - 135.0).abs() < 1e-6);
+    assert!((feed("copper-cable").belts - 3.0).abs() < 1e-6);
+    assert!((feed("iron-plate").per_sec - 45.0).abs() < 1e-6);
+    assert!((feed("iron-plate").belts - 1.0).abs() < 1e-6);
 }

@@ -32,7 +32,7 @@ pub use error::LayoutError;
 pub use lane::{drop_lane, lane_throughput, LaneSide};
 pub use place::{cell_width, place_cell, CellExtent};
 pub use power::{coverage_gaps, place_poles};
-pub use tile::{place_step, StepExtent};
+pub use tile::{place_step, Feed, StepExtent, StepSizing};
 pub use validate::{validate, Validation};
 
 /// One tile of clear space between steps, so a step's output belt never sits
@@ -173,16 +173,16 @@ pub fn generate_with_report(
     plan: &ProductionPlan,
     cfg: &LayoutConfig,
 ) -> Result<(Grid, Validation), LayoutError> {
-    let (grid, bindings) = build(plan, cfg)?;
+    let (grid, steps) = build(plan, cfg)?;
     let mut report = validate::validate(&grid, plan, cfg)?;
-    report.bindings = bindings;
+    report.steps = steps;
     Ok((grid, report))
 }
 
-/// Builds the grid, plus each step's `(recipe, bound_by)` binding — collected
-/// here rather than recomputed by a caller, since `tile::place_step` (via
-/// `cell::size_step`) is the only place that sizes a step at all.
-fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String, String)>), LayoutError> {
+/// Builds the grid, plus each step's sizing — collected here rather than
+/// recomputed by a caller, since `tile::place_step` (via `cell::size_step`)
+/// is the only place that sizes a step at all.
+fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<StepSizing>), LayoutError> {
     let resolved = cfg.resolve()?;
 
     if plan.steps.is_empty() {
@@ -204,14 +204,11 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String
     // routing between steps is a later phase.
     let mut grid = Grid::new();
     let mut y = 0;
-    let mut bindings = Vec::new();
+    let mut steps = Vec::new();
     for step in &plan.steps {
-        let (extent, bound_by) =
+        let (extent, sizing) =
             tile::place_step(&mut grid, step, &resolved, &cfg.topology, GridPos { x: 0, y })?;
-        // A step with no ingredients and no products has nothing binding it.
-        if !bound_by.is_empty() {
-            bindings.push((step.recipe.name.clone(), bound_by));
-        }
+        steps.push(sizing);
         y += extent.height as i32 + STEP_GAP;
     }
 
@@ -219,7 +216,7 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String
     // finished geometry to aim at.
     power::place_poles(&mut grid, &resolved)?;
 
-    Ok((grid, bindings))
+    Ok((grid, steps))
 }
 
 /// A step whose recipe both consumes and produces the same item has no

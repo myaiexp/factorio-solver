@@ -57,18 +57,32 @@ fn the_binding_stream_is_shown() {
     let mut panel = solved_green_circuit_panel();
     panel.generate_block();
 
-    let bindings = match &panel.generated {
-        Some(Ok(block)) => block.bindings.clone(),
+    let steps = match &panel.generated {
+        Some(Ok(block)) => block.steps.clone(),
         other => panic!("expected a generated block, got {other:?}"),
     };
     assert!(
-        bindings.iter().any(|(recipe, bound_by)| recipe == "copper-cable" && bound_by == "copper-cable"),
-        "expected the copper-cable step's binding to be copper-cable, got {bindings:?}"
+        steps.iter().any(|s| s.recipe == "copper-cable" && s.bound_by == "copper-cable"),
+        "expected the copper-cable step's binding to be copper-cable, got {steps:?}"
     );
 
     let text = painted_text(&mut panel);
     assert!(
         text.iter().any(|t| t.contains("copper-cable") && t.contains("limited by")),
         "no binding line naming copper-cable painted: {text:?}"
+    );
+}
+
+/// Next to the binding line, each step says what it must be fed, in full
+/// belts of the chosen tier. The rate is asserted rather than the belt
+/// count, which depends on the panel's default belt tier.
+#[test]
+fn each_steps_feed_is_shown() {
+    let mut panel = solved_green_circuit_panel();
+    panel.generate_block();
+    let text = painted_text(&mut panel);
+    assert!(
+        text.iter().any(|t| t.contains("feed") && t.contains("copper-cable 135.0/s") && t.contains("belt")),
+        "no feed line for the circuit step's copper cable: {text:?}"
     );
 }

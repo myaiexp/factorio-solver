@@ -7,7 +7,7 @@
 // needs a cloneable value to match its style.
 use factorio_blueprint::{encode, BlueprintData};
 use factorio_grid::{to_blueprint, Grid};
-use factorio_solver::layout::{generate_with_report, LayoutConfig, BLUEPRINT_VERSION};
+use factorio_solver::layout::{generate_with_report, Feed, LayoutConfig, StepSizing, BLUEPRINT_VERSION};
 
 use super::ChainPanel;
 
@@ -21,11 +21,11 @@ pub(super) struct GeneratedBlock {
     pub(super) height: i32,
     pub(super) blueprint_string: String,
     pub(super) warnings: Vec<String>,
-    /// `(recipe, bound_by)` from `Validation::bindings` — the stream that
-    /// capped how many machines fit in one cell, per step. The knob-turning
-    /// hint, not an error: it tells the player which stream to widen a
-    /// topology or belt tier for if they want fewer, bigger cells.
-    pub(super) bindings: Vec<(String, String)>,
+    /// `Validation::steps`, per step: the stream that capped how many
+    /// machines fit in one cell (the knob-turning hint, not an error — which
+    /// stream to widen a topology or belt tier for to get fewer, bigger
+    /// cells) and what the step has to be fed.
+    pub(super) steps: Vec<StepSizing>,
 }
 
 impl ChainPanel {
@@ -94,7 +94,7 @@ impl ChainPanel {
             height,
             blueprint_string,
             warnings: validation.warnings,
-            bindings: validation.bindings,
+            steps: validation.steps,
         }));
         self.pending_grid = Some(grid);
     }
@@ -134,11 +134,21 @@ fn show_block(ui: &mut egui::Ui, mut block: GeneratedBlock) {
     }
 
     // Not an error — the knob-turning hint: which stream to widen a topology
-    // or belt tier for if the player wants fewer, bigger cells out of this step.
-    if !block.bindings.is_empty() {
+    // or belt tier for if the player wants fewer, bigger cells out of this
+    // step — and, since the generator wires nothing between steps, every belt
+    // the player has to bring to it.
+    if !block.steps.is_empty() {
         ui.heading("Cell sizing");
-        for (recipe, bound_by) in &block.bindings {
-            ui.label(format!("{recipe} step limited by {bound_by}"));
+        for step in &block.steps {
+            let cells = if step.cells == 1 { "1 cell".to_string() } else { format!("{} cells", step.cells) };
+            if step.bound_by.is_empty() {
+                ui.label(format!("{} step: {cells}", step.recipe));
+            } else {
+                ui.label(format!("{} step: {cells}, limited by {}", step.recipe, step.bound_by));
+            }
+            if !step.feeds.is_empty() {
+                ui.label(format!("  feed {}", feed_text(&step.feeds)));
+            }
         }
     }
 
@@ -157,4 +167,18 @@ fn show_block(ui: &mut egui::Ui, mut block: GeneratedBlock) {
     if ui.button("Copy blueprint").clicked() {
         ui.ctx().copy_text(block.blueprint_string.clone());
     }
+}
+
+/// `copper-cable 135.0/s (3.00 belts), iron-plate 45.0/s (1.00 belt)` —
+/// belts of the configured tier, two decimals so a near-full belt reads as
+/// near-full rather than rounding up to a whole one.
+fn feed_text(feeds: &[Feed]) -> String {
+    feeds
+        .iter()
+        .map(|f| {
+            let unit = if (f.belts - 1.0).abs() < 0.005 { "belt" } else { "belts" };
+            format!("{} {:.1}/s ({:.2} {unit})", f.item, f.per_sec, f.belts)
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }
