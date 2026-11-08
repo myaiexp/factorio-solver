@@ -122,7 +122,7 @@ impl LayoutConfig {
             .filter(|p| p.insert_position.is_some())
             .filter(|p| reach(p) >= LONG_INSERTER_REACH)
             .ok_or_else(|| LayoutError::LongInserterUnknown(self.long_inserter.clone()))?;
-        Ok(ResolvedConfig { belt, pole, inserter, long_inserter })
+        Ok(ResolvedConfig { belt, pole, inserter, long_inserter, pole_rows: PoleRows::WhereNeeded })
     }
 }
 
@@ -155,6 +155,31 @@ pub struct ResolvedConfig {
     pub pole: &'static EntityPrototype,
     pub inserter: &'static EntityPrototype,
     pub long_inserter: &'static EntityPrototype,
+    /// Not a user setting: `generate_with_report` picks it, trying the
+    /// cheaper layout first.
+    pub pole_rows: PoleRows,
+}
+
+/// Where a cell reserves machine-free rows for poles to stand in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PoleRows {
+    /// Only in a cell whose gutters leave a pole nowhere else to go.
+    WhereNeeded,
+    /// In every cell — the layout that always has room for poles.
+    Always,
+}
+
+/// Runs `attempt` with `PoleRows::WhereNeeded`, and again with
+/// `PoleRows::Always` only when the first attempt's poles could not be
+/// placed or do not cover the block. Any other refusal is returned as is:
+/// it does not depend on the pole rows, so a retry would refuse the same way.
+fn with_pole_row_fallback<T>(
+    mut attempt: impl FnMut(PoleRows) -> Result<T, LayoutError>,
+) -> Result<T, LayoutError> {
+    match attempt(PoleRows::WhereNeeded) {
+        Err(LayoutError::NoRoomForPole { .. } | LayoutError::Unpowered { .. }) => attempt(PoleRows::Always),
+        other => other,
+    }
 }
 
 /// Turn a plan into a placed grid, ready for `factorio_grid::to_blueprint`.
@@ -173,17 +198,23 @@ pub fn generate_with_report(
     plan: &ProductionPlan,
     cfg: &LayoutConfig,
 ) -> Result<(Grid, Validation), LayoutError> {
-    let (grid, steps) = build(plan, cfg)?;
-    let mut report = validate::validate(&grid, plan, cfg)?;
-    report.steps = steps;
-    Ok((grid, report))
+    with_pole_row_fallback(|rows| {
+        let (grid, steps) = build(plan, cfg, rows)?;
+        let mut report = validate::validate(&grid, plan, cfg)?;
+        report.steps = steps;
+        Ok((grid, report))
+    })
 }
 
 /// Builds the grid, plus each step's sizing — collected here rather than
 /// recomputed by a caller, since `tile::place_step` (via `cell::size_step`)
 /// is the only place that sizes a step at all.
-fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<StepSizing>), LayoutError> {
-    let resolved = cfg.resolve()?;
+fn build(
+    plan: &ProductionPlan,
+    cfg: &LayoutConfig,
+    pole_rows: PoleRows,
+) -> Result<(Grid, Vec<StepSizing>), LayoutError> {
+    let resolved = ResolvedConfig { pole_rows, ..cfg.resolve()? };
 
     if plan.steps.is_empty() {
         return Err(LayoutError::EmptyPlan);

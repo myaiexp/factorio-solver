@@ -16,8 +16,10 @@ pub(super) fn pole_period(supply_area_distance: f64, mh: u32) -> u32 {
 }
 
 /// Row (from a column's own y = 0) where machine `i` (0-based) starts: `mh`
-/// rows per machine, plus one reserved, machine-free, inserter-free row
-/// before every group of `period` machines — including the very first.
+/// rows per machine, plus — when `period` is `Some` — one reserved,
+/// machine-free, inserter-free row before every group of `period` machines,
+/// including the very first. `None` packs machines with no reserved rows,
+/// for a cell whose gutters already leave a pole somewhere to stand.
 ///
 /// The reserved row exists because a *vertical* column of poles cannot be
 /// inserted anywhere in this cell: every column is load-bearing. An
@@ -25,10 +27,14 @@ pub(super) fn pole_period(supply_area_distance: f64, mh: u32) -> u32 {
 /// sit at exactly slot-0 or slot-1 distance from its gutter — nothing can be
 /// shifted aside to free a column for a pole without breaking reach. A
 /// horizontal row cut straight through the machine columns is the only
-/// place `power::place_poles` can ever stand one, so this function reserves
-/// it up front rather than leaving placement to hope one turns up later.
-pub(super) fn machine_row_offset(i: u32, mh: u32, period: u32) -> i32 {
-    (i * mh + 1 + i / period) as i32
+/// place `power::place_poles` can ever stand one when a gutter is solid with
+/// inserters, so this function reserves it up front rather than leaving
+/// placement to hope one turns up later.
+pub(super) fn machine_row_offset(i: u32, mh: u32, period: Option<u32>) -> i32 {
+    match period {
+        Some(period) => (i * mh + 1 + i / period) as i32,
+        None => (i * mh) as i32,
+    }
 }
 
 /// The column height that fits `machines` machines laid out by
@@ -36,7 +42,7 @@ pub(super) fn machine_row_offset(i: u32, mh: u32, period: u32) -> i32 {
 /// machine's own offset, plus its height) so sizing and placement read from
 /// one definition and can never drift apart. Zero machines need zero rows;
 /// the caller still applies its own `.max(1)` floor for an entirely empty cell.
-pub(super) fn column_height(machines: u32, mh: u32, period: u32) -> u32 {
+pub(super) fn column_height(machines: u32, mh: u32, period: Option<u32>) -> u32 {
     match machines.checked_sub(1) {
         Some(last) => (machine_row_offset(last, mh, period) + mh as i32) as u32,
         None => 0,

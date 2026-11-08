@@ -9,7 +9,7 @@ use factorio_grid::prototype::effective_size;
 use factorio_grid::{Grid, GridPos};
 
 use crate::chain::ProductionStep;
-use crate::layout::{CellPlan, CellTopology, LayoutError, ResolvedConfig, Side};
+use crate::layout::{CellPlan, CellTopology, LayoutError, PoleRows, ResolvedConfig, Side};
 
 mod helpers;
 use helpers::{place_at, place_belt_column, place_gutter_inserter, Role};
@@ -81,8 +81,6 @@ pub fn place_cell(
     let right_edge_x0 = origin.x + layout.right_edge_x0;
     let width = layout.width as u32;
     let d = cfg.pole.supply_area_distance.expect("ResolvedConfig guarantees a supply area");
-    let period = pole_period(d, mh);
-    let height = column_height(plan.columns.0.max(plan.columns.1), mh, period).max(1);
 
     // Column A takes from / drops to whichever gutter `ingredients_on`
     // names; column B is the mirror image — spelled out once and
@@ -142,6 +140,20 @@ pub fn place_cell(
         })
         .collect();
     let n_product_belts = product_slots.len() as u32;
+
+    // Reserved pole rows are needed only where a pole would otherwise have
+    // nowhere to stand: a gutter with an arm beside every row of the machine
+    // is solid, and a pole wider than the one-tile gutter fits in no gutter
+    // at all. Otherwise every gutter has a free tile beside every machine,
+    // which `place_poles` finds on its own. `generate_with_report` falls back
+    // to `PoleRows::Always` if that bet loses, so it can only save height.
+    let gutter_full = ingredient_slots.len() as u32 >= mh || product_slots.len() as u32 >= mh;
+    let pole_fits_gutter = effective_size(cfg.pole, Direction::North) == (1, 1);
+    let period = match cfg.pole_rows {
+        PoleRows::WhereNeeded if !gutter_full && pole_fits_gutter => None,
+        _ => Some(pole_period(d, mh)),
+    };
+    let height = column_height(plan.columns.0.max(plan.columns.1), mh, period).max(1);
 
     // Refusals, checked before anything is placed. Both columns need the
     // same room (they place the same pairs, mirrored), so one check covers

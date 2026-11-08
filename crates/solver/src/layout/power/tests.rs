@@ -78,10 +78,20 @@ fn pole_reach_comes_from_prototype_data() {
         .unwrap();
     let cfg_medium = resolved_default();
     assert_eq!(cfg_medium.pole.name, "medium-electric-pole");
-    let mut small_grid = build_band(8, "express-transport-belt", "fast-inserter");
+    // Poles only stand inside the grid's bounding box, and the band itself
+    // has no free row, which would force both tiers into the same inserter-
+    // row gaps. Two corner belts widen the box by free rows above and below.
+    let framed_band = || {
+        let mut grid = build_band(8, "express-transport-belt", "fast-inserter");
+        for (x, y) in [(-1.5, -3.5), (24.5, 10.5)] {
+            grid.place("transport-belt", &Position { x, y }, Direction::East, None, None).unwrap();
+        }
+        grid
+    };
+    let mut small_grid = framed_band();
     place_poles(&mut small_grid, &cfg_small).unwrap();
     let small_poles = small_grid.entities().filter(|e| e.prototype_name == "small-electric-pole").count();
-    let mut medium_grid = build_band(8, "express-transport-belt", "fast-inserter");
+    let mut medium_grid = framed_band();
     place_poles(&mut medium_grid, &cfg_medium).unwrap();
     let medium_poles = medium_grid.entities().filter(|e| e.prototype_name == "medium-electric-pole").count();
     assert!(small_poles >= medium_poles, "small={small_poles} medium={medium_poles}");

@@ -197,7 +197,7 @@ fn a_trailing_cell_with_an_empty_second_column_still_places() {
     assert_eq!(machines, 3);
     let (_, mh) = effective_size(circuit.machine, Direction::North);
     let period = pole_period(cfg.pole.supply_area_distance.unwrap(), mh);
-    assert_eq!(extent.height, column_height(3, mh, period).max(1), "must include reserved pole rows");
+    assert_eq!(extent.height, column_height(3, mh, Some(period)).max(1), "must include reserved pole rows");
 }
 
 /// The whole reason the gap rows exist: `power::place_poles` needs a free
@@ -225,7 +225,7 @@ fn a_columns_reserved_rows_are_free_in_both_ingredient_gutters() {
     let layout = x_layout(mw, &topo, true);
     let reserved_rows: Vec<i32> = (0..sized.columns.0.max(sized.columns.1))
         .filter(|&i| i % period == 0)
-        .map(|i| machine_row_offset(i, mh, period) - 1)
+        .map(|i| machine_row_offset(i, mh, Some(period)) - 1)
         .collect();
     assert!(!reserved_rows.is_empty(), "the fixture must actually exercise more than one group");
 
@@ -272,4 +272,25 @@ fn flipping_ingredients_to_the_edge_moves_the_products_to_the_spine() {
     assert_eq!(spine_lanes.len(), 2, "both spine lanes should be claimed");
     // Each machine owns one lane on each of the two spine belts.
     assert_eq!(claimed.len() as u32, 2 * (sized.columns.0 + sized.columns.1));
+}
+
+/// Copper cable needs 2 ingredient arms and 1 product arm against a 3-tall
+/// machine, so every gutter already has a free tile beside every machine
+/// and the cell reserves no pole rows: it is exactly `machines * mh` tall.
+/// Green circuits fill their ingredient gutter (3 arms), so they still do.
+#[test]
+fn a_cell_reserves_pole_rows_only_when_a_gutter_is_full() {
+    let plan = green_circuit_plan();
+    let topo = CellTopology::default();
+    let cfg = default_cfg().resolve().unwrap();
+    for (recipe, reserves) in [("copper-cable", false), ("electronic-circuit", true)] {
+        let s = step(&plan, recipe);
+        let mut sized = size_step(s, cfg.belt, &topo).unwrap();
+        sized.columns = (4, 4);
+        let (_, mh) = effective_size(s.machine, Direction::North);
+        let mut grid = Grid::new();
+        let extent = place_cell(&mut grid, s, &sized, &cfg, &topo, GridPos { x: 0, y: 0 }, true).unwrap();
+        let bare = 4 * mh;
+        assert_eq!(extent.height > bare, reserves, "{recipe}: height {} vs {bare} bare", extent.height);
+    }
 }

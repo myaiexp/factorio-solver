@@ -77,9 +77,18 @@ fn pole_fits(grid: &Grid, pole: &EntityPrototype, top_left: (i32, i32), size: (u
 /// Repeatedly takes the topmost-leftmost uncovered entity, searches a bounded
 /// window around it for the free position covering the most currently-
 /// uncovered entities, and places it. Ties break on `(y, x)` for determinism.
+///
+/// A pole's whole footprint must lie inside the grid's bounding box as it
+/// stood before the first pole: poles fill the block's own gaps and never
+/// widen it, since the tiles just outside a block are where the player's bus
+/// or the next block goes.
 pub fn place_poles(grid: &mut Grid, cfg: &ResolvedConfig) -> Result<(), LayoutError> {
     let pole_size = prototype::effective_size(cfg.pole, Direction::North);
     let reach = cfg.pole.supply_area_distance.expect("ResolvedConfig guarantees a supply area");
+    let Some((lo, hi)) = grid.bounding_box() else { return Ok(()) };
+    let inside = |(x, y): (i32, i32)| {
+        x >= lo.x && y >= lo.y && x + pole_size.0 as i32 - 1 <= hi.x && y + pole_size.1 as i32 - 1 <= hi.y
+    };
 
     loop {
         let areas = supply_areas(grid);
@@ -106,7 +115,7 @@ pub fn place_poles(grid: &mut Grid, cfg: &ResolvedConfig) -> Result<(), LayoutEr
         for dy in -span..=span {
             for dx in -span..=span {
                 let pos = (target_tl.0 + dx, target_tl.1 + dy);
-                if !pole_fits(grid, cfg.pole, pos, pole_size) {
+                if !inside(pos) || !pole_fits(grid, cfg.pole, pos, pole_size) {
                     continue;
                 }
                 let Some(area) = cfg.pole.supply_area(pos) else { continue };

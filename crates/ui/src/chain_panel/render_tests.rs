@@ -173,7 +173,7 @@ fn a_successful_generate_paints_size_and_entity_count() {
 
 /// The number a human checks before pasting: express belts + fast inserters
 /// (the mid-game config `factorio_solver::testsupport::default_cfg` also
-/// pins its tests on) puts the green-circuit block at 53x57 tiles, 843
+/// pins its tests on) puts the green-circuit block at 53x50 tiles, 801
 /// entities. A change here is either an intentional layout-phase change or a
 /// real regression, not something this test should paper over with a looser
 /// assertion.
@@ -186,8 +186,8 @@ fn the_blue_belt_config_green_circuit_block_matches_the_known_size() {
 
     match &panel.generated {
         Some(Ok(block)) => {
-            assert_eq!((block.width, block.height), (53, 57));
-            assert_eq!(block.entity_count, 843);
+            assert_eq!((block.width, block.height), (53, 50));
+            assert_eq!(block.entity_count, 801);
         }
         other => panic!("expected a generated block, got {other:?}"),
     }
