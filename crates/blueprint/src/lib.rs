@@ -1,11 +1,13 @@
 pub mod codec;
+pub mod direction;
 pub mod error;
 pub mod fixtures;
 pub mod types;
 
 pub use codec::{decode, decode_to_json, encode};
 pub use error::BlueprintError;
+pub use direction::{directions_look_legacy, factorio_major_version, Direction};
 pub use types::{
-    directions_look_legacy, factorio_major_version, Blueprint, BlueprintBook, BlueprintBookEntry,
-    BlueprintData, Color, Direction, Entity, Icon, ItemFilter, Position, SignalId, Tile,
+    Blueprint, BlueprintBook, BlueprintBookEntry, BlueprintData, Color, Entity, Icon, ItemFilter,
+    Position, SignalId, Tile,
 };

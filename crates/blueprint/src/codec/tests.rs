@@ -153,7 +153,7 @@ fn test_manual_encode_decode_roundtrip() {
                 entity_number: 1,
                 name: "transport-belt".to_string(),
                 position: Position { x: 0.5, y: 0.5 },
-                direction: crate::types::Direction::East,
+                direction: crate::direction::Direction::East,
                 ..Default::default()
             }],
             version: 281479275675648,
