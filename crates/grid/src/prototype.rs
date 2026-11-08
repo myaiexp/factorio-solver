@@ -1,3 +1,4 @@
+// Entity prototype schema and the dump-derived registry every crate looks prototypes up in.
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -18,6 +19,22 @@ pub struct FluidConnection {
     pub dx: f64,
     pub dy: f64,
     pub connection_type: FluidConnectionType,
+}
+
+// ── Energy source ────────────────────────────────────────────────────
+
+/// What an entity runs on: the dump's `energy_source.type`, verbatim.
+/// `EntityCategory` cannot carry this — a stone furnace and an electric
+/// furnace are both `Furnace` — and it decides whether a placed machine
+/// needs a pole or a fuel inserter.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum EnergySource {
+    Electric,
+    Burner,
+    Heat,
+    Fluid,
+    Void,
 }
 
 // ── Entity prototype ─────────────────────────────────────────────────
@@ -74,9 +91,26 @@ pub struct EntityPrototype {
     /// confuse into a layout that looks connected but is unpowered.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub supply_area_distance: Option<f64>,
+    /// `None` for entities the dump gives no energy source: belts, pipes,
+    /// poles, chests, constant combinators.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy_source: Option<EnergySource>,
 }
 
 impl EntityPrototype {
+    /// Connects to the electric network, so needs to sit in a pole's supply
+    /// area. Includes generators and solar panels, which join the network
+    /// to *supply* it.
+    pub fn on_electric_network(&self) -> bool {
+        self.energy_source == Some(EnergySource::Electric)
+    }
+
+    /// Runs on fuel an inserter has to bring it (stone furnace, burner
+    /// inserter, biochamber's nutrients).
+    pub fn burns_fuel(&self) -> bool {
+        self.energy_source == Some(EnergySource::Burner)
+    }
+
     /// The rectangle this pole energises when placed with its footprint's
     /// top-left at `top_left`, as inclusive tile bounds
     /// `(min_x, min_y, max_x, max_y)`. `None` for anything that is not a pole.
@@ -127,165 +161,4 @@ pub fn all_names() -> Vec<&'static str> {
 // ── Tests ─────────────────────────────────────────────────────────────
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_lookup_known_entity() {
-        let proto = lookup("transport-belt").expect("should find transport-belt");
-        assert_eq!(proto.tile_width, 1);
-        assert_eq!(proto.tile_height, 1);
-    }
-
-    #[test]
-    fn test_lookup_unknown_entity() {
-        assert!(lookup("modded-thing").is_none());
-    }
-
-    #[test]
-    fn test_effective_size_square() {
-        let proto = lookup("assembling-machine-2").unwrap();
-        assert_eq!(effective_size(proto, Direction::North), (3, 3));
-        assert_eq!(effective_size(proto, Direction::East), (3, 3));
-        assert_eq!(effective_size(proto, Direction::South), (3, 3));
-        assert_eq!(effective_size(proto, Direction::West), (3, 3));
-    }
-
-    #[test]
-    fn test_effective_size_splitter_rotation() {
-        let proto = lookup("splitter").unwrap();
-        assert_eq!(effective_size(proto, Direction::North), (2, 1));
-        assert_eq!(effective_size(proto, Direction::East), (1, 2));
-        assert_eq!(effective_size(proto, Direction::South), (2, 1));
-        assert_eq!(effective_size(proto, Direction::West), (1, 2));
-    }
-
-    #[test]
-    fn test_effective_size_combinator_rotation() {
-        let proto = lookup("arithmetic-combinator").unwrap();
-        assert_eq!(effective_size(proto, Direction::North), (1, 2));
-        assert_eq!(effective_size(proto, Direction::East), (2, 1));
-    }
-
-    #[test]
-    fn test_all_names_count() {
-        let names = all_names();
-        assert!(names.len() >= 79, "expected >= 79 prototypes, got {}", names.len());
-    }
-
-    #[test]
-    fn test_all_prototypes_valid() {
-        let registry = REGISTRY.get_or_init(load_registry);
-        for proto in registry.values() {
-            assert!(proto.tile_width >= 1, "{} has invalid width", proto.name);
-            assert!(proto.tile_height >= 1, "{} has invalid height", proto.name);
-        }
-    }
-
-    #[test]
-    fn test_registry_loads_all_prototypes() {
-        let count = all_names().len();
-        assert!(count >= 79, "expected at least 79 prototypes, got {count}");
-    }
-
-    #[test]
-    fn test_enriched_fields_assembler() {
-        let proto = lookup("assembling-machine-2").unwrap();
-        assert_eq!(proto.crafting_speed, Some(0.75));
-        assert_eq!(proto.power_kw, Some(150.0));
-        assert_eq!(proto.module_slots, 2);
-    }
-
-    #[test]
-    fn test_belt_throughput() {
-        let tb = lookup("transport-belt").unwrap();
-        assert_eq!(tb.belt_throughput, Some(15.0));
-        let ftb = lookup("fast-transport-belt").unwrap();
-        assert_eq!(ftb.belt_throughput, Some(30.0));
-        let ins = lookup("inserter").unwrap();
-        assert_eq!(ins.belt_throughput, None);
-    }
-
-    // Fuller pins on the dump-derived data — footprints, throughput tiers, the
-    // storage-tank 1 -> 4 connection correction — live in
-    // `tests/prototype_regression.rs`.
-    #[test]
-    fn test_fluid_connections_chemical_plant() {
-        let proto = lookup("chemical-plant").unwrap();
-        assert_eq!(proto.fluid_connections.len(), 4);
-    }
-
-    #[test]
-    fn test_no_fluid_connections_belt() {
-        let proto = lookup("transport-belt").unwrap();
-        assert!(proto.fluid_connections.is_empty());
-    }
-
-    #[test]
-    fn existing_prototypes_json_still_loads() {
-        // The committed registry predates every dump-derived field.
-        let p = lookup("transport-belt").expect("transport-belt present");
-        assert_eq!(p.belt_throughput, Some(15.0));
-    }
-
-    #[test]
-    fn new_fields_default_when_absent() {
-        let p: EntityPrototype =
-            serde_json::from_str(r#"{"name":"x","tile_width":1,"tile_height":1}"#).unwrap();
-        assert_eq!(p.display_name, None);
-        assert_eq!(p.icon_path, None);
-        assert_eq!(p.icon_size, None);
-        assert!(p.crafting_categories.is_empty());
-        assert_eq!(p.underground_max_distance, None);
-        assert_eq!(p.pickup_position, None);
-        assert_eq!(p.insert_position, None);
-        assert_eq!(p.supply_area_distance, None);
-    }
-
-    #[test]
-    fn poles_carry_their_supply_area_distance() {
-        // The four real poles, and the reason the field cannot be guessed from
-        // the pole's "size": big-electric-pole is the 2x2 long-*wire* pole with
-        // the *smallest* supply area of the four.
-        assert_eq!(lookup("small-electric-pole").unwrap().supply_area_distance, Some(2.5));
-        assert_eq!(lookup("medium-electric-pole").unwrap().supply_area_distance, Some(3.5));
-        assert_eq!(lookup("big-electric-pole").unwrap().supply_area_distance, Some(2.0));
-        assert_eq!(lookup("substation").unwrap().supply_area_distance, Some(9.0));
-        assert_eq!(lookup("assembling-machine-2").unwrap().supply_area_distance, None);
-    }
-
-    #[test]
-    fn supply_area_is_centred_on_the_pole_footprint() {
-        // 1x1 medium pole at (10, 10): centre (10.5, 10.5), ±3.5.
-        let medium = lookup("medium-electric-pole").unwrap();
-        assert_eq!(medium.supply_area((10, 10)), Some((7.0, 7.0, 14.0, 14.0)));
-
-        // 2x2 substation at (0, 0): centre (1, 1), ±9 — the footprint size is
-        // part of the maths, not just the distance.
-        let sub = lookup("substation").unwrap();
-        assert_eq!(sub.supply_area((0, 0)), Some((-8.0, -8.0, 10.0, 10.0)));
-
-        assert_eq!(lookup("transport-belt").unwrap().supply_area((0, 0)), None);
-    }
-
-    #[test]
-    fn new_fields_parse_when_present() {
-        let p: EntityPrototype = serde_json::from_str(
-            r#"{"name":"inserter","tile_width":1,"tile_height":1,
-                "display_name":"Inserter",
-                "icon_path":"__base__/graphics/icons/inserter.png",
-                "icon_size":64,
-                "crafting_categories":["crafting"],
-                "underground_max_distance":5,
-                "pickup_position":[0.0,-1.0],
-                "insert_position":[0.0,1.2]}"#,
-        )
-        .unwrap();
-        assert_eq!(p.display_name.as_deref(), Some("Inserter"));
-        assert_eq!(p.icon_size, Some(64));
-        assert_eq!(p.crafting_categories, vec!["crafting".to_string()]);
-        assert_eq!(p.underground_max_distance, Some(5));
-        assert_eq!(p.pickup_position, Some((0.0, -1.0)));
-        assert_eq!(p.insert_position, Some((0.0, 1.2)));
-    }
-}
+mod tests;

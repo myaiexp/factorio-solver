@@ -37,6 +37,25 @@ pub enum LayoutError {
     )]
     LongInserterUnknown(String),
 
+    /// The inserter is named in `LayoutConfig`, so the fix is the config —
+    /// unlike `BurnerMachine`, which comes from the plan.
+    #[error(
+        "`{0}` burns fuel, and the generator places no fuel lane for its inserters — \
+         pick an electric inserter"
+    )]
+    BurnerInserter(String),
+
+    /// A burner machine (stone/steel furnace, biochamber) needs a fuel
+    /// inserter and a fuel lane, which the generator does not place yet.
+    /// Emitting the block anyway would hand the player machines that never
+    /// start.
+    #[error(
+        "recipe `{recipe}` is assigned `{machine}`, which burns fuel — the generator does not \
+         place fuel inserters or a fuel lane yet, so choose an electric machine for this step \
+         (research it first if the save has not)"
+    )]
+    BurnerMachine { recipe: String, machine: String },
+
     /// The generator builds belt-fed *item* chains. A fluid cannot ride a
     /// belt, and pipes are a later phase — so a step that moves one has no
     /// layout, whichever side of the machine it is on.

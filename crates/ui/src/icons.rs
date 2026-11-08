@@ -116,6 +116,7 @@ mod tests {
             pickup_position: None,
             insert_position: None,
             supply_area_distance: None,
+            energy_source: None,
         }
     }
 

@@ -9,17 +9,12 @@ use factorio_grid::prototype::{self, EntityPrototype};
 use factorio_grid::{EntityCategory, EntityId, Grid, GridPos, PlacedEntity};
 use crate::layout::{LayoutError, ResolvedConfig};
 
-/// Entities Factorio requires an electrical connection for (belts, pipes,
-/// splitters and poles draw no power). Known gap: a burner machine (e.g.
-/// `stone-furnace`) is classified `Furnace` just like an electric one — the
-/// registry does not yet distinguish the energy source — so it is
-/// (harmlessly) treated as needing power too.
+/// Entities Factorio requires an electrical connection for, read from each
+/// prototype's own `energy_source` rather than its `EntityCategory`: a
+/// category cannot tell a stone furnace from an electric one, nor a constant
+/// combinator (no energy source) from a decider. Unknown names need nothing.
 fn needs_power(prototype_name: &str) -> bool {
-    use EntityCategory::*;
-    matches!(
-        EntityCategory::from_prototype_name(prototype_name),
-        Inserter | Assembler | Furnace | ChemicalPlant | Refinery | Beacon | Combinator | Lamp
-    )
+    prototype::lookup(prototype_name).is_some_and(EntityPrototype::on_electric_network)
 }
 
 /// True iff a footprint at `top_left`/`size` overlaps supply rectangle

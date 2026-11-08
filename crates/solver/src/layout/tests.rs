@@ -194,3 +194,40 @@ fn a_uranium_processing_plan_generates_and_validates() {
     assert!(coverage_gaps(&grid).is_empty());
     assert!(report.bindings.iter().any(|(recipe, _)| recipe == "uranium-processing"));
 }
+
+/// A burner machine needs a fuel inserter and a fuel lane, which the
+/// generator does not place. Since the availability gate, an early-game save
+/// gets stone furnaces for smelting, so this is a reachable plan, refused by
+/// name instead of emitted as a block that cannot run.
+#[test]
+fn a_burner_machine_is_refused_by_name() {
+    let goal = ChainGoal::new("iron-plate", Rate::ItemsPerSec(7.5), &["iron-ore"])
+        .with_machines(MachinePolicy::all("assembling-machine-2").with_preference("smelting", "stone-furnace"))
+        .with_override("iron-plate", "iron-plate");
+    let plan = chain::solve(&goal).expect("stone furnaces smelt iron");
+    match generate(&plan, &default_cfg()) {
+        Err(LayoutError::BurnerMachine { recipe, machine }) => {
+            assert_eq!(recipe, "iron-plate");
+            assert_eq!(machine, "stone-furnace");
+        }
+        other => panic!("expected BurnerMachine, got {other:?}"),
+    }
+}
+
+/// Same gap on the inserter side: a burner inserter would take its own fuel
+/// off the belt only if the belt carried fuel, which these blocks never do.
+#[test]
+fn a_burner_inserter_is_refused_at_resolve() {
+    for cfg in [
+        LayoutConfig::new("express-transport-belt", "medium-electric-pole", "burner-inserter"),
+        default_cfg().with_long_inserter("burner-inserter"),
+    ] {
+        match cfg.resolve() {
+            // Checked before reach: a burner inserter's one-tile arm would
+            // also fail the long-inserter reach check, but "it needs fuel"
+            // is the reason that survives a longer burner arm.
+            Err(LayoutError::BurnerInserter(name)) => assert_eq!(name, "burner-inserter"),
+            other => panic!("expected BurnerInserter, got {other:?}"),
+        }
+    }
+}

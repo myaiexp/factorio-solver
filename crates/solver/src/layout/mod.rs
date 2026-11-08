@@ -109,15 +109,28 @@ impl LayoutConfig {
         let inserter = prototype::lookup(&self.inserter)
             .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
             .ok_or_else(|| LayoutError::InserterUnknown(self.inserter.clone()))?;
+        refuse_burner_inserter(inserter)?;
         // Reach is checked, not just inserter-ness: a `fast-inserter` named
         // here would resolve fine and then place inserters that reach the
         // inner belt twice and the outer one never.
+        // Burner before reach: "it needs fuel" is the refusal that would
+        // still hold for a burner arm long enough to pass.
+        if let Some(p) = prototype::lookup(&self.long_inserter) {
+            refuse_burner_inserter(p)?;
+        }
         let long_inserter = prototype::lookup(&self.long_inserter)
             .filter(|p| p.insert_position.is_some())
             .filter(|p| reach(p) >= LONG_INSERTER_REACH)
             .ok_or_else(|| LayoutError::LongInserterUnknown(self.long_inserter.clone()))?;
         Ok(ResolvedConfig { belt, pole, inserter, long_inserter })
     }
+}
+
+fn refuse_burner_inserter(p: &EntityPrototype) -> Result<(), LayoutError> {
+    if p.burns_fuel() {
+        return Err(LayoutError::BurnerInserter(p.name.clone()));
+    }
+    Ok(())
 }
 
 /// How far an inserter's arm reaches to pick up, in tiles, from its own
@@ -177,6 +190,12 @@ fn build(plan: &ProductionPlan, cfg: &LayoutConfig) -> Result<(Grid, Vec<(String
     }
     for step in &plan.steps {
         reject_if_cyclic(step)?;
+        if step.machine.burns_fuel() {
+            return Err(LayoutError::BurnerMachine {
+                recipe: step.recipe.name.clone(),
+                machine: step.machine.name.clone(),
+            });
+        }
     }
 
     // Steps arrive topologically ordered, producers first, so stacking them

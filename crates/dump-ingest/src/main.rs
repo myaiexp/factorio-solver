@@ -10,6 +10,7 @@ use factorio_solver::tech::Technology;
 use serde_json::Value;
 
 mod dump;
+mod energy;
 mod entities;
 mod error;
 mod fluid;

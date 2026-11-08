@@ -135,16 +135,15 @@ fn no_room_for_pole_names_the_walled_in_recipe() {
         .resolve()
         .unwrap();
     let mut grid = Grid::new();
-    // stone-furnace: 2x2 at top-left (0,0); the documented burner gap
-    // counts it as needing power.
-    grid.place("stone-furnace", &Position { x: 1.0, y: 1.0 }, Direction::North, Some("iron-plate".to_string()), None)
+    // electric-furnace: 3x3 at top-left (0,0).
+    grid.place("electric-furnace", &Position { x: 1.5, y: 1.5 }, Direction::North, Some("iron-plate".to_string()), None)
         .unwrap();
     // Wall off every other cell in a radius well beyond any reach + pole
     // + target size window, so no legal pole position remains.
     let radius = 10;
     for y in -radius..=radius {
         for x in -radius..=radius {
-            if (0..2).contains(&x) && (0..2).contains(&y) {
+            if (0..3).contains(&x) && (0..3).contains(&y) {
                 continue; // the furnace's own footprint
             }
             grid.place("transport-belt", &Position { x: x as f64 + 0.5, y: y as f64 + 0.5 }, Direction::North, None, None)
@@ -157,5 +156,19 @@ fn no_room_for_pole_names_the_walled_in_recipe() {
             assert_eq!(pole, "small-electric-pole");
         }
         other => panic!("expected NoRoomForPole, got {other:?}"),
+    }
+}
+
+/// Which entities a pole must reach comes from each prototype's energy
+/// source, not its category: a stone furnace is a `Furnace` like an electric
+/// one but burns fuel, and a constant combinator is a `Combinator` with no
+/// energy source at all.
+#[test]
+fn only_electric_entities_need_a_pole() {
+    for name in ["electric-furnace", "assembling-machine-2", "inserter", "small-lamp", "decider-combinator"] {
+        assert!(needs_power(name), "{name} runs on electricity");
+    }
+    for name in ["stone-furnace", "steel-furnace", "burner-inserter", "constant-combinator", "transport-belt"] {
+        assert!(!needs_power(name), "{name} draws no electricity");
     }
 }

@@ -5,7 +5,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Accumulator",
-    "icon_path": "__base__/graphics/icons/accumulator.png"
+    "icon_path": "__base__/graphics/icons/accumulator.png",
+    "energy_source": "electric"
   },
   {
     "name": "active-provider-chest",
@@ -22,7 +23,8 @@
     "power_kw": 100.0,
     "module_slots": 0,
     "display_name": "Agricultural tower",
-    "icon_path": "__space-age__/graphics/icons/agricultural-tower.png"
+    "icon_path": "__space-age__/graphics/icons/agricultural-tower.png",
+    "energy_source": "electric"
   },
   {
     "name": "arithmetic-combinator",
@@ -30,7 +32,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Arithmetic combinator",
-    "icon_path": "__base__/graphics/icons/arithmetic-combinator.png"
+    "icon_path": "__base__/graphics/icons/arithmetic-combinator.png",
+    "energy_source": "electric"
   },
   {
     "name": "artillery-turret",
@@ -63,7 +66,8 @@
       "advanced-crafting",
       "electronics",
       "pressing"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "assembling-machine-2",
@@ -100,7 +104,8 @@
       "electronics-or-assembling",
       "cryogenics-or-assembling",
       "crafting-with-fluid-or-metallurgy"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "assembling-machine-3",
@@ -137,7 +142,8 @@
       "electronics-or-assembling",
       "cryogenics-or-assembling",
       "crafting-with-fluid-or-metallurgy"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "asteroid-collector",
@@ -145,7 +151,8 @@
     "tile_height": 3,
     "module_slots": 0,
     "display_name": "Asteroid collector",
-    "icon_path": "__space-age__/graphics/icons/asteroid-collector.png"
+    "icon_path": "__space-age__/graphics/icons/asteroid-collector.png",
+    "energy_source": "electric"
   },
   {
     "name": "beacon",
@@ -154,7 +161,8 @@
     "power_kw": 480.0,
     "module_slots": 2,
     "display_name": "Beacon",
-    "icon_path": "__base__/graphics/icons/beacon.png"
+    "icon_path": "__base__/graphics/icons/beacon.png",
+    "energy_source": "electric"
   },
   {
     "name": "big-electric-pole",
@@ -172,7 +180,8 @@
     "power_kw": 300.0,
     "module_slots": 4,
     "display_name": "Big mining drill",
-    "icon_path": "__space-age__/graphics/icons/big-mining-drill.png"
+    "icon_path": "__space-age__/graphics/icons/big-mining-drill.png",
+    "energy_source": "electric"
   },
   {
     "name": "biochamber",
@@ -210,7 +219,8 @@
       "organic-or-hand-crafting",
       "organic-or-assembling",
       "organic-or-chemistry"
-    ]
+    ],
+    "energy_source": "burner"
   },
   {
     "name": "biolab",
@@ -219,7 +229,8 @@
     "power_kw": 300.0,
     "module_slots": 4,
     "display_name": "Biolab",
-    "icon_path": "__space-age__/graphics/icons/biolab.png"
+    "icon_path": "__space-age__/graphics/icons/biolab.png",
+    "energy_source": "electric"
   },
   {
     "name": "blue-chest",
@@ -247,7 +258,8 @@
       }
     ],
     "display_name": "Boiler",
-    "icon_path": "__base__/graphics/icons/boiler.png"
+    "icon_path": "__base__/graphics/icons/boiler.png",
+    "energy_source": "burner"
   },
   {
     "name": "bottomless-chest",
@@ -279,7 +291,8 @@
     "insert_position": [
       0.0,
       1.2
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "burner-generator",
@@ -287,7 +300,8 @@
     "tile_height": 5,
     "module_slots": 0,
     "display_name": "Burner generator",
-    "icon_path": "__base__/graphics/icons/steam-engine.png"
+    "icon_path": "__base__/graphics/icons/steam-engine.png",
+    "energy_source": "electric"
   },
   {
     "name": "burner-inserter",
@@ -303,7 +317,8 @@
     "insert_position": [
       0.0,
       1.2
-    ]
+    ],
+    "energy_source": "burner"
   },
   {
     "name": "burner-mining-drill",
@@ -312,7 +327,8 @@
     "power_kw": 150.0,
     "module_slots": 0,
     "display_name": "Burner mining drill",
-    "icon_path": "__base__/graphics/icons/burner-mining-drill.png"
+    "icon_path": "__base__/graphics/icons/burner-mining-drill.png",
+    "energy_source": "burner"
   },
   {
     "name": "captive-biter-spawner",
@@ -325,7 +341,8 @@
     "icon_path": "__space-age__/graphics/icons/captive-biter-spawner.png",
     "crafting_categories": [
       "captive-spawner-process"
-    ]
+    ],
+    "energy_source": "burner"
   },
   {
     "name": "capture-robot",
@@ -341,7 +358,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Car",
-    "icon_path": "__base__/graphics/icons/car.png"
+    "icon_path": "__base__/graphics/icons/car.png",
+    "energy_source": "burner"
   },
   {
     "name": "cargo-bay",
@@ -386,7 +404,8 @@
     "icon_path": "__base__/graphics/icons/centrifuge.png",
     "crafting_categories": [
       "centrifuging"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "chemical-plant",
@@ -423,7 +442,8 @@
       "chemistry",
       "chemistry-or-cryogenics",
       "organic-or-chemistry"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "constant-combinator",
@@ -564,7 +584,8 @@
     "icon_path": "__space-age__/graphics/icons/crusher.png",
     "crafting_categories": [
       "crushing"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "cryogenic-plant",
@@ -611,7 +632,8 @@
       "cryogenics",
       "chemistry-or-cryogenics",
       "cryogenics-or-assembling"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "curved-rail-a",
@@ -635,7 +657,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Decider combinator",
-    "icon_path": "__base__/graphics/icons/decider-combinator.png"
+    "icon_path": "__base__/graphics/icons/decider-combinator.png",
+    "energy_source": "electric"
   },
   {
     "name": "defender",
@@ -685,7 +708,8 @@
     "power_kw": 0.0,
     "module_slots": 0,
     "display_name": "Electric energy interface",
-    "icon_path": "__base__/graphics/icons/accumulator.png"
+    "icon_path": "__base__/graphics/icons/accumulator.png",
+    "energy_source": "electric"
   },
   {
     "name": "electric-furnace",
@@ -698,7 +722,8 @@
     "icon_path": "__base__/graphics/icons/electric-furnace.png",
     "crafting_categories": [
       "smelting"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "electric-mining-drill",
@@ -707,7 +732,8 @@
     "power_kw": 90.0,
     "module_slots": 3,
     "display_name": "Electric mining drill",
-    "icon_path": "__base__/graphics/icons/electric-mining-drill.png"
+    "icon_path": "__base__/graphics/icons/electric-mining-drill.png",
+    "energy_source": "electric"
   },
   {
     "name": "electromagnetic-plant",
@@ -745,7 +771,8 @@
       "electronics",
       "electronics-with-fluid",
       "electronics-or-assembling"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "elevated-curved-rail-a",
@@ -854,7 +881,8 @@
     "insert_position": [
       0.0,
       1.2
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "fast-loader",
@@ -957,7 +985,8 @@
       "pressing",
       "crafting-with-fluid-or-metallurgy",
       "metallurgy-or-assembling"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "fulgoran-ruin-attractor",
@@ -973,7 +1002,8 @@
     "tile_height": 5,
     "module_slots": 0,
     "display_name": "Fusion generator",
-    "icon_path": "__space-age__/graphics/icons/fusion-generator.png"
+    "icon_path": "__space-age__/graphics/icons/fusion-generator.png",
+    "energy_source": "electric"
   },
   {
     "name": "fusion-reactor",
@@ -981,7 +1011,8 @@
     "tile_height": 6,
     "module_slots": 0,
     "display_name": "Fusion reactor",
-    "icon_path": "__space-age__/graphics/icons/fusion-reactor.png"
+    "icon_path": "__space-age__/graphics/icons/fusion-reactor.png",
+    "energy_source": "electric"
   },
   {
     "name": "gate",
@@ -1025,7 +1056,8 @@
       }
     ],
     "display_name": "Heat exchanger",
-    "icon_path": "__base__/graphics/icons/heat-boiler.png"
+    "icon_path": "__base__/graphics/icons/heat-boiler.png",
+    "energy_source": "heat"
   },
   {
     "name": "heat-interface",
@@ -1049,7 +1081,8 @@
     "tile_height": 3,
     "module_slots": 0,
     "display_name": "Heating tower",
-    "icon_path": "__space-age__/graphics/icons/heating-tower.png"
+    "icon_path": "__space-age__/graphics/icons/heating-tower.png",
+    "energy_source": "burner"
   },
   {
     "name": "infinity-cargo-wagon",
@@ -1111,7 +1144,8 @@
     "insert_position": [
       0.0,
       1.2
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "iron-chest",
@@ -1128,7 +1162,8 @@
     "power_kw": 60.0,
     "module_slots": 2,
     "display_name": "Lab",
-    "icon_path": "__base__/graphics/icons/lab.png"
+    "icon_path": "__base__/graphics/icons/lab.png",
+    "energy_source": "electric"
   },
   {
     "name": "land-mine",
@@ -1153,7 +1188,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Laser turret",
-    "icon_path": "__base__/graphics/icons/laser-turret.png"
+    "icon_path": "__base__/graphics/icons/laser-turret.png",
+    "energy_source": "electric"
   },
   {
     "name": "legacy-curved-rail",
@@ -1177,7 +1213,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Lightning collector",
-    "icon_path": "__space-age__/graphics/icons/lightning-collector.png"
+    "icon_path": "__space-age__/graphics/icons/lightning-collector.png",
+    "energy_source": "electric"
   },
   {
     "name": "lightning-rod",
@@ -1185,7 +1222,8 @@
     "tile_height": 1,
     "module_slots": 0,
     "display_name": "Lightning rod",
-    "icon_path": "__space-age__/graphics/icons/lightning-rod.png"
+    "icon_path": "__space-age__/graphics/icons/lightning-rod.png",
+    "energy_source": "electric"
   },
   {
     "name": "linked-belt",
@@ -1219,7 +1257,8 @@
     "tile_height": 6,
     "module_slots": 0,
     "display_name": "Locomotive",
-    "icon_path": "__base__/graphics/icons/locomotive.png"
+    "icon_path": "__base__/graphics/icons/locomotive.png",
+    "energy_source": "burner"
   },
   {
     "name": "logistic-robot",
@@ -1243,7 +1282,8 @@
     "insert_position": [
       0.0,
       2.2
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "market",
@@ -1268,7 +1308,8 @@
     "tile_height": 5,
     "module_slots": 0,
     "display_name": "Nuclear reactor",
-    "icon_path": "__base__/graphics/icons/nuclear-reactor.png"
+    "icon_path": "__base__/graphics/icons/nuclear-reactor.png",
+    "energy_source": "burner"
   },
   {
     "name": "offshore-pump",
@@ -1284,7 +1325,8 @@
       }
     ],
     "display_name": "Offshore pump",
-    "icon_path": "__base__/graphics/icons/offshore-pump.png"
+    "icon_path": "__base__/graphics/icons/offshore-pump.png",
+    "energy_source": "void"
   },
   {
     "name": "oil-refinery",
@@ -1324,7 +1366,8 @@
     "icon_path": "__base__/graphics/icons/oil-refinery.png",
     "crafting_categories": [
       "oil-processing"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "one-way-valve",
@@ -1438,7 +1481,8 @@
     "tile_height": 1,
     "module_slots": 0,
     "display_name": "Programmable speaker",
-    "icon_path": "__base__/graphics/icons/programmable-speaker.png"
+    "icon_path": "__base__/graphics/icons/programmable-speaker.png",
+    "energy_source": "electric"
   },
   {
     "name": "proxy-container",
@@ -1467,7 +1511,8 @@
       }
     ],
     "display_name": "Pump",
-    "icon_path": "__base__/graphics/icons/pump.png"
+    "icon_path": "__base__/graphics/icons/pump.png",
+    "energy_source": "electric"
   },
   {
     "name": "pumpjack",
@@ -1476,7 +1521,8 @@
     "power_kw": 90.0,
     "module_slots": 2,
     "display_name": "Pumpjack",
-    "icon_path": "__base__/graphics/icons/pumpjack.png"
+    "icon_path": "__base__/graphics/icons/pumpjack.png",
+    "energy_source": "electric"
   },
   {
     "name": "radar",
@@ -1485,7 +1531,8 @@
     "power_kw": 300.0,
     "module_slots": 0,
     "display_name": "Radar",
-    "icon_path": "__base__/graphics/icons/radar.png"
+    "icon_path": "__base__/graphics/icons/radar.png",
+    "energy_source": "electric"
   },
   {
     "name": "rail-chain-signal",
@@ -1525,7 +1572,8 @@
     "tile_height": 5,
     "module_slots": 0,
     "display_name": "Railgun turret",
-    "icon_path": "__space-age__/graphics/icons/railgun-turret.png"
+    "icon_path": "__space-age__/graphics/icons/railgun-turret.png",
+    "energy_source": "electric"
   },
   {
     "name": "recycler",
@@ -1539,7 +1587,8 @@
     "crafting_categories": [
       "recycling",
       "recycling-or-hand-crafting"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "red-chest",
@@ -1564,7 +1613,8 @@
     "power_kw": 50.0,
     "module_slots": 0,
     "display_name": "Roboport",
-    "icon_path": "__base__/graphics/icons/roboport.png"
+    "icon_path": "__base__/graphics/icons/roboport.png",
+    "energy_source": "electric"
   },
   {
     "name": "rocket-silo",
@@ -1577,7 +1627,8 @@
     "icon_path": "__base__/graphics/icons/rocket-silo.png",
     "crafting_categories": [
       "rocket-building"
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "rocket-turret",
@@ -1593,7 +1644,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Selector combinator",
-    "icon_path": "__base__/graphics/icons/selector-combinator.png"
+    "icon_path": "__base__/graphics/icons/selector-combinator.png",
+    "energy_source": "electric"
   },
   {
     "name": "simple-entity-with-force",
@@ -1626,7 +1678,8 @@
     "tile_height": 1,
     "module_slots": 0,
     "display_name": "Lamp",
-    "icon_path": "__base__/graphics/icons/small-lamp.png"
+    "icon_path": "__base__/graphics/icons/small-lamp.png",
+    "energy_source": "electric"
   },
   {
     "name": "solar-panel",
@@ -1634,7 +1687,8 @@
     "tile_height": 3,
     "module_slots": 0,
     "display_name": "Solar panel",
-    "icon_path": "__base__/graphics/icons/solar-panel.png"
+    "icon_path": "__base__/graphics/icons/solar-panel.png",
+    "energy_source": "electric"
   },
   {
     "name": "space-platform-hub",
@@ -1650,7 +1704,8 @@
     "tile_height": 2,
     "module_slots": 0,
     "display_name": "Spidertron",
-    "icon_path": "__base__/graphics/icons/spidertron.png"
+    "icon_path": "__base__/graphics/icons/spidertron.png",
+    "energy_source": "void"
   },
   {
     "name": "splitter",
@@ -1675,7 +1730,8 @@
     "insert_position": [
       0.0,
       1.2
-    ]
+    ],
+    "energy_source": "electric"
   },
   {
     "name": "steam-engine",
@@ -1695,7 +1751,8 @@
       }
     ],
     "display_name": "Steam engine",
-    "icon_path": "__base__/graphics/icons/steam-engine.png"
+    "icon_path": "__base__/graphics/icons/steam-engine.png",
+    "energy_source": "electric"
   },
   {
     "name": "steam-turbine",
@@ -1715,7 +1772,8 @@
       }
     ],
     "display_name": "Steam turbine",
-    "icon_path": "__base__/graphics/icons/steam-turbine.png"
+    "icon_path": "__base__/graphics/icons/steam-turbine.png",
+    "energy_source": "electric"
   },
   {
     "name": "steel-chest",
@@ -1736,7 +1794,8 @@
     "icon_path": "__base__/graphics/icons/steel-furnace.png",
     "crafting_categories": [
       "smelting"
-    ]
+    ],
+    "energy_source": "burner"
   },
   {
     "name": "stone-furnace",
@@ -1749,7 +1808,8 @@
     "icon_path": "__base__/graphics/icons/stone-furnace.png",
     "crafting_categories": [
       "smelting"
-    ]
+    ],
+    "energy_source": "burner"
   },
   {
     "name": "stone-wall",
@@ -1820,7 +1880,8 @@
     "tile_height": 3,
     "module_slots": 0,
     "display_name": "Tank",
-    "icon_path": "__base__/graphics/icons/tank.png"
+    "icon_path": "__base__/graphics/icons/tank.png",
+    "energy_source": "burner"
   },
   {
     "name": "tesla-turret",
@@ -1828,7 +1889,8 @@
     "tile_height": 4,
     "module_slots": 0,
     "display_name": "Tesla turret",
-    "icon_path": "__space-age__/graphics/icons/tesla-turret.png"
+    "icon_path": "__space-age__/graphics/icons/tesla-turret.png",
+    "energy_source": "electric"
   },
   {
     "name": "thruster",

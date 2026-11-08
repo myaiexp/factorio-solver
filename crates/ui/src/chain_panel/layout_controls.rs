@@ -36,15 +36,16 @@ pub(super) fn pole_options() -> Vec<&'static EntityPrototype> {
     poles
 }
 
-/// Inserters with both a pickup and an insert position — the same two facts
-/// `LayoutConfig::resolve` checks before it will place one, so nothing shown
-/// here can fail generation on an unknown-inserter error.
+/// Electric inserters with both a pickup and an insert position — the same
+/// facts `LayoutConfig::resolve` checks before it will place one, so nothing
+/// shown here can fail generation on an unknown- or burner-inserter error.
 pub(super) fn inserter_options() -> Vec<&'static EntityPrototype> {
     let mut inserters: Vec<&'static EntityPrototype> = prototype::all_names()
         .into_iter()
         .filter(|n| EntityCategory::from_prototype_name(n) == EntityCategory::Inserter)
         .filter_map(prototype::lookup)
         .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
+        .filter(|p| !p.burns_fuel())
         .collect();
     inserters.sort_by(|a, b| a.name.cmp(&b.name));
     inserters
@@ -61,6 +62,7 @@ pub(super) fn long_inserter_options() -> Vec<&'static EntityPrototype> {
         .filter_map(prototype::lookup)
         .filter(|p| p.pickup_position.is_some() && p.insert_position.is_some())
         .filter(|p| layout::reach(p) >= LONG_INSERTER_REACH)
+        .filter(|p| !p.burns_fuel())
         .collect();
     inserters.sort_by(|a, b| a.name.cmp(&b.name));
     inserters
@@ -186,6 +188,7 @@ mod tests {
         assert!(names.contains(&"inserter"));
         assert!(names.contains(&"fast-inserter"));
         assert!(!names.contains(&"transport-belt"));
+        assert!(!names.contains(&"burner-inserter"), "resolve refuses a burner inserter");
 
         let mut sorted = names.clone();
         sorted.sort_unstable();

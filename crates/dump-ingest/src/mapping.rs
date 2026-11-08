@@ -3,6 +3,7 @@ use serde_json::Value;
 
 use factorio_grid::prototype::EntityPrototype;
 
+use crate::energy::energy_source;
 use crate::entities::{parse_power_kw, tile_size};
 use crate::error::IngestError;
 use crate::fluid::fluid_connections;
@@ -118,6 +119,7 @@ pub fn to_prototype(
         pickup_position: xy_pair(entity, "pickup_position"),
         insert_position: xy_pair(entity, "insert_position"),
         supply_area_distance: supply_area_distance(prototype_type, entity),
+        energy_source: energy_source(name, entity)?,
     })
 }
 

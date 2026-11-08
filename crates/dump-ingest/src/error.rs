@@ -21,6 +21,9 @@ pub enum IngestError {
     #[error("entity '{name}' has an unparseable energy_usage value '{value}'")]
     UnparseablePower { name: String, value: String },
 
+    #[error("entity '{name}' has an energy_source with an unrecognised type {value} (expected electric, burner, heat, fluid or void)")]
+    UnknownEnergySource { name: String, value: String },
+
     #[error("recipe '{name}' is missing required field '{field}'")]
     MissingRecipeField { name: String, field: String },
 
