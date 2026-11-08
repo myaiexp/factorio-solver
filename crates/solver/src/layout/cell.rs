@@ -100,9 +100,13 @@ pub struct CellPlan {
 }
 
 impl CellPlan {
-    /// Belt-slot indices on the ingredient side that carry `item`, nearest
-    /// belt first (0 = adjacent to a machine column). Empty if `item` isn't
-    /// an ingredient here.
+    /// PHYSICAL belt indices on the ingredient side that carry `item`: `0` is
+    /// the belt at the lower-x end of the ingredient group, ascending from
+    /// there — the same numbering `product_belts` uses, and for the same
+    /// reason: the two machine columns face the group from opposite sides,
+    /// so a distance-from-gutter index would reach different belts for each.
+    /// `place::place_cell` converts it per column. Empty if `item` isn't an
+    /// ingredient here.
     ///
     /// Each ingredient claims whole belts to itself first (`lanes / 2`); a
     /// leftover single lane spills onto a shared belt, paired two at a time

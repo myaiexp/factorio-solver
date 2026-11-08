@@ -13,6 +13,7 @@ use factorio_grid::prototype;
 
 mod filters;
 mod geometry;
+mod ingredients;
 
 /// Every placed inserter's own cell, its pickup cell, its insert cell — all
 /// three derived from the PLACED entity's own prototype data and direction,

@@ -104,16 +104,23 @@ pub fn place_cell(
     let col_a = Column { x0: col_a_x0, machines: plan.columns.0, ingredient: a_ing, product: a_prod };
     let col_b = Column { x0: col_b_x0, machines: plan.columns.1, ingredient: b_ing, product: b_prod };
 
-    // Ingredient (item, slot) pairs — identical for both columns, since they
-    // share the same belts (`cell.rs`: "picking shares a lane"). Order is
-    // load-bearing: `lane_allocation` order, then `ingredient_belts`'s own
-    // ascending slot order, because it fixes which gutter row each pair
-    // lands in.
+    // Ingredient PHYSICAL belt indices, one per arm — identical for both
+    // columns, since they share the same belts (`cell.rs`: "picking shares a
+    // lane"); each column converts them to its own distance-from-gutter
+    // below. Order is load-bearing: `lane_allocation` order, then
+    // `ingredient_belts`'s own ascending order, because it fixes which gutter
+    // row each arm lands in.
     let ingredient_slots: Vec<u32> = plan
         .lane_allocation
         .iter()
         .flat_map(|(item, _)| plan.ingredient_belts(item))
         .collect();
+    let n_ingredient_belts = topo.ingredient_belts();
+    // Physical index -> this gutter's distance-from-gutter. A gutter with
+    // `dir > 0` meets the group at its low-x end, so the two agree; one with
+    // `dir < 0` meets it at the high-x end and counts the other way.
+    let ingredient_distance =
+        |p: u32, g: Gutter| if g.dir < 0 { n_ingredient_belts - 1 - p } else { p };
     // (physical belt index, filter). `CellPlan::product_belts` addresses the
     // product side by PHYSICAL belt (ascending x across the group), not by
     // either column's own distance-from-gutter — the two are the same only
@@ -150,8 +157,9 @@ pub fn place_cell(
         // it's mirrored against, so a machine narrower than that would have
         // it inserting into empty ground. No vanilla crafting machine is 1
         // wide — this guards a case the registry never actually reaches.
-        let needs_long =
-            ingredient_slots.iter().any(|&k| k >= 1) || product_slots.iter().any(|(k, _)| *k >= 1);
+        let needs_long = ingredient_slots.iter().any(|&p| {
+            [col_a.ingredient, col_b.ingredient].into_iter().any(|g| ingredient_distance(p, g) >= 1)
+        }) || product_slots.iter().any(|(k, _)| *k >= 1);
         if needs_long && mw < 2 {
             return Err(LayoutError::MachineTooNarrowForLongInserter {
                 recipe: step.recipe.name.clone(),
@@ -186,7 +194,8 @@ pub fn place_cell(
         for i in 0..col.machines {
             let y = origin.y + machine_row_offset(i, mh, period);
             place_at(grid, step.machine, (col.x0, y), Direction::North, Some(step.recipe.name.clone()))?;
-            for (j, &slot) in ingredient_slots.iter().enumerate() {
+            for (j, &p) in ingredient_slots.iter().enumerate() {
+                let slot = ingredient_distance(p, col.ingredient);
                 let at = (col.ingredient.x, y + j as i32);
                 place_gutter_inserter(grid, cfg, at, col.ingredient.dir, slot, Role::Ingredient)?;
             }
