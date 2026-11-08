@@ -132,6 +132,38 @@ fn an_unanswered_probe_paints_the_stamp_and_no_warning() {
     assert!(!painted(&mut app, "behind the checkout"));
 }
 
+/// A pasted book opens on its active blueprint instead of refusing, and the
+/// top bar names the book and the entry on screen.
+#[test]
+fn a_pasted_book_shows_its_active_blueprint() {
+    let (_tx, watcher) = ClipboardWatcher::detached();
+    let mut app = FactorioApp::for_test(watcher);
+    app.blueprint_input = fixtures::BLUEPRINT_BOOK.into();
+    app.load_blueprint();
+    let AppState::Loaded { ref label, ref grid, .. } = app.state else {
+        panic!("a book must load, not error")
+    };
+    assert_eq!(label.as_deref(), Some("Test Book / Belt 1"));
+    assert!(grid.entity_count() > 0);
+    assert!(painted(&mut app, "Belt 1"), "the entry picker shows the entry on screen");
+}
+
+/// Picking another entry swaps the grid but keeps the book, and a later
+/// plain-blueprint load drops the book (and its picker) again.
+#[test]
+fn picking_a_book_entry_swaps_the_grid_and_a_plain_load_drops_the_book() {
+    let (_tx, watcher) = ClipboardWatcher::detached();
+    let mut app = FactorioApp::for_test(watcher);
+    app.load_string(fixtures::BLUEPRINT_BOOK, LoadSource::Pasted);
+    app.show_book_entry(2);
+    let AppState::Loaded { ref label, .. } = app.state else { panic!("still loaded") };
+    assert_eq!(label.as_deref(), Some("Test Book / Underground"));
+    assert!(app.book.is_some());
+
+    app.load_string(fixtures::ASSEMBLER_SETUP, LoadSource::Pasted);
+    assert!(app.book.is_none(), "a non-book load must not leave a stale picker");
+}
+
 #[test]
 fn test_direction_names_cardinal() {
     assert_eq!(direction_name(Direction::North), "North");

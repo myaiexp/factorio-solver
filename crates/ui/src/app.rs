@@ -1,7 +1,9 @@
+// App shell: the blueprint input bar, viewport, status bar, and the panels around them.
 use egui::{Color32, Pos2, Rect, Stroke, Vec2};
-use factorio_blueprint::{decode, Direction};
+use factorio_blueprint::{decode, Blueprint, Direction};
 use factorio_grid::{from_blueprint, Grid, SkippedEntity};
 
+use crate::book::BookBrowser;
 use crate::build_info::{self, FreshnessProbe};
 use crate::chain_panel::ChainPanel;
 use crate::clipboard::{detect, ClipboardWatcher, WatchStatus};
@@ -94,6 +96,10 @@ pub struct FactorioApp {
     /// Whether this binary is the checked-out code. Answered once in the
     /// background, then painted in the status bar for the rest of the run.
     build: FreshnessProbe,
+    /// The book the viewport's blueprint came from, when it came from one.
+    /// Cleared by every load that is not a book, so the entry picker never
+    /// outlives what it browses.
+    book: Option<BookBrowser>,
 }
 
 impl FactorioApp {
@@ -121,6 +127,7 @@ impl FactorioApp {
             clipboard: ClipboardWatcher::spawn(&cc.egui_ctx, settings.watch_clipboard()),
             displayed: None,
             build: FreshnessProbe::spawn(&cc.egui_ctx),
+            book: None,
         };
         if let Some(storage) = cc.storage
             && let Some(state) = eframe::get_value::<PanelState>(storage, persist::STORAGE_KEY)
@@ -151,6 +158,7 @@ impl FactorioApp {
             // machine's git state, so a test asserting on it would pass on a
             // dev checkout and fail in a sandbox.
             build: FreshnessProbe::ready(crate::build_info::Freshness::Current),
+            book: None,
         }
     }
 
@@ -188,27 +196,53 @@ impl FactorioApp {
             }
         };
 
-        if data.blueprint_book.is_some() {
-            self.state = AppState::Error("Blueprint books not yet supported".into());
+        // The whole string, book or not, is what is on screen: the watcher
+        // compares against it, so re-copying the same book does not reload.
+        self.displayed = Some(input.to_owned());
+        self.book = None;
+        if let Some(book) = data.blueprint_book {
+            match BookBrowser::new(book) {
+                Ok(browser) => {
+                    let entry = browser.selected();
+                    let label = format!("{} / {}", browser.label(), entry.path);
+                    let blueprint = entry.blueprint.clone();
+                    self.book = Some(browser);
+                    self.show_blueprint(&blueprint, Some(label), source);
+                }
+                Err(msg) => self.state = AppState::Error(msg),
+            }
             return;
         }
 
-        let blueprint = match data.blueprint {
-            Some(bp) => bp,
-            None => {
-                self.state = AppState::Error("No blueprint found in data".into());
-                return;
-            }
-        };
+        match data.blueprint {
+            Some(bp) => self.show_blueprint(&bp, bp.label.clone(), source),
+            None => self.state = AppState::Error("No blueprint found in data".into()),
+        }
+    }
 
-        let label = blueprint.label.clone();
-        let result = from_blueprint(&blueprint);
+    /// Shows the open book's entry `index`, keeping the book and the load
+    /// source. A no-op without a book or when `index` is already shown.
+    fn show_book_entry(&mut self, index: usize) {
+        let Some(browser) = self.book.as_mut() else { return };
+        if !browser.select(index) {
+            return;
+        }
+        let label = format!("{} / {}", browser.label(), browser.selected().path);
+        let blueprint = browser.selected().blueprint.clone();
+        let source = match self.state {
+            AppState::Loaded { source, .. } => source,
+            _ => LoadSource::Pasted,
+        };
+        self.show_blueprint(&blueprint, Some(label), source);
+    }
+
+    /// Builds a grid from one blueprint and puts it in the viewport.
+    fn show_blueprint(&mut self, blueprint: &Blueprint, label: Option<String>, source: LoadSource) {
+        let result = from_blueprint(blueprint);
 
         // Defer fit until `render_viewport` has the real painter size — a hardcoded
         // estimate (e.g. 1280×800) mis-zooms when the window differs in size/aspect.
         self.needs_fit = result.grid.bounding_box().is_some();
-
-        self.displayed = Some(input.to_owned());
         self.state = AppState::Loaded {
             grid: result.grid,
             label,
@@ -496,6 +530,14 @@ impl FactorioApp {
                     self.clipboard.set_watching(watching);
                 }
 
+                if let Some(browser) = &self.book {
+                    ui.separator();
+                    ui.label("Book entry:");
+                    if let Some(index) = browser.picker(ui) {
+                        self.show_book_entry(index);
+                    }
+                }
+
                 // Show entity count and label when loaded.
                 if let AppState::Loaded {
                     ref grid,
@@ -606,6 +648,7 @@ impl FactorioApp {
             // blueprint" safe with the watcher on: the copy then matches what
             // is already displayed, and `should_load` declines it.
             self.displayed = self.chain.generated_blueprint_string().map(str::to_owned);
+            self.book = None;
             self.state = AppState::Loaded {
                 grid,
                 label: Some("Generated block".to_string()),
