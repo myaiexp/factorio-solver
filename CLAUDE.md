@@ -61,9 +61,9 @@ Two consequences that bite:
 
 - **`deploy` does not exist on the desktop.** Land by hand: commit on the session branch,
   merge to `master` in the main checkout, `git push origin`. No service, no update logging.
-- **Helm's archive pre-flight fails open for remote projects**, so nothing refuses to archive
-  a session holding unlanded commits — it deletes the branch. Land before you finish, every
-  time; there is no net behind you here.
+- **Landing is the session's job.** Helm's archive pre-flight checks the desktop over SSH and
+  refuses to archive a session with unlanded commits, but it fails open when the desktop is
+  unreachable — the branch is then deleted unchecked. Land before you finish.
 
 `.helmcontext` bridges `target/debug` from the main checkout into each worktree, so sessions
 share one 2.1 GB build cache instead of 4.6 GB each (idea #3381, three VPS disk alerts).
