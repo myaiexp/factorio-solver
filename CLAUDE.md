@@ -63,7 +63,9 @@ Two consequences that bite:
   merge to `master` in the main checkout, `git push origin`. No service, no update logging.
 - **Landing is the session's job.** Helm's archive pre-flight checks the desktop over SSH and
   refuses to archive a session with unlanded commits, but it fails open when the desktop is
-  unreachable — the branch is then deleted unchecked. Land before you finish.
+  unreachable. The branch then survives (the removal re-checks landedness and keeps an
+  unlanded branch, helm idea #7746), but the session is archived with its work stranded on
+  it. Land before you finish.
 
 `.helmcontext` bridges `target/debug` from the main checkout into each worktree, so sessions
 share one 2.1 GB build cache instead of 4.6 GB each (idea #3381, three VPS disk alerts).
