@@ -3,8 +3,12 @@ use super::*;
 
 const MINI_DUMP: &str = include_str!("../tests/fixtures/mini-dump.json");
 
+/// Read at runtime, never via `env!`: worktrees share one `target/debug`, so a
+/// cached test binary can outlive the worktree that compiled it (idea #7747).
 fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
+    let manifest = std::env::var_os("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR is set by `cargo test`; run these tests through cargo");
+    PathBuf::from(manifest).join("tests/fixtures")
 }
 
 #[test]

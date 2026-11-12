@@ -15,8 +15,13 @@ use factorio_repo_docs::entries;
 const MAX_TOTAL_BYTES: usize = 24_000;
 const MAX_ENTRY_BYTES: usize = 500;
 
+/// Read at runtime, never via `env!`: worktrees share one `target/debug`, so a
+/// cached test binary can outlive the worktree that compiled it, and a baked-in
+/// path then points at a directory that no longer exists (idea #7747).
 fn repo_root() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    let manifest = std::env::var_os("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR is set by `cargo test`; run these tests through cargo");
+    PathBuf::from(manifest).join("../..")
 }
 
 fn claude_md() -> String {

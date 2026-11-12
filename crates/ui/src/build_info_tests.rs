@@ -10,8 +10,13 @@ use super::*;
 /// and the temp repository's `git commit` landed a commit on the real branch
 /// instead. `git_command` strips those variables now; this reads history and
 /// writes none of it.
-fn repo() -> &'static Path {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+///
+/// Read at runtime, never via `env!`: worktrees share one `target/debug`, so a
+/// cached test binary can outlive the worktree that compiled it (idea #7747).
+fn repo() -> PathBuf {
+    std::env::var_os("CARGO_MANIFEST_DIR")
+        .expect("CARGO_MANIFEST_DIR is set by `cargo test`; run these tests through cargo")
+        .into()
 }
 
 #[test]
@@ -49,7 +54,7 @@ fn only_a_stale_build_warns_and_it_counts_in_english() {
 /// share it with every other thread.
 #[test]
 fn a_git_invocation_strips_the_variables_that_redirect_discovery() {
-    let cmd = git_command(repo());
+    let cmd = git_command(&repo());
     let removed: Vec<&str> = cmd
         .get_envs()
         .filter(|(_, value)| value.is_none())
@@ -78,15 +83,15 @@ fn a_directory_outside_any_repository_is_unknown_not_current() {
 /// all, and a test that demanded one would fail for the wrong reason.
 #[test]
 fn a_checkout_reports_current_stale_by_distance_and_stale_by_absence() {
-    let Some(head) = git_in(repo(), &["rev-parse", "HEAD"]) else {
+    let Some(head) = git_in(&repo(), &["rev-parse", "HEAD"]) else {
         return; // not a git checkout — nothing to compare against
     };
-    assert_eq!(compare(repo(), &head), Freshness::Current);
+    assert_eq!(compare(&repo(), &head), Freshness::Current);
 
     // A commit that is not in this repository: the difference is real, the
     // distance is not a number. Forty zeros is a well-formed sha that no
     // repository holds.
-    assert_eq!(compare(repo(), &"0".repeat(40)), Freshness::Stale { behind: None });
+    assert_eq!(compare(&repo(), &"0".repeat(40)), Freshness::Stale { behind: None });
 
     // The distance is asserted as a *property*, never as a constant: `HEAD~1` is
     // one step along the first parent, but `rev-list --count HEAD~1..HEAD` counts
@@ -95,14 +100,14 @@ fn a_checkout_reports_current_stale_by_distance_and_stale_by_absence() {
     // master's HEAD is routinely a merge and a hardcoded 1 fails on history shape
     // rather than on a real regression — it did, at 37538fe. What must hold is
     // that an ancestor counts, and that a further one counts further.
-    if let Some(parent) = git_in(repo(), &["rev-parse", "HEAD~1"]) {
-        let Freshness::Stale { behind: Some(near) } = compare(repo(), &parent) else {
-            panic!("an ancestor must report a counted distance, not {:?}", compare(repo(), &parent));
+    if let Some(parent) = git_in(&repo(), &["rev-parse", "HEAD~1"]) {
+        let Freshness::Stale { behind: Some(near) } = compare(&repo(), &parent) else {
+            panic!("an ancestor must report a counted distance, not {:?}", compare(&repo(), &parent));
         };
         assert!(near >= 1, "an ancestor is at least one commit behind, got {near}");
 
-        if let Some(grandparent) = git_in(repo(), &["rev-parse", "HEAD~2"]) {
-            let Freshness::Stale { behind: Some(far) } = compare(repo(), &grandparent) else {
+        if let Some(grandparent) = git_in(&repo(), &["rev-parse", "HEAD~2"]) {
+            let Freshness::Stale { behind: Some(far) } = compare(&repo(), &grandparent) else {
                 panic!("an ancestor must report a counted distance");
             };
             assert!(far > near, "HEAD~2 must count further behind than HEAD~1, got {far} vs {near}");
